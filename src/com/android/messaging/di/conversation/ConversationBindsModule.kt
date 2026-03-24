@@ -2,6 +2,8 @@ package com.android.messaging.di.conversation
 
 import com.android.messaging.data.conversation.repository.ConversationsRepository
 import com.android.messaging.data.conversation.repository.ConversationsRepositoryImpl
+import com.android.messaging.ui.conversation.v2.mapper.ConversationMetadataUiStateMapper
+import com.android.messaging.ui.conversation.v2.mapper.ConversationMetadataUiStateMapperImpl
 import com.android.messaging.ui.conversation.v2.mapper.ConversationMessageUiModelMapper
 import com.android.messaging.ui.conversation.v2.mapper.ConversationMessageUiModelMapperImpl
 import dagger.Binds
@@ -24,4 +26,9 @@ internal abstract class ConversationBindsModule {
     abstract fun provideConversationMessageUiModelMapper(
         impl: ConversationMessageUiModelMapperImpl,
     ): ConversationMessageUiModelMapper
+
+    @Binds
+    abstract fun provideConversationMetadataUiStateMapper(
+        impl: ConversationMetadataUiStateMapperImpl,
+    ): ConversationMetadataUiStateMapper
 }

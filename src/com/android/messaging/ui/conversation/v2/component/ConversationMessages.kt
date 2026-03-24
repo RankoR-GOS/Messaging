@@ -1,22 +1,62 @@
 package com.android.messaging.ui.conversation.v2.component
 
+import android.content.Context
+import android.text.format.DateUtils
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.runtime.Composable
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.android.messaging.ui.conversation.v2.model.ConversationMessagePartUiModel
+import com.android.messaging.ui.conversation.v2.component.util.conversationMessageDisplayEpochDay
+import com.android.messaging.ui.conversation.v2.component.util.conversationMessageDisplayLocalDate
+import com.android.messaging.ui.conversation.v2.component.util.previewConversationMessage
+import com.android.messaging.ui.conversation.v2.component.util.previewConversationTimestamp
 import com.android.messaging.ui.conversation.v2.model.ConversationMessageUiModel
 import com.android.messaging.ui.core.AppTheme
+import java.time.LocalDate
+import java.util.TimeZone
+
+private const val COMMON_DATE_SEPARATOR_FORMAT_FLAGS = DateUtils.FORMAT_SHOW_WEEKDAY or
+        DateUtils.FORMAT_SHOW_DATE or
+        DateUtils.FORMAT_ABBREV_MONTH
+
+private val CONVERSATION_MESSAGES_CONTENT_PADDING = PaddingValues(
+    start = 16.dp,
+    top = 24.dp,
+    end = 16.dp,
+    bottom = 24.dp,
+)
+
+private val CONVERSATION_MESSAGES_CLUSTER_TOP_PADDING = 2.dp
+private val CONVERSATION_MESSAGES_GROUP_TOP_PADDING = 12.dp
+private val CONVERSATION_MESSAGES_SEPARATOR_SPACING = 12.dp
+private val CONVERSATION_MESSAGES_SEPARATOR_PADDING = PaddingValues(
+    horizontal = 14.dp,
+    vertical = 6.dp,
+)
+
+private enum class ConversationMessagesItemContentType {
+    Message,
+    MessageWithDateSeparator,
+}
 
 @Composable
 internal fun ConversationMessages(
@@ -24,38 +64,264 @@ internal fun ConversationMessages(
     messages: List<ConversationMessageUiModel>,
     listState: LazyListState,
 ) {
+    val configuration = LocalConfiguration.current
+    val timeZone = remember(configuration) {
+        TimeZone.getDefault()
+    }
+
     LazyColumn(
         state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(color = MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(all = 16.dp),
+        contentPadding = CONVERSATION_MESSAGES_CONTENT_PADDING,
     ) {
         itemsIndexed(
             items = messages,
             key = { _, message -> message.messageId },
+            contentType = { index, _ ->
+                conversationMessagesItemContentType(
+                    messages = messages,
+                    index = index,
+                    timeZone = timeZone,
+                )
+            },
         ) { index, message ->
-            ConversationMessage(
-                modifier = Modifier.padding(top = messageItemTopPadding(index = index, message = message)),
+            ConversationMessagesItem(
+                index = index,
+                message = message,
+                previousMessage = previousMessage(
+                    messages = messages,
+                    index = index,
+                ),
+            )
+        }
+    }
+}
+
+@Immutable
+private data class ConversationMessagesItemPresentation(
+    val showDateSeparator: Boolean,
+    val dateSeparatorText: String?,
+    val topPadding: Dp,
+)
+
+private fun conversationMessagesItemContentType(
+    messages: List<ConversationMessageUiModel>,
+    index: Int,
+    timeZone: TimeZone,
+): ConversationMessagesItemContentType {
+    val shouldShowDateSeparator = shouldShowDateSeparator(
+        currentMessage = messages[index],
+        previousMessage = previousMessage(
+            messages = messages,
+            index = index,
+        ),
+        timeZone = timeZone,
+    )
+
+    return when {
+        shouldShowDateSeparator -> ConversationMessagesItemContentType.MessageWithDateSeparator
+        else -> ConversationMessagesItemContentType.Message
+    }
+}
+
+private fun previousMessage(
+    messages: List<ConversationMessageUiModel>,
+    index: Int,
+): ConversationMessageUiModel? {
+    return when {
+        index > 0 -> messages[index - 1]
+        else -> null
+    }
+}
+
+@Composable
+private fun ConversationMessagesItem(
+    index: Int,
+    message: ConversationMessageUiModel,
+    previousMessage: ConversationMessageUiModel?,
+) {
+    val presentation = rememberConversationMessagesItemPresentation(
+        index = index,
+        message = message,
+        previousMessage = previousMessage,
+    )
+
+    ColumnWithSeparator(
+        showDateSeparator = presentation.showDateSeparator,
+        dateSeparatorText = presentation.dateSeparatorText,
+    ) {
+        ConversationMessage(
+            modifier = Modifier.padding(top = presentation.topPadding),
+            message = message,
+        )
+    }
+}
+
+@Composable
+private fun rememberConversationMessagesItemPresentation(
+    index: Int,
+    message: ConversationMessageUiModel,
+    previousMessage: ConversationMessageUiModel?,
+): ConversationMessagesItemPresentation {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val timeZone = remember(configuration) {
+        TimeZone.getDefault()
+    }
+
+    val showDateSeparator = remember(
+        timeZone,
+        message.displayTimestamp,
+        previousMessage?.displayTimestamp,
+    ) {
+        shouldShowDateSeparator(
+            currentMessage = message,
+            previousMessage = previousMessage,
+            timeZone = timeZone,
+        )
+    }
+
+    val dateSeparatorText = remember(
+        context,
+        configuration,
+        showDateSeparator,
+        message.displayTimestamp,
+    ) {
+        if (!showDateSeparator) {
+            null
+        } else {
+            formatDateSeparatorText(
+                context = context,
                 message = message,
             )
         }
+    }
+
+    val topPadding = remember(
+        index,
+        showDateSeparator,
+        message.canClusterWithPrevious,
+    ) {
+        messageItemTopPadding(
+            index = index,
+            message = message,
+            showDateSeparator = showDateSeparator,
+        )
+    }
+
+    return remember(
+        showDateSeparator,
+        dateSeparatorText,
+        topPadding,
+    ) {
+        ConversationMessagesItemPresentation(
+            showDateSeparator = showDateSeparator,
+            dateSeparatorText = dateSeparatorText,
+            topPadding = topPadding,
+        )
     }
 }
 
 private fun messageItemTopPadding(
     index: Int,
     message: ConversationMessageUiModel,
+    showDateSeparator: Boolean,
 ): Dp {
-    if (index == 0) {
-        return 0.dp
+    return when {
+        index == 0 || showDateSeparator -> 0.dp
+        message.canClusterWithPrevious -> CONVERSATION_MESSAGES_CLUSTER_TOP_PADDING
+        else -> CONVERSATION_MESSAGES_GROUP_TOP_PADDING
+    }
+}
+
+@Composable
+private fun ColumnWithSeparator(
+    showDateSeparator: Boolean,
+    dateSeparatorText: String?,
+    content: @Composable () -> Unit,
+) {
+    val verticalSpace = when {
+        showDateSeparator -> CONVERSATION_MESSAGES_SEPARATOR_SPACING
+        else -> 0.dp
     }
 
-    return if (message.canClusterWithPrevious) {
-        2.dp
-    } else {
-        8.dp
+    Column(
+        verticalArrangement = Arrangement.spacedBy(space = verticalSpace),
+    ) {
+        if (showDateSeparator && dateSeparatorText != null) {
+            ConversationDateSeparator(
+                text = dateSeparatorText,
+            )
+        }
+
+        content()
     }
+}
+
+@Composable
+private fun ConversationDateSeparator(
+    text: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(CONVERSATION_MESSAGES_SEPARATOR_PADDING),
+        )
+    }
+}
+
+private fun shouldShowDateSeparator(
+    currentMessage: ConversationMessageUiModel,
+    previousMessage: ConversationMessageUiModel?,
+    timeZone: TimeZone,
+): Boolean {
+    if (previousMessage == null) {
+        return true
+    }
+
+    val currentEpochDay = conversationMessageDisplayEpochDay(
+        displayTimestamp = currentMessage.displayTimestamp,
+        timeZone = timeZone,
+    ) ?: return false
+    val previousEpochDay = conversationMessageDisplayEpochDay(
+        displayTimestamp = previousMessage.displayTimestamp,
+        timeZone = timeZone,
+    )
+
+    return previousEpochDay != currentEpochDay
+}
+
+private fun formatDateSeparatorText(
+    context: Context,
+    message: ConversationMessageUiModel,
+): String? {
+    val timestamp = message.displayTimestamp
+
+    if (timestamp <= 0L) {
+        return null
+    }
+
+    val isSameYear = conversationMessageDisplayLocalDate(
+        displayTimestamp = timestamp,
+    )?.year == LocalDate.now().year
+
+    val dateTimeFormatFlags = when {
+        isSameYear -> COMMON_DATE_SEPARATOR_FORMAT_FLAGS or DateUtils.FORMAT_NO_YEAR
+        else -> COMMON_DATE_SEPARATOR_FORMAT_FLAGS or DateUtils.FORMAT_SHOW_YEAR
+    }
+
+    return DateUtils.formatDateTime(
+        context,
+        timestamp,
+        dateTimeFormatFlags,
+    )
 }
 
 @Preview(
@@ -69,119 +335,90 @@ private fun ConversationMessagesPreview() {
     AppTheme {
         ConversationMessages(
             messages = listOf(
-                previewMessage(
+                previewConversationMessage(
                     messageId = "standalone-incoming",
                     text = "Standalone incoming",
                     isIncoming = true,
                     senderDisplayName = "+15550001234",
+                    timestamp = previewConversationTimestamp(dayOffset = 2, hour = 9, minute = 12),
                     canClusterWithPrevious = false,
                     canClusterWithNext = false,
                 ),
-                previewMessage(
+                previewConversationMessage(
                     messageId = "pair-top",
                     text = "Pair top",
                     isIncoming = true,
                     senderDisplayName = "+15550001234",
+                    timestamp = previewConversationTimestamp(dayOffset = 2, hour = 9, minute = 15),
                     canClusterWithPrevious = false,
                     canClusterWithNext = true,
                 ),
-                previewMessage(
+                previewConversationMessage(
                     messageId = "pair-bottom",
                     text = "Pair bottom",
                     isIncoming = true,
                     senderDisplayName = "+15550001234",
+                    timestamp = previewConversationTimestamp(dayOffset = 2, hour = 9, minute = 16),
                     canClusterWithPrevious = true,
                     canClusterWithNext = false,
                 ),
-                previewMessage(
+                previewConversationMessage(
                     messageId = "triplet-top",
                     text = "Triplet top",
                     isIncoming = true,
                     senderDisplayName = "+15550004567",
+                    timestamp = previewConversationTimestamp(dayOffset = 1, hour = 18, minute = 10),
                     canClusterWithPrevious = false,
                     canClusterWithNext = true,
                 ),
-                previewMessage(
+                previewConversationMessage(
                     messageId = "triplet-middle",
                     text = "Triplet middle",
                     isIncoming = true,
                     senderDisplayName = "+15550004567",
+                    timestamp = previewConversationTimestamp(dayOffset = 1, hour = 18, minute = 11),
                     canClusterWithPrevious = true,
                     canClusterWithNext = true,
                 ),
-                previewMessage(
+                previewConversationMessage(
                     messageId = "triplet-bottom",
                     text = "Triplet bottom",
                     isIncoming = true,
                     senderDisplayName = "+15550004567",
+                    timestamp = previewConversationTimestamp(dayOffset = 1, hour = 18, minute = 12),
                     canClusterWithPrevious = true,
                     canClusterWithNext = false,
                 ),
-                previewMessage(
+                previewConversationMessage(
                     messageId = "outgoing-standalone",
                     text = "Outgoing standalone",
                     isIncoming = false,
                     senderDisplayName = null,
+                    timestamp = previewConversationTimestamp(dayOffset = 0, hour = 13, minute = 4),
                     canClusterWithPrevious = false,
                     canClusterWithNext = false,
                 ),
-                previewMessage(
+                previewConversationMessage(
                     messageId = "outgoing-top",
                     text = "Outgoing pair top",
                     isIncoming = false,
                     senderDisplayName = null,
+                    timestamp = previewConversationTimestamp(dayOffset = 0, hour = 13, minute = 5),
                     canClusterWithPrevious = false,
                     canClusterWithNext = true,
                 ),
-                previewMessage(
+                previewConversationMessage(
                     messageId = "outgoing-bottom",
                     text = "Outgoing pair bottom",
                     isIncoming = false,
                     senderDisplayName = null,
+                    timestamp = previewConversationTimestamp(dayOffset = 0, hour = 13, minute = 6),
                     canClusterWithPrevious = true,
                     canClusterWithNext = false,
+                    status = ConversationMessageUiModel.Status.Outgoing.Delivered,
                 ),
             ),
             listState = listState,
         )
     }
-}
-
-private fun previewMessage(
-    messageId: String,
-    text: String,
-    isIncoming: Boolean,
-    senderDisplayName: String?,
-    canClusterWithPrevious: Boolean,
-    canClusterWithNext: Boolean,
-): ConversationMessageUiModel {
-    return ConversationMessageUiModel(
-        messageId = messageId,
-        conversationId = "preview-conversation",
-        text = text,
-        parts = listOf(
-            ConversationMessagePartUiModel(
-                contentType = "text/plain",
-                text = text,
-                contentUri = null,
-                width = 0,
-                height = 0,
-            ),
-        ),
-        sentTimestamp = 0L,
-        receivedTimestamp = 0L,
-        status = if (isIncoming) {
-            ConversationMessageUiModel.Status.Incoming.Complete
-        } else {
-            ConversationMessageUiModel.Status.Outgoing.Complete
-        },
-        isIncoming = isIncoming,
-        senderDisplayName = senderDisplayName,
-        senderAvatarUri = null,
-        senderContactLookupKey = null,
-        canClusterWithPrevious = canClusterWithPrevious,
-        canClusterWithNext = canClusterWithNext,
-        mmsSubject = null,
-        protocol = ConversationMessageUiModel.Protocol.SMS,
-    )
 }

@@ -28,6 +28,7 @@ internal class ConversationActivity : ComponentActivity() {
             AppTheme {
                 ConversationScreen(
                     conversationId = conversationId,
+                    onNavigateBack = ::finish,
                 )
             }
         }

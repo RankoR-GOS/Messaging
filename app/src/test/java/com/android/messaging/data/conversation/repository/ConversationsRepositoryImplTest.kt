@@ -3,12 +3,14 @@ package com.android.messaging.data.conversation.repository
 import android.content.ContentResolver
 import android.database.ContentObserver
 import android.database.Cursor
+import android.database.MatrixCursor
 import android.net.Uri
 import app.cash.turbine.test
 import com.android.messaging.datamodel.DatabaseHelper.ConversationColumns
 import com.android.messaging.datamodel.DatabaseHelper.MessageColumns
 import com.android.messaging.datamodel.DatabaseHelper.ParticipantColumns
 import com.android.messaging.datamodel.MessagingContentProvider
+import com.android.messaging.datamodel.data.ConversationListItemData
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.MessageData
 import io.mockk.clearAllMocks
@@ -73,6 +75,111 @@ class ConversationsRepositoryImplTest {
             contentResolver.unregisterContentObserver(registeredObservers.single())
         }
         assertEquals(ConversationMessageData.getProjection().toList(), capturedProjections.single()?.toList())
+    }
+
+    @Test
+    fun getConversationMetadata_registersAndUnregistersObserverForCollection() = runTest {
+        val registeredObservers = mutableListOf<ContentObserver>()
+        val capturedProjections = mutableListOf<Array<String>?>()
+        val repository = createRepository(
+            testDispatcher = UnconfinedTestDispatcher(scheduler = testScheduler),
+        )
+        val expectedUri = MessagingContentProvider.buildConversationMetadataUri(CONVERSATION_ID)
+
+        stubObserverRegistration(
+            registeredObservers = registeredObservers,
+            expectedUri = expectedUri,
+        )
+        stubQuery(
+            expectedUri = expectedUri,
+            capturedProjections = capturedProjections,
+            result = createConversationMetadataCursor(
+                row = conversationMetadataRow(
+                    conversationName = "Weekend plan",
+                    selfParticipantId = "self-1",
+                    participantCount = 3,
+                ),
+            ),
+        )
+
+        repository.getConversationMetadata(conversationId = CONVERSATION_ID).test {
+            assertEquals("Weekend plan", awaitItem()?.conversationName)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(exactly = 1) {
+            contentResolver.registerContentObserver(expectedUri, true, registeredObservers.single())
+        }
+        verify(exactly = 1) {
+            contentResolver.unregisterContentObserver(registeredObservers.single())
+        }
+        assertEquals(ConversationListItemData.PROJECTION.toList(), capturedProjections.single()?.toList())
+    }
+
+    @Test
+    fun getConversationMetadata_emitsMappedMetadata() = runTest {
+        val registeredObservers = mutableListOf<ContentObserver>()
+        val capturedProjections = mutableListOf<Array<String>?>()
+        val repository = createRepository(
+            testDispatcher = UnconfinedTestDispatcher(scheduler = testScheduler),
+        )
+        val expectedUri = MessagingContentProvider.buildConversationMetadataUri(CONVERSATION_ID)
+
+        stubObserverRegistration(
+            registeredObservers = registeredObservers,
+            expectedUri = expectedUri,
+        )
+        stubQuery(
+            expectedUri = expectedUri,
+            capturedProjections = capturedProjections,
+            result = createConversationMetadataCursor(
+                row = conversationMetadataRow(
+                    conversationName = "Carol, Dave, Erin",
+                    selfParticipantId = "self-2",
+                    participantCount = 3,
+                ),
+            ),
+        )
+
+        repository.getConversationMetadata(conversationId = CONVERSATION_ID).test {
+            val metadata = awaitItem()
+
+            assertEquals("Carol, Dave, Erin", metadata?.conversationName)
+            assertEquals("self-2", metadata?.selfParticipantId)
+            assertEquals(true, metadata?.isGroupConversation)
+            assertEquals(3, metadata?.participantCount)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(ConversationListItemData.PROJECTION.toList(), capturedProjections.single()?.toList())
+    }
+
+    @Test
+    fun getConversationMetadata_returnsNullWhenCursorIsEmpty() = runTest {
+        val registeredObservers = mutableListOf<ContentObserver>()
+        val capturedProjections = mutableListOf<Array<String>?>()
+        val repository = createRepository(
+            testDispatcher = UnconfinedTestDispatcher(scheduler = testScheduler),
+        )
+        val expectedUri = MessagingContentProvider.buildConversationMetadataUri(CONVERSATION_ID)
+
+        stubObserverRegistration(
+            registeredObservers = registeredObservers,
+            expectedUri = expectedUri,
+        )
+        stubQuery(
+            expectedUri = expectedUri,
+            capturedProjections = capturedProjections,
+            result = createConversationMetadataCursor(row = null),
+        )
+
+        repository.getConversationMetadata(conversationId = CONVERSATION_ID).test {
+            assertEquals(null, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(ConversationListItemData.PROJECTION.toList(), capturedProjections.single()?.toList())
     }
 
     @Test
@@ -428,6 +535,7 @@ class ConversationsRepositoryImplTest {
     private fun createRepository(testDispatcher: TestDispatcher): ConversationsRepositoryImpl {
         return ConversationsRepositoryImpl(
             contentResolver = contentResolver,
+            defaultDispatcher = testDispatcher,
             ioDispatcher = testDispatcher,
         )
     }
@@ -556,6 +664,20 @@ class ConversationsRepositoryImplTest {
         return cursor
     }
 
+    private fun createConversationMetadataCursor(row: TestConversationMetadataRow?): Cursor {
+        val cursor = MatrixCursor(ConversationListItemData.PROJECTION)
+
+        if (row != null) {
+            cursor.addRow(
+                ConversationListItemData.PROJECTION.map { columnName ->
+                    row.toColumnValues()[columnName]
+                }.toTypedArray(),
+            )
+        }
+
+        return cursor
+    }
+
     private fun assertClusterState(
         message: ConversationMessageData,
         canClusterWithPrevious: Boolean,
@@ -580,6 +702,18 @@ class ConversationsRepositoryImplTest {
             receivedTimestamp = receivedTimestamp,
             status = status,
             text = text,
+        )
+    }
+
+    private fun conversationMetadataRow(
+        conversationName: String,
+        selfParticipantId: String,
+        participantCount: Int,
+    ): TestConversationMetadataRow {
+        return TestConversationMetadataRow(
+            conversationName = conversationName,
+            selfParticipantId = selfParticipantId,
+            participantCount = participantCount,
         )
     }
 
@@ -624,6 +758,47 @@ class ConversationsRepositoryImplTest {
                 ParticipantColumns.PROFILE_PHOTO_URI to "",
                 ParticipantColumns.CONTACT_ID to 0L,
                 ParticipantColumns.LOOKUP_KEY to "",
+            )
+        }
+    }
+
+    private data class TestConversationMetadataRow(
+        val conversationName: String,
+        val selfParticipantId: String,
+        val participantCount: Int,
+    ) {
+        fun toColumnValues(): Map<String, Any?> {
+            return mapOf(
+                ConversationColumns._ID to CONVERSATION_ID,
+                ConversationColumns.NAME to conversationName,
+                ConversationColumns.ICON to "",
+                ConversationColumns.SNIPPET_TEXT to "",
+                ConversationColumns.SORT_TIMESTAMP to 0L,
+                MessageColumns.READ to 1,
+                ConversationColumns.PREVIEW_URI to "",
+                ConversationColumns.PREVIEW_CONTENT_TYPE to "",
+                ConversationColumns.PARTICIPANT_CONTACT_ID to -1L,
+                ConversationColumns.PARTICIPANT_LOOKUP_KEY to "",
+                ConversationColumns.OTHER_PARTICIPANT_NORMALIZED_DESTINATION to "",
+                ConversationColumns.PARTICIPANT_COUNT to participantCount,
+                ConversationColumns.CURRENT_SELF_ID to selfParticipantId,
+                ConversationColumns.NOTIFICATION_ENABLED to 1,
+                ConversationColumns.NOTIFICATION_SOUND_URI to "",
+                ConversationColumns.NOTIFICATION_VIBRATION to 0,
+                ConversationColumns.INCLUDE_EMAIL_ADDRESS to 0,
+                MessageColumns.STATUS to MessageData.BUGLE_STATUS_INCOMING_COMPLETE,
+                ConversationColumns.SHOW_DRAFT to 0,
+                ConversationColumns.DRAFT_PREVIEW_URI to "",
+                ConversationColumns.DRAFT_PREVIEW_CONTENT_TYPE to "",
+                ConversationColumns.DRAFT_SNIPPET_TEXT to "",
+                ConversationColumns.ARCHIVE_STATUS to 0,
+                MessageColumns._ID to "message-1",
+                ConversationColumns.SUBJECT_TEXT to "",
+                ConversationColumns.DRAFT_SUBJECT_TEXT to "",
+                MessageColumns.RAW_TELEPHONY_STATUS to 0,
+                "snippet_sender_first_name" to "",
+                "snippet_sender_display_destination" to "",
+                ConversationColumns.IS_ENTERPRISE to 0,
             )
         }
     }

@@ -12,6 +12,7 @@ internal data class ConversationMessageUiModel(
     val parts: List<ConversationMessagePartUiModel>,
     val sentTimestamp: Long,
     val receivedTimestamp: Long,
+    val displayTimestamp: Long,
     val status: Status,
     val isIncoming: Boolean,
     val senderDisplayName: String?,

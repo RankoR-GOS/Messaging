@@ -23,6 +23,11 @@ internal class ConversationMessageUiModelMapperImpl @Inject constructor() : Conv
             parts = data.parts?.map(::mapPart) ?: emptyList(),
             sentTimestamp = data.sentTimeStamp,
             receivedTimestamp = data.receivedTimeStamp,
+            displayTimestamp = conversationMessageDisplayTimestamp(
+                sentTimestamp = data.sentTimeStamp,
+                receivedTimestamp = data.receivedTimeStamp,
+                isIncoming = data.isIncoming,
+            ),
             status = mapStatus(data.status),
             isIncoming = data.isIncoming,
             senderDisplayName = data.senderDisplayName,
@@ -96,6 +101,26 @@ internal class ConversationMessageUiModelMapperImpl @Inject constructor() : Conv
             data.isMmsNotification -> ConversationMessageUiModel.Protocol.MMS_PUSH_NOTIFICATION
             data.isMms -> ConversationMessageUiModel.Protocol.MMS
             else -> ConversationMessageUiModel.Protocol.UNKNOWN
+        }
+    }
+
+    private fun conversationMessageDisplayTimestamp(
+        sentTimestamp: Long,
+        receivedTimestamp: Long,
+        isIncoming: Boolean,
+    ): Long {
+        val primaryTimestamp = when {
+            isIncoming -> receivedTimestamp
+            else -> sentTimestamp
+        }
+
+        if (primaryTimestamp > 0L) {
+            return primaryTimestamp
+        }
+
+        return when {
+            isIncoming -> sentTimestamp
+            else -> receivedTimestamp
         }
     }
 
