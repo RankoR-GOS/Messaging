@@ -1,7 +1,7 @@
-package com.android.messaging.ui.conversation.v2.component.util
+package com.android.messaging.ui.conversation.v2.messages.ui
 
-import com.android.messaging.ui.conversation.v2.model.ConversationMessagePartUiModel
-import com.android.messaging.ui.conversation.v2.model.ConversationMessageUiModel
+import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessagePartUiModel
+import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessageUiModel
 import java.time.LocalDateTime
 import java.time.ZoneId
 
