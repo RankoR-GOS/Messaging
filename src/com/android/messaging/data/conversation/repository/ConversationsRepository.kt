@@ -3,6 +3,8 @@ package com.android.messaging.data.conversation.repository
 import android.content.ContentResolver
 import android.database.ContentObserver
 import android.net.Uri
+import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.data.conversation.model.metadata.ConversationMetadata
 import com.android.messaging.datamodel.DatabaseHelper.ConversationColumns
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.datamodel.data.ConversationListItemData
@@ -99,6 +101,7 @@ internal class ConversationsRepositoryImpl @Inject constructor(
                     participantCount = cursor.getInt(
                         cursor.getColumnIndexOrThrow(ConversationColumns.PARTICIPANT_COUNT),
                     ),
+                    composerAvailability = ConversationComposerAvailability.editable(),
                 )
             }
     }
