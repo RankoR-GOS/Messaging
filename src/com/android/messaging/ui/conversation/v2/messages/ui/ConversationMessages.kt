@@ -61,33 +61,36 @@ internal fun ConversationMessages(
     listState: LazyListState,
 ) {
     val configuration = LocalConfiguration.current
+    val displayMessages = remember(messages) {
+        messages.asReversed()
+    }
     val timeZone = remember(configuration) {
         TimeZone.getDefault()
     }
 
     LazyColumn(
         state = listState,
+        reverseLayout = true,
         modifier = modifier
             .fillMaxSize()
             .background(color = MaterialTheme.colorScheme.background),
         contentPadding = CONVERSATION_MESSAGES_CONTENT_PADDING,
     ) {
         itemsIndexed(
-            items = messages,
+            items = displayMessages,
             key = { _, message -> message.messageId },
             contentType = { index, _ ->
                 conversationMessagesItemContentType(
-                    messages = messages,
+                    messages = displayMessages,
                     index = index,
                     timeZone = timeZone,
                 )
             },
         ) { index, message ->
             ConversationMessagesItem(
-                index = index,
                 message = message,
-                previousMessage = previousMessage(
-                    messages = messages,
+                messageAbove = messageAboveCurrent(
+                    messages = displayMessages,
                     index = index,
                 ),
             )
@@ -109,7 +112,7 @@ private fun conversationMessagesItemContentType(
 ): ConversationMessagesItemContentType {
     val shouldShowDateSeparator = shouldShowDateSeparator(
         currentMessage = messages[index],
-        previousMessage = previousMessage(
+        messageAbove = messageAboveCurrent(
             messages = messages,
             index = index,
         ),
@@ -122,26 +125,21 @@ private fun conversationMessagesItemContentType(
     }
 }
 
-private fun previousMessage(
+private fun messageAboveCurrent(
     messages: List<ConversationMessageUiModel>,
     index: Int,
 ): ConversationMessageUiModel? {
-    return when {
-        index > 0 -> messages[index - 1]
-        else -> null
-    }
+    return messages.getOrNull(index + 1)
 }
 
 @Composable
 private fun ConversationMessagesItem(
-    index: Int,
     message: ConversationMessageUiModel,
-    previousMessage: ConversationMessageUiModel?,
+    messageAbove: ConversationMessageUiModel?,
 ) {
     val presentation = rememberConversationMessagesItemPresentation(
-        index = index,
         message = message,
-        previousMessage = previousMessage,
+        messageAbove = messageAbove,
     )
 
     ColumnWithSeparator(
@@ -157,9 +155,8 @@ private fun ConversationMessagesItem(
 
 @Composable
 private fun rememberConversationMessagesItemPresentation(
-    index: Int,
     message: ConversationMessageUiModel,
-    previousMessage: ConversationMessageUiModel?,
+    messageAbove: ConversationMessageUiModel?,
 ): ConversationMessagesItemPresentation {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -170,11 +167,11 @@ private fun rememberConversationMessagesItemPresentation(
     val showDateSeparator = remember(
         timeZone,
         message.displayTimestamp,
-        previousMessage?.displayTimestamp,
+        messageAbove?.displayTimestamp,
     ) {
         shouldShowDateSeparator(
             currentMessage = message,
-            previousMessage = previousMessage,
+            messageAbove = messageAbove,
             timeZone = timeZone,
         )
     }
@@ -196,13 +193,13 @@ private fun rememberConversationMessagesItemPresentation(
     }
 
     val topPadding = remember(
-        index,
         showDateSeparator,
+        messageAbove,
         message.canClusterWithPrevious,
     ) {
         messageItemTopPadding(
-            index = index,
             message = message,
+            messageAbove = messageAbove,
             showDateSeparator = showDateSeparator,
         )
     }
@@ -221,12 +218,12 @@ private fun rememberConversationMessagesItemPresentation(
 }
 
 private fun messageItemTopPadding(
-    index: Int,
     message: ConversationMessageUiModel,
+    messageAbove: ConversationMessageUiModel?,
     showDateSeparator: Boolean,
 ): Dp {
     return when {
-        index == 0 || showDateSeparator -> 0.dp
+        messageAbove == null || showDateSeparator -> 0.dp
         message.canClusterWithPrevious -> CONVERSATION_MESSAGES_CLUSTER_TOP_PADDING
         else -> CONVERSATION_MESSAGES_GROUP_TOP_PADDING
     }
@@ -275,10 +272,10 @@ private fun ConversationDateSeparator(
 
 private fun shouldShowDateSeparator(
     currentMessage: ConversationMessageUiModel,
-    previousMessage: ConversationMessageUiModel?,
+    messageAbove: ConversationMessageUiModel?,
     timeZone: TimeZone,
 ): Boolean {
-    if (previousMessage == null) {
+    if (messageAbove == null) {
         return true
     }
 
@@ -286,12 +283,12 @@ private fun shouldShowDateSeparator(
         displayTimestamp = currentMessage.displayTimestamp,
         timeZone = timeZone,
     ) ?: return false
-    val previousEpochDay = conversationMessageDisplayEpochDay(
-        displayTimestamp = previousMessage.displayTimestamp,
+    val messageAboveEpochDay = conversationMessageDisplayEpochDay(
+        displayTimestamp = messageAbove.displayTimestamp,
         timeZone = timeZone,
     )
 
-    return previousEpochDay != currentEpochDay
+    return messageAboveEpochDay != currentEpochDay
 }
 
 private fun formatDateSeparatorText(
