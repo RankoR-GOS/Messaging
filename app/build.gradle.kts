@@ -121,6 +121,13 @@ android {
 
 dependencies {
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.compose)
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.video)
+    implementation(libs.androidx.paging.compose)
+    implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.palette)
     implementation(libs.androidx.preference)
     implementation(libs.androidx.recyclerview)

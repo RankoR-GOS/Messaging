@@ -9,6 +9,7 @@ ktlint-gradle = "14.2.0"
 
 activity-compose = "1.13.0"
 appcompat = "1.7.1"
+camerax = "1.6.0"
 coil = "3.4.0"
 compose-bom = "2026.03.01"
 coroutines = "1.10.2"
@@ -17,6 +18,7 @@ guava = "33.5.0-android"
 jsr305 = "3.0.2"
 libphonenumber = "9.0.26"
 lifecycle = "2.10.0"
+paging = "3.4.2"
 palette = "1.0.0"
 preference = "1.2.1"
 recyclerview = "1.4.0"
@@ -34,6 +36,11 @@ androidx-test-runner = "1.7.0"
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-compose = { module = "androidx.camera:camera-compose", version.ref = "camerax" }
+androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-video = { module = "androidx.camera:camera-video", version.ref = "camerax" }
 
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
@@ -51,6 +58,8 @@ androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-ru
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
 
+androidx-paging-compose = { module = "androidx.paging:paging-compose", version.ref = "paging" }
+androidx-paging-runtime = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
 androidx-palette = { module = "androidx.palette:palette", version.ref = "palette" }
 androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
 androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
