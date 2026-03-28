@@ -12,3 +12,5 @@ keystore.properties
 *.keystore
 local.properties
 /lib/build
+
+*.log
