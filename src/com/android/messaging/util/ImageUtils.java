@@ -43,6 +43,7 @@ import com.android.messaging.util.Assert.DoesNotRunOnMainThread;
 import com.android.messaging.util.exif.ExifInterface;
 import com.google.common.annotations.VisibleForTesting;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -268,8 +269,11 @@ public class ImageUtils {
             return orientation;
         }
         final ExifInterface exifInterface = new ExifInterface();
-        try (inputStream) {
-            exifInterface.readExif(inputStream);
+        try (final InputStream bufferedInputStream = wrapForExifHeaderProbe(inputStream)) {
+            if (!isJpegStream(bufferedInputStream)) {
+                return orientation;
+            }
+            exifInterface.readExif(bufferedInputStream);
         } catch (IOException e) {
             LogUtil.e(TAG, "getOrientation", e);
         }
@@ -279,6 +283,21 @@ public class ImageUtils {
             orientation = orientationValue.intValue();
         }
         return orientation;
+    }
+
+    private static InputStream wrapForExifHeaderProbe(final InputStream inputStream) {
+        if (inputStream.markSupported()) {
+            return inputStream;
+        }
+        return new BufferedInputStream(inputStream);
+    }
+
+    private static boolean isJpegStream(final InputStream inputStream) throws IOException {
+        inputStream.mark(2);
+        final int firstByte = inputStream.read();
+        final int secondByte = inputStream.read();
+        inputStream.reset();
+        return firstByte == 0xFF && secondByte == 0xD8;
     }
 
     /**
