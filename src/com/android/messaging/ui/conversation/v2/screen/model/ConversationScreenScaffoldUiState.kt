@@ -6,7 +6,7 @@ import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessa
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 
 @Immutable
-internal data class ConversationUiState(
+internal data class ConversationScreenScaffoldUiState(
     val metadata: ConversationMetadataUiState = ConversationMetadataUiState.Loading,
     val messages: ConversationMessagesUiState = ConversationMessagesUiState.Loading,
     val composer: ConversationComposerUiState = ConversationComposerUiState(),

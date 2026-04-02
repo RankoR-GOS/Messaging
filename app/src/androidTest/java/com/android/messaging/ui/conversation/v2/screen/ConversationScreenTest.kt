@@ -14,16 +14,21 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.data.media.model.ConversationMediaItem
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_MESSAGES_LIST_TEST_TAG
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.conversationMessageItemTestTag
+import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
-import com.android.messaging.ui.conversation.v2.screen.model.ConversationUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMediaPickerOverlayUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import com.android.messaging.ui.core.AppTheme
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,7 +56,7 @@ class ConversationScreenTest {
     @Test
     fun presentState_showsMessagesList() {
         val screenModel = FakeConversationScreenModel()
-        screenModel.uiStateFlow.value = createPresentUiState(
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 8,
                 latestMessageId = "message-8",
@@ -101,7 +106,7 @@ class ConversationScreenTest {
     @Test
     fun outgoingInsert_scrollsToLatestMessage() {
         val screenModel = FakeConversationScreenModel()
-        screenModel.uiStateFlow.value = createPresentUiState(
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 30,
                 latestMessageId = "message-30",
@@ -114,7 +119,7 @@ class ConversationScreenTest {
             .onNodeWithTag(CONVERSATION_MESSAGES_LIST_TEST_TAG)
             .performScrollToIndex(index = 20)
 
-        screenModel.uiStateFlow.value = createPresentUiState(
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 31,
                 latestMessageId = "message-31",
@@ -131,7 +136,7 @@ class ConversationScreenTest {
     @Test
     fun incomingInsert_doesNotScrollToLatestWhenUserIsAwayFromEnd() {
         val screenModel = FakeConversationScreenModel()
-        screenModel.uiStateFlow.value = createPresentUiState(
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 30,
                 latestMessageId = "message-30",
@@ -144,7 +149,7 @@ class ConversationScreenTest {
             .onNodeWithTag(CONVERSATION_MESSAGES_LIST_TEST_TAG)
             .performScrollToIndex(index = 20)
 
-        screenModel.uiStateFlow.value = createPresentUiState(
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 31,
                 latestMessageId = "message-31",
@@ -162,7 +167,7 @@ class ConversationScreenTest {
     fun conversationChange_resetsListStateToLatestMessage() {
         val screenModel = FakeConversationScreenModel()
         var conversationId by mutableStateOf("conversation-1")
-        screenModel.uiStateFlow.value = createPresentUiState(
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 30,
                 latestMessageId = "conversation-1-message-30",
@@ -190,7 +195,7 @@ class ConversationScreenTest {
 
         composeTestRule.runOnIdle {
             conversationId = "conversation-2"
-            screenModel.uiStateFlow.value = createPresentUiState(
+            screenModel.scaffoldUiStateFlow.value = createPresentUiState(
                 messages = createMessages(
                     count = 5,
                     latestMessageId = "conversation-2-message-5",
@@ -219,8 +224,8 @@ class ConversationScreenTest {
 
     private fun createPresentUiState(
         messages: List<ConversationMessageUiModel>,
-    ): ConversationUiState {
-        return ConversationUiState(
+    ): ConversationScreenScaffoldUiState {
+        return ConversationScreenScaffoldUiState(
             metadata = ConversationMetadataUiState.Present(
                 title = "Weekend plan",
                 selfParticipantId = "self-1",
@@ -229,7 +234,7 @@ class ConversationScreenTest {
                 composerAvailability = ConversationComposerAvailability.editable(),
             ),
             messages = ConversationMessagesUiState.Present(
-                messages = messages,
+                messages = messages.toPersistentList(),
             ),
             composer = ConversationComposerUiState(
                 isMessageFieldEnabled = true,
@@ -273,12 +278,24 @@ class ConversationScreenTest {
 
     private class FakeConversationScreenModel : ConversationScreenModel {
         val effectsFlow = MutableSharedFlow<ConversationScreenEffect>()
-        val uiStateFlow = MutableStateFlow(ConversationUiState())
+        val scaffoldUiStateFlow = MutableStateFlow(ConversationScreenScaffoldUiState())
+        val mediaPickerOverlayUiStateFlow = MutableStateFlow(
+            ConversationMediaPickerOverlayUiState(),
+        )
 
         override val effects: Flow<ConversationScreenEffect> = effectsFlow
-        override val uiState: StateFlow<ConversationUiState> = uiStateFlow
+        override val scaffoldUiState: StateFlow<ConversationScreenScaffoldUiState> =
+            scaffoldUiStateFlow
+        override val mediaPickerOverlayUiState: StateFlow<ConversationMediaPickerOverlayUiState> =
+            mediaPickerOverlayUiStateFlow
 
-        var attachmentClicks = 0
+        val attachmentClicks = mutableListOf<ConversationComposerAttachmentUiState.Resolved>()
+        val galleryConfirmations = mutableListOf<List<ConversationMediaItem>>()
+        val galleryVisibilityChanges = mutableListOf<Boolean>()
+        val capturedMedia = mutableListOf<ConversationCapturedMedia>()
+        val removedPendingAttachmentIds = mutableListOf<String>()
+        val removedResolvedAttachmentUris = mutableListOf<String>()
+        val updatedAttachmentCaptions = mutableListOf<Pair<String, String>>()
         var persistDraftCalls = 0
         var sendClicks = 0
 
@@ -288,8 +305,37 @@ class ConversationScreenTest {
         override fun onMessageTextChanged(text: String) {
         }
 
-        override fun onAttachmentClick() {
-            attachmentClicks += 1
+        override fun onAttachmentClicked(
+            attachment: ConversationComposerAttachmentUiState.Resolved,
+        ) {
+            attachmentClicks += attachment
+        }
+
+        override fun onGalleryMediaConfirmed(mediaItems: List<ConversationMediaItem>) {
+            galleryConfirmations += mediaItems
+        }
+
+        override fun onGalleryVisibilityChanged(isVisible: Boolean) {
+            galleryVisibilityChanges += isVisible
+        }
+
+        override fun onCapturedMediaReady(capturedMedia: ConversationCapturedMedia) {
+            this.capturedMedia += capturedMedia
+        }
+
+        override fun onRemovePendingAttachment(pendingAttachmentId: String) {
+            removedPendingAttachmentIds += pendingAttachmentId
+        }
+
+        override fun onRemoveResolvedAttachment(contentUri: String) {
+            removedResolvedAttachmentUris += contentUri
+        }
+
+        override fun onUpdateAttachmentCaption(
+            contentUri: String,
+            captionText: String,
+        ) {
+            updatedAttachmentCaptions += contentUri to captionText
         }
 
         override fun onSendClick() {

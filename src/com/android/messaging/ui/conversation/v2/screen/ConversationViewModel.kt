@@ -3,14 +3,19 @@ package com.android.messaging.ui.conversation.v2.screen
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.android.messaging.data.media.model.ConversationMediaItem
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
-import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftEffect
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
+import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate
 import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegate
+import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMediaPickerOverlayUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
-import com.android.messaging.ui.conversation.v2.screen.model.ConversationUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
@@ -25,11 +30,25 @@ import kotlinx.coroutines.launch
 
 internal interface ConversationScreenModel {
     val effects: Flow<ConversationScreenEffect>
-    val uiState: StateFlow<ConversationUiState>
+    val mediaPickerOverlayUiState: StateFlow<ConversationMediaPickerOverlayUiState>
+    val scaffoldUiState: StateFlow<ConversationScreenScaffoldUiState>
 
     fun onConversationChanged(conversationId: String?)
+    fun onAttachmentClicked(
+        attachment: ConversationComposerAttachmentUiState.Resolved,
+    )
+
+    fun onGalleryMediaConfirmed(mediaItems: List<ConversationMediaItem>)
     fun onMessageTextChanged(text: String)
-    fun onAttachmentClick()
+    fun onGalleryVisibilityChanged(isVisible: Boolean)
+    fun onCapturedMediaReady(capturedMedia: ConversationCapturedMedia)
+    fun onRemovePendingAttachment(pendingAttachmentId: String)
+    fun onRemoveResolvedAttachment(contentUri: String)
+    fun onUpdateAttachmentCaption(
+        contentUri: String,
+        captionText: String,
+    )
+
     fun onSendClick()
     fun persistDraft()
 }
@@ -38,6 +57,7 @@ internal interface ConversationScreenModel {
 internal class ConversationViewModel @Inject constructor(
     private val conversationDraftDelegate: ConversationDraftDelegate,
     private val conversationMessagesDelegate: ConversationMessagesDelegate,
+    private val conversationMediaPickerDelegate: ConversationMediaPickerDelegate,
     private val conversationMetadataDelegate: ConversationMetadataDelegate,
     private val conversationComposerUiStateMapper: ConversationComposerUiStateMapper,
     @param:DefaultDispatcher
@@ -56,34 +76,87 @@ internal class ConversationViewModel @Inject constructor(
 
     override val effects = _effects.asSharedFlow()
 
-    override val uiState: StateFlow<ConversationUiState> = combine(
+    private val composerUiState = combine(
         conversationMetadataDelegate.state,
-        conversationMessagesDelegate.state,
         conversationDraftDelegate.state,
-    ) { metadataState, messagesUiState, draft ->
-        return@combine ConversationUiState(
-            metadata = metadataState,
-            messages = messagesUiState,
-            composer = conversationComposerUiStateMapper.map(
-                draft = draft,
-                composerAvailability = metadataState.composerAvailability,
-            ),
+    ) { metadataState, draftState ->
+        conversationComposerUiStateMapper.map(
+            draftState = draftState,
+            composerAvailability = metadataState.composerAvailability,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(
             stopTimeoutMillis = STATEFLOW_STOP_TIMEOUT_MILLIS,
         ),
-        initialValue = ConversationUiState(),
+        initialValue = conversationComposerUiStateMapper.map(
+            draftState = conversationDraftDelegate.state.value,
+            composerAvailability = conversationMetadataDelegate.state.value.composerAvailability,
+        ),
     )
+
+    override val scaffoldUiState: StateFlow<ConversationScreenScaffoldUiState> = combine(
+        conversationMetadataDelegate.state,
+        conversationMessagesDelegate.state,
+        composerUiState,
+    ) { metadataState, messagesUiState, composerUiState ->
+        ConversationScreenScaffoldUiState(
+            metadata = metadataState,
+            messages = messagesUiState,
+            composer = composerUiState,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(
+            stopTimeoutMillis = STATEFLOW_STOP_TIMEOUT_MILLIS,
+        ),
+        initialValue = ConversationScreenScaffoldUiState(
+            metadata = conversationMetadataDelegate.state.value,
+            messages = conversationMessagesDelegate.state.value,
+            composer = composerUiState.value,
+        ),
+    )
+
+    override val mediaPickerOverlayUiState: StateFlow<ConversationMediaPickerOverlayUiState> =
+        combine(
+            conversationMetadataDelegate.state,
+            conversationMediaPickerDelegate.state,
+            composerUiState,
+        ) { metadataState, mediaPickerUiState, composerUiState ->
+            val conversationTitle = when (metadataState) {
+                is ConversationMetadataUiState.Present -> metadataState.title
+                else -> null
+            }
+
+            ConversationMediaPickerOverlayUiState(
+                mediaPicker = mediaPickerUiState,
+                attachments = composerUiState.attachments,
+                conversationTitle = conversationTitle,
+                isSendActionEnabled = composerUiState.isSendEnabled,
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(
+                stopTimeoutMillis = STATEFLOW_STOP_TIMEOUT_MILLIS,
+            ),
+            initialValue = ConversationMediaPickerOverlayUiState(
+                mediaPicker = conversationMediaPickerDelegate.state.value,
+                attachments = composerUiState.value.attachments,
+                conversationTitle = null,
+                isSendActionEnabled = composerUiState.value.isSendEnabled,
+            ),
+        )
 
     init {
         initializeDelegates()
-        bindDelegateEffects()
     }
 
     private fun initializeDelegates() {
         conversationDraftDelegate.bind(
+            scope = viewModelScope,
+            conversationIdFlow = conversationIdFlow,
+        )
+        conversationMediaPickerDelegate.bind(
             scope = viewModelScope,
             conversationIdFlow = conversationIdFlow,
         )
@@ -95,6 +168,13 @@ internal class ConversationViewModel @Inject constructor(
             scope = viewModelScope,
             conversationIdFlow = conversationIdFlow,
         )
+        bindDelegateEffects()
+    }
+
+    private fun bindDelegateEffects() {
+        viewModelScope.launch(defaultDispatcher) {
+            conversationMediaPickerDelegate.effects.collect(_effects::emit)
+        }
     }
 
     override fun onConversationChanged(conversationId: String?) {
@@ -103,12 +183,51 @@ internal class ConversationViewModel @Inject constructor(
         }
     }
 
+    override fun onAttachmentClicked(
+        attachment: ConversationComposerAttachmentUiState.Resolved,
+    ) {
+        viewModelScope.launch(defaultDispatcher) {
+            _effects.emit(
+                ConversationScreenEffect.OpenAttachmentPreview(
+                    contentType = attachment.contentType,
+                    contentUri = attachment.contentUri,
+                ),
+            )
+        }
+    }
+
+    override fun onGalleryMediaConfirmed(mediaItems: List<ConversationMediaItem>) {
+        conversationMediaPickerDelegate.onGalleryMediaConfirmed(mediaItems = mediaItems)
+    }
+
     override fun onMessageTextChanged(text: String) {
         conversationDraftDelegate.onMessageTextChanged(messageText = text)
     }
 
-    override fun onAttachmentClick() {
-        conversationDraftDelegate.onAttachmentClick()
+    override fun onGalleryVisibilityChanged(isVisible: Boolean) {
+        conversationMediaPickerDelegate.onGalleryVisibilityChanged(isVisible = isVisible)
+    }
+
+    override fun onCapturedMediaReady(capturedMedia: ConversationCapturedMedia) {
+        conversationMediaPickerDelegate.onCapturedMediaReady(capturedMedia = capturedMedia)
+    }
+
+    override fun onRemovePendingAttachment(pendingAttachmentId: String) {
+        conversationMediaPickerDelegate.onRemovePendingAttachment(pendingAttachmentId)
+    }
+
+    override fun onRemoveResolvedAttachment(contentUri: String) {
+        conversationMediaPickerDelegate.onRemoveResolvedAttachment(contentUri = contentUri)
+    }
+
+    override fun onUpdateAttachmentCaption(
+        contentUri: String,
+        captionText: String,
+    ) {
+        conversationDraftDelegate.updateAttachmentCaption(
+            contentUri = contentUri,
+            captionText = captionText,
+        )
     }
 
     override fun onSendClick() {
@@ -120,25 +239,10 @@ internal class ConversationViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        conversationMediaPickerDelegate.onScreenCleared()
         conversationDraftDelegate.flushDraft()
 
         super.onCleared()
-    }
-
-    private fun bindDelegateEffects() {
-        viewModelScope.launch(defaultDispatcher) {
-            conversationDraftDelegate.effects.collect { effect ->
-                when (effect) {
-                    is ConversationDraftEffect.LaunchAttachmentChooser -> {
-                        _effects.emit(
-                            ConversationScreenEffect.LaunchAttachmentChooser(
-                                conversationId = effect.conversationId,
-                            ),
-                        )
-                    }
-                }
-            }
-        }
     }
 
     private companion object {

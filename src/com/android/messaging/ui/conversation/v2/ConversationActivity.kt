@@ -8,9 +8,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.android.messaging.ui.core.AppTheme
 import com.android.messaging.ui.UIIntents
 import com.android.messaging.ui.conversation.v2.screen.ConversationScreen
+import com.android.messaging.ui.core.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

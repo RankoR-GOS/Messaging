@@ -1,9 +1,7 @@
 package com.android.messaging.ui.conversation.v2.screen
 
-import android.content.Intent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
@@ -19,22 +17,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.android.messaging.ui.UIIntents
-import com.android.messaging.ui.attachmentchooser.AttachmentChooserActivity
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
-import com.android.messaging.ui.conversation.v2.composer.ui.ConversationComposeBar
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.ui.ConversationComposerSection
+import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerOverlay
+import com.android.messaging.ui.conversation.v2.mediapicker.rememberConversationMediaPickerState
 import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.messages.ui.ConversationMessages
 import com.android.messaging.ui.conversation.v2.metadata.ui.ConversationTopAppBar
-import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
-import com.android.messaging.ui.conversation.v2.screen.model.ConversationUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
+import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 internal fun ConversationScreen(
@@ -43,43 +42,82 @@ internal fun ConversationScreen(
     onNavigateBack: () -> Unit = {},
     screenModel: ConversationScreenModel = viewModel<ConversationViewModel>(),
 ) {
-    val context = LocalContext.current
-    val attachmentChooserLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) {}
+    val messageFieldFocusRequester = remember {
+        FocusRequester()
+    }
+    val mediaPickerState = rememberConversationMediaPickerState()
+    val scaffoldUiState by screenModel.scaffoldUiState.collectAsStateWithLifecycle()
+    val mediaPickerOverlayUiState by screenModel
+        .mediaPickerOverlayUiState
+        .collectAsStateWithLifecycle()
 
     LaunchedEffect(conversationId) {
         screenModel.onConversationChanged(conversationId = conversationId)
-    }
-
-    LaunchedEffect(screenModel, context, attachmentChooserLauncher) {
-        screenModel.effects.collect { effect ->
-            when (effect) {
-                is ConversationScreenEffect.LaunchAttachmentChooser -> {
-                    val chooserIntent = Intent(
-                        context,
-                        AttachmentChooserActivity::class.java,
-                    ).apply {
-                        putExtra(
-                            UIIntents.UI_INTENT_EXTRA_CONVERSATION_ID,
-                            effect.conversationId,
-                        )
-                    }
-
-                    attachmentChooserLauncher.launch(chooserIntent)
-                }
-            }
-        }
     }
 
     LifecycleEventEffect(event = Lifecycle.Event.ON_STOP) {
         screenModel.persistDraft()
     }
 
-    val uiState by screenModel.uiState.collectAsStateWithLifecycle()
+    ConversationScreenEffects(screenModel = screenModel)
 
+    Box(
+        modifier = modifier
+            .fillMaxSize(),
+    ) {
+        ConversationScreenScaffold(
+            modifier = Modifier
+                .fillMaxSize(),
+            conversationId = conversationId,
+            uiState = scaffoldUiState,
+            isMediaPickerOpen = mediaPickerState.isOpen,
+            messageFieldFocusRequester = messageFieldFocusRequester,
+            onNavigateBack = onNavigateBack,
+            onOpenMediaPicker = mediaPickerState::open,
+            onMessageTextChange = screenModel::onMessageTextChanged,
+            onPendingAttachmentRemove = screenModel::onRemovePendingAttachment,
+            onResolvedAttachmentClick = screenModel::onAttachmentClicked,
+            onResolvedAttachmentRemove = screenModel::onRemoveResolvedAttachment,
+            onSendClick = screenModel::onSendClick,
+        )
+
+        ConversationMediaPickerOverlay(
+            modifier = Modifier
+                .fillMaxSize(),
+            state = mediaPickerState,
+            mediaPickerUiState = mediaPickerOverlayUiState.mediaPicker,
+            attachments = mediaPickerOverlayUiState.attachments,
+            conversationTitle = mediaPickerOverlayUiState.conversationTitle,
+            isSendActionEnabled = mediaPickerOverlayUiState.isSendActionEnabled,
+            messageFieldFocusRequester = messageFieldFocusRequester,
+            onAttachmentPreviewClick = screenModel::onAttachmentClicked,
+            onAttachmentCaptionChange = screenModel::onUpdateAttachmentCaption,
+            onAttachmentRemove = screenModel::onRemoveResolvedAttachment,
+            onGalleryMediaConfirmed = screenModel::onGalleryMediaConfirmed,
+            onGalleryVisibilityChanged = screenModel::onGalleryVisibilityChanged,
+            onCapturedMediaReady = screenModel::onCapturedMediaReady,
+            onSendClick = screenModel::onSendClick,
+        )
+    }
+}
+
+@Composable
+private fun ConversationScreenScaffold(
+    modifier: Modifier = Modifier,
+    conversationId: String?,
+    uiState: ConversationScreenScaffoldUiState,
+    isMediaPickerOpen: Boolean,
+    messageFieldFocusRequester: FocusRequester,
+    onNavigateBack: () -> Unit,
+    onOpenMediaPicker: () -> Unit,
+    onMessageTextChange: (String) -> Unit,
+    onPendingAttachmentRemove: (String) -> Unit,
+    onResolvedAttachmentClick: (ConversationComposerAttachmentUiState.Resolved) -> Unit,
+    onResolvedAttachmentRemove: (String) -> Unit,
+    onSendClick: () -> Unit,
+) {
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier,
         topBar = {
             ConversationTopAppBar(
                 metadata = uiState.metadata,
@@ -87,23 +125,29 @@ internal fun ConversationScreen(
             )
         },
         bottomBar = {
-            ConversationComposeBar(
-                messageText = uiState.composer.messageText,
-                isMessageFieldEnabled = uiState.composer.isMessageFieldEnabled,
-                isAttachmentActionEnabled = uiState.composer.isAttachmentActionEnabled,
-                isSendActionEnabled = uiState.composer.isSendEnabled,
-                onAttachmentClick = screenModel::onAttachmentClick,
-                onMessageTextChange = { messageText ->
-                    screenModel.onMessageTextChanged(text = messageText)
-                },
-                onSendClick = screenModel::onSendClick,
-            )
+            if (!isMediaPickerOpen) {
+                ConversationComposerSection(
+                    attachments = uiState.composer.attachments,
+                    messageText = uiState.composer.messageText,
+                    isMessageFieldEnabled = uiState.composer.isMessageFieldEnabled,
+                    isAttachmentActionEnabled = uiState.composer.isAttachmentActionEnabled,
+                    isSendActionEnabled = uiState.composer.isSendEnabled,
+                    messageFieldFocusRequester = messageFieldFocusRequester,
+                    onAttachmentClick = onOpenMediaPicker,
+                    onMessageTextChange = onMessageTextChange,
+                    onPendingAttachmentRemove = onPendingAttachmentRemove,
+                    onResolvedAttachmentClick = onResolvedAttachmentClick,
+                    onResolvedAttachmentRemove = onResolvedAttachmentRemove,
+                    onSendClick = onSendClick,
+                )
+            }
         },
     ) { contentPadding ->
         ConversationScreenContent(
-            modifier = Modifier.padding(paddingValues = contentPadding),
+            modifier = Modifier.fillMaxSize(),
             conversationId = conversationId,
             uiState = uiState,
+            contentPadding = contentPadding,
         )
     }
 }
@@ -112,12 +156,15 @@ internal fun ConversationScreen(
 private fun ConversationScreenContent(
     modifier: Modifier = Modifier,
     conversationId: String?,
-    uiState: ConversationUiState,
+    uiState: ConversationScreenScaffoldUiState,
+    contentPadding: PaddingValues,
 ) {
     when (val messagesState = uiState.messages) {
         is ConversationMessagesUiState.Loading -> {
             Box(
-                modifier = modifier.fillMaxSize(),
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(paddingValues = contentPadding),
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator(
@@ -138,7 +185,7 @@ private fun ConversationScreenContent(
             )
 
             ConversationMessages(
-                modifier = modifier,
+                modifier = modifier.padding(paddingValues = contentPadding),
                 messages = messagesState.messages,
                 listState = messagesListState,
             )
@@ -149,14 +196,16 @@ private fun ConversationScreenContent(
 @Composable
 private fun AutoScrollToLatestMessage(
     conversationId: String?,
-    messages: List<ConversationMessageUiModel>,
+    messages: ImmutableList<ConversationMessageUiModel>,
     listState: LazyListState,
 ) {
     val latestMessage = messages.lastOrNull()
     val latestMessageId = latestMessage?.messageId
+
     var previousLatestMessageId by remember(conversationId) {
         mutableStateOf(value = latestMessageId)
     }
+
     var wasScrolledToLatestMessage by remember(
         conversationId,
         listState,
@@ -172,10 +221,9 @@ private fun AutoScrollToLatestMessage(
     ) {
         snapshotFlow {
             isScrolledToLatestMessage(listState = listState)
+        }.collect { isScrolledToLatestMessage ->
+            wasScrolledToLatestMessage = isScrolledToLatestMessage
         }
-            .collect { isScrolledToLatestMessage ->
-                wasScrolledToLatestMessage = isScrolledToLatestMessage
-            }
     }
 
     LaunchedEffect(
@@ -201,9 +249,7 @@ private fun AutoScrollToLatestMessage(
     }
 }
 
-private fun isScrolledToLatestMessage(
-    listState: LazyListState,
-): Boolean {
+private fun isScrolledToLatestMessage(listState: LazyListState): Boolean {
     return listState.firstVisibleItemIndex == 0 &&
         listState.firstVisibleItemScrollOffset == 0
 }
