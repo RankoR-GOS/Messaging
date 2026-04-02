@@ -63,6 +63,21 @@
     <string name="mediapicker_gallery_image_item_description_no_date">image</string>
     <string name="mediapicker_audio_title">Record audio</string>
     <string name="mediapicker_contact_title">Choose a contact</string>
+    <string name="conversation_media_picker_add_selection">Add (<xliff:g id="count">%1$d</xliff:g>)</string>
+    <string name="conversation_media_picker_allow_camera">Allow camera</string>
+    <string name="conversation_media_picker_allow_gallery">Allow gallery</string>
+    <string name="conversation_media_picker_allow_microphone">Allow microphone</string>
+    <string name="conversation_media_picker_add_more_content_description">Add another photo or video</string>
+    <string name="conversation_media_picker_camera_permission_message">Camera access is needed to capture photos and videos here.</string>
+    <string name="conversation_media_picker_caption_hint">Write a caption</string>
+    <string name="conversation_media_picker_close_content_description">Close media picker</string>
+    <string name="conversation_media_picker_gallery_permission_message">Gallery access is needed to browse recent media in the conversation picker.</string>
+    <string name="conversation_media_picker_microphone_permission_message">Microphone access is needed to record video with sound.</string>
+    <string name="conversation_media_picker_photo_mode">Photo</string>
+    <string name="conversation_media_picker_remove_attachment_content_description">Remove attachment</string>
+    <string name="conversation_media_picker_retake_content_description">Retake capture</string>
+    <string name="conversation_media_picker_cycle_flash_mode_content_description">Change flash mode</string>
+    <string name="conversation_media_picker_video_mode">Video</string>
     <!-- Hint text on the contact picker -->
     <string name="contact_picker_hint_text">Click to open contacts list on this device</string>
 

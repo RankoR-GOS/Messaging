@@ -10,18 +10,16 @@ import com.android.messaging.data.conversation.repository.ConversationMetadataNo
 import com.android.messaging.data.conversation.repository.ConversationMetadataNotifierImpl
 import com.android.messaging.data.conversation.repository.ConversationsRepository
 import com.android.messaging.data.conversation.repository.ConversationsRepositoryImpl
+import com.android.messaging.data.media.repository.ConversationMediaRepository
+import com.android.messaging.data.media.repository.ConversationMediaRepositoryImpl
 import com.android.messaging.domain.conversation.usecase.SendConversationDraft
 import com.android.messaging.domain.conversation.usecase.SendConversationDraftImpl
-import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
-import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegateImpl
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapperImpl
-import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate
-import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegateImpl
+import com.android.messaging.ui.conversation.v2.mediapicker.ConversationAttachmentBridge
+import com.android.messaging.ui.conversation.v2.mediapicker.ConversationAttachmentBridgeImpl
 import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationMessageUiModelMapper
 import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationMessageUiModelMapperImpl
-import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegate
-import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegateImpl
 import com.android.messaging.ui.conversation.v2.metadata.mapper.ConversationMetadataUiStateMapper
 import com.android.messaging.ui.conversation.v2.metadata.mapper.ConversationMetadataUiStateMapperImpl
 import dagger.Binds
@@ -65,19 +63,9 @@ internal abstract class ConversationBindsModule {
     ): ConversationsRepository
 
     @Binds
-    abstract fun bindConversationDraftDelegate(
-        impl: ConversationDraftDelegateImpl,
-    ): ConversationDraftDelegate
-
-    @Binds
-    abstract fun bindConversationMessagesDelegate(
-        impl: ConversationMessagesDelegateImpl,
-    ): ConversationMessagesDelegate
-
-    @Binds
-    abstract fun bindConversationMetadataDelegate(
-        impl: ConversationMetadataDelegateImpl,
-    ): ConversationMetadataDelegate
+    abstract fun bindConversationAttachmentBridge(
+        impl: ConversationAttachmentBridgeImpl,
+    ): ConversationAttachmentBridge
 
     @Binds
     abstract fun bindConversationComposerUiStateMapper(
@@ -88,6 +76,12 @@ internal abstract class ConversationBindsModule {
     abstract fun bindConversationMessageUiModelMapper(
         impl: ConversationMessageUiModelMapperImpl,
     ): ConversationMessageUiModelMapper
+
+    @Binds
+    @Reusable
+    abstract fun bindConversationMediaRepository(
+        impl: ConversationMediaRepositoryImpl,
+    ): ConversationMediaRepository
 
     @Binds
     abstract fun bindConversationMetadataUiStateMapper(
