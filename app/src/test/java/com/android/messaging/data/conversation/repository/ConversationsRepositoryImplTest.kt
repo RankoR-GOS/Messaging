@@ -74,7 +74,10 @@ class ConversationsRepositoryImplTest {
         verify(exactly = 1) {
             contentResolver.unregisterContentObserver(registeredObservers.single())
         }
-        assertEquals(ConversationMessageData.getProjection().toList(), capturedProjections.single()?.toList())
+        assertEquals(
+            ConversationMessageData.getProjection().toList(),
+            capturedProjections.single()?.toList(),
+        )
     }
 
     @Test
@@ -113,7 +116,10 @@ class ConversationsRepositoryImplTest {
         verify(exactly = 1) {
             contentResolver.unregisterContentObserver(registeredObservers.single())
         }
-        assertEquals(ConversationListItemData.PROJECTION.toList(), capturedProjections.single()?.toList())
+        assertEquals(
+            ConversationListItemData.PROJECTION.toList(),
+            capturedProjections.single()?.toList(),
+        )
     }
 
     @Test
@@ -152,7 +158,10 @@ class ConversationsRepositoryImplTest {
             cancelAndIgnoreRemainingEvents()
         }
 
-        assertEquals(ConversationListItemData.PROJECTION.toList(), capturedProjections.single()?.toList())
+        assertEquals(
+            ConversationListItemData.PROJECTION.toList(),
+            capturedProjections.single()?.toList(),
+        )
     }
 
     @Test
@@ -179,7 +188,10 @@ class ConversationsRepositoryImplTest {
             cancelAndIgnoreRemainingEvents()
         }
 
-        assertEquals(ConversationListItemData.PROJECTION.toList(), capturedProjections.single()?.toList())
+        assertEquals(
+            ConversationListItemData.PROJECTION.toList(),
+            capturedProjections.single()?.toList(),
+        )
     }
 
     @Test
@@ -311,7 +323,10 @@ class ConversationsRepositoryImplTest {
         }
 
         verify(exactly = 1) { contentResolver.query(expectedUri, any(), null, null, null) }
-        assertEquals(ConversationMessageData.getProjection().toList(), capturedProjections.single()?.toList())
+        assertEquals(
+            ConversationMessageData.getProjection().toList(),
+            capturedProjections.single()?.toList(),
+        )
     }
 
     @Test
@@ -529,13 +544,15 @@ class ConversationsRepositoryImplTest {
             cancelAndIgnoreRemainingEvents()
         }
 
-        assertEquals(ConversationMessageData.getProjection().toList(), capturedProjections.single()?.toList())
+        assertEquals(
+            ConversationMessageData.getProjection().toList(),
+            capturedProjections.single()?.toList(),
+        )
     }
 
     private fun createRepository(testDispatcher: TestDispatcher): ConversationsRepositoryImpl {
         return ConversationsRepositoryImpl(
             contentResolver = contentResolver,
-            defaultDispatcher = testDispatcher,
             ioDispatcher = testDispatcher,
         )
     }
@@ -614,7 +631,7 @@ class ConversationsRepositoryImplTest {
 
         every { cursor.count } returns rowsByColumn.size
         every { cursor.close() } just runs
-        every { cursor.getPosition() } answers { position }
+        every { cursor.position } answers { position }
         every { cursor.isBeforeFirst } answers {
             rowsByColumn.isNotEmpty() && position < 0
         }
