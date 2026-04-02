@@ -3,6 +3,7 @@ package com.android.messaging.ui.conversation.v2.composer.mapper
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerDisabledReason
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,8 +15,10 @@ class ConversationComposerUiStateMapperImplTest {
     @Test
     fun map_enablesSendOnlyWhenContentIsAvailableAndDraftIsIdle() {
         val uiState = mapper.map(
-            draft = ConversationDraft(
-                messageText = "Hello",
+            draftState = ConversationDraftState(
+                draft = ConversationDraft(
+                    messageText = "Hello",
+                ),
             ),
             composerAvailability = ConversationComposerAvailability.editable(),
         )
@@ -26,7 +29,9 @@ class ConversationComposerUiStateMapperImplTest {
     @Test
     fun map_disablesSendWhenDraftIsEmpty() {
         val uiState = mapper.map(
-            draft = ConversationDraft(),
+            draftState = ConversationDraftState(
+                draft = ConversationDraft(),
+            ),
             composerAvailability = ConversationComposerAvailability.editable(),
         )
 
@@ -36,10 +41,12 @@ class ConversationComposerUiStateMapperImplTest {
     @Test
     fun map_disablesSendAndAttachmentWhenDraftIsBusy() {
         val uiState = mapper.map(
-            draft = ConversationDraft(
-                messageText = "Hello",
-                isCheckingDraft = true,
-                isSending = true,
+            draftState = ConversationDraftState(
+                draft = ConversationDraft(
+                    messageText = "Hello",
+                    isCheckingDraft = true,
+                    isSending = true,
+                ),
             ),
             composerAvailability = ConversationComposerAvailability.editable(),
         )
@@ -55,18 +62,22 @@ class ConversationComposerUiStateMapperImplTest {
         )
 
         val unavailableUiState = mapper.map(
-            draft = ConversationDraft(
-                messageText = "Hello",
-                isCheckingDraft = true,
-                isSending = true,
+            draftState = ConversationDraftState(
+                draft = ConversationDraft(
+                    messageText = "Hello",
+                    isCheckingDraft = true,
+                    isSending = true,
+                ),
             ),
             composerAvailability = unavailableAvailability,
         )
         val availableUiState = mapper.map(
-            draft = ConversationDraft(
-                messageText = "Hello",
-                isCheckingDraft = true,
-                isSending = true,
+            draftState = ConversationDraftState(
+                draft = ConversationDraft(
+                    messageText = "Hello",
+                    isCheckingDraft = true,
+                    isSending = true,
+                ),
             ),
             composerAvailability = ConversationComposerAvailability.editable(),
         )

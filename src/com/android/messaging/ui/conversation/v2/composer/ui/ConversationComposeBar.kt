@@ -9,16 +9,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -28,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -44,16 +41,6 @@ import com.android.messaging.ui.conversation.v2.CONVERSATION_TEXT_FIELD_TEST_TAG
 import com.android.messaging.ui.conversation.v2.conversationShape
 import com.android.messaging.ui.core.AppTheme
 
-private val CONVERSATION_COMPOSE_BAR_FIELD_CORNER_RADIUS = 28.dp
-private val CONVERSATION_COMPOSE_BAR_FIELD_SHAPE =
-    RoundedCornerShape(size = CONVERSATION_COMPOSE_BAR_FIELD_CORNER_RADIUS)
-private val CONVERSATION_COMPOSE_BAR_SINGLE_LINE_HEIGHT = 56.dp
-private val CONVERSATION_COMPOSE_BAR_SEND_BUTTON_SIZE = CONVERSATION_COMPOSE_BAR_SINGLE_LINE_HEIGHT
-private val CONVERSATION_COMPOSE_BAR_SEND_BUTTON_SPACING = 8.dp
-private val CONVERSATION_COMPOSE_BAR_TEXT_FIELD_PADDING_HORIZONTAL = 12.dp
-private val CONVERSATION_COMPOSE_BAR_TEXT_FIELD_PADDING_VERTICAL = 8.dp
-private val CONVERSATION_COMPOSE_BAR_PREVIEW_PADDING_VERTICAL = 24.dp
-
 @Composable
 internal fun ConversationComposeBar(
     modifier: Modifier = Modifier,
@@ -61,20 +48,26 @@ internal fun ConversationComposeBar(
     isMessageFieldEnabled: Boolean,
     isAttachmentActionEnabled: Boolean,
     isSendActionEnabled: Boolean,
+    messageFieldFocusRequester: FocusRequester? = null,
     onAttachmentClick: () -> Unit,
     onMessageTextChange: (String) -> Unit,
     onSendClick: () -> Unit,
 ) {
     val presentation = rememberConversationComposeBarPresentation()
 
-    ConversationComposeBarContainer(
-        modifier = modifier,
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .imePadding()
+            .navigationBarsPadding()
+            .testTag(CONVERSATION_COMPOSE_BAR_TEST_TAG),
     ) {
         ConversationComposeTextField(
             messageText = messageText,
             isMessageFieldEnabled = isMessageFieldEnabled,
             isAttachmentActionEnabled = isAttachmentActionEnabled,
             isSendActionEnabled = isSendActionEnabled,
+            messageFieldFocusRequester = messageFieldFocusRequester,
             presentation = presentation,
             onAttachmentClick = onAttachmentClick,
             onMessageTextChange = onMessageTextChange,
@@ -89,7 +82,7 @@ private fun rememberConversationComposeBarPresentation(): ConversationComposeBar
 
     return remember(fieldColors) {
         ConversationComposeBarPresentation(
-            fieldShape = CONVERSATION_COMPOSE_BAR_FIELD_SHAPE,
+            fieldShape = RoundedCornerShape(size = 28.dp),
             fieldColors = fieldColors,
         )
     }
@@ -120,27 +113,12 @@ private fun conversationComposeBarTextFieldColors(): TextFieldColors {
 }
 
 @Composable
-private fun ConversationComposeBarContainer(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .imePadding()
-            .navigationBarsPadding()
-            .testTag(CONVERSATION_COMPOSE_BAR_TEST_TAG),
-    ) {
-        content()
-    }
-}
-
-@Composable
 private fun ConversationComposeTextField(
     messageText: String,
     isMessageFieldEnabled: Boolean,
     isAttachmentActionEnabled: Boolean,
     isSendActionEnabled: Boolean,
+    messageFieldFocusRequester: FocusRequester?,
     presentation: ConversationComposeBarPresentation,
     onAttachmentClick: () -> Unit,
     onMessageTextChange: (String) -> Unit,
@@ -150,19 +128,25 @@ private fun ConversationComposeTextField(
         modifier = Modifier
             .fillMaxWidth()
             .padding(
-                horizontal = CONVERSATION_COMPOSE_BAR_TEXT_FIELD_PADDING_HORIZONTAL,
-                vertical = CONVERSATION_COMPOSE_BAR_TEXT_FIELD_PADDING_VERTICAL,
+                horizontal = 12.dp,
+                vertical = 8.dp,
             ),
         horizontalArrangement = Arrangement.spacedBy(
-            space = CONVERSATION_COMPOSE_BAR_SEND_BUTTON_SPACING
+            space = 8.dp,
         ),
         verticalAlignment = Alignment.Bottom,
     ) {
         TextField(
             modifier = Modifier
                 .weight(weight = 1f)
+                .then(
+                    when (messageFieldFocusRequester) {
+                        null -> Modifier
+                        else -> Modifier.focusRequester(messageFieldFocusRequester)
+                    },
+                )
                 .testTag(CONVERSATION_TEXT_FIELD_TEST_TAG)
-                .heightIn(min = CONVERSATION_COMPOSE_BAR_SINGLE_LINE_HEIGHT),
+                .heightIn(min = 56.dp),
             value = messageText,
             onValueChange = onMessageTextChange,
             enabled = isMessageFieldEnabled,
@@ -182,6 +166,11 @@ private fun ConversationComposeTextField(
         )
 
         ConversationComposeSendAction(
+            modifier = Modifier
+                .testTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
+                .semantics {
+                    conversationShape = CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
+                },
             enabled = isSendActionEnabled,
             onClick = onSendClick,
         )
@@ -219,36 +208,15 @@ private fun ConversationComposeImageAction(
 
 @Composable
 private fun ConversationComposeSendAction(
+    modifier: Modifier = Modifier,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val hapticFeedback = LocalHapticFeedback.current
-
-    FilledIconButton(
-        modifier = Modifier
-            .testTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
-            .semantics {
-                conversationShape = CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
-            }
-            .size(size = CONVERSATION_COMPOSE_BAR_SEND_BUTTON_SIZE),
-        onClick = {
-            hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
-            onClick()
-        },
+    ConversationSendActionButton(
+        modifier = modifier,
         enabled = enabled,
-        shape = CircleShape,
-        colors = IconButtonDefaults.filledIconButtonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Rounded.Send,
-            contentDescription = stringResource(id = R.string.sendButtonContentDescription),
-        )
-    }
+        onClick = onClick,
+    )
 }
 
 private data class ConversationComposeBarPresentation(
@@ -264,7 +232,7 @@ private fun ConversationComposeBarPreviewContainer(
         Box(
             modifier = Modifier
                 .background(color = MaterialTheme.colorScheme.background)
-                .padding(vertical = CONVERSATION_COMPOSE_BAR_PREVIEW_PADDING_VERTICAL),
+                .padding(vertical = 24.dp),
         ) {
             content()
         }
@@ -280,6 +248,7 @@ private fun ConversationComposeBarSendDisabledPreview() {
             isMessageFieldEnabled = true,
             isAttachmentActionEnabled = false,
             isSendActionEnabled = false,
+            messageFieldFocusRequester = null,
             onAttachmentClick = {},
             onMessageTextChange = {},
             onSendClick = {},
@@ -296,6 +265,7 @@ private fun ConversationComposeBarSendEnabledPreview() {
             isMessageFieldEnabled = true,
             isAttachmentActionEnabled = false,
             isSendActionEnabled = true,
+            messageFieldFocusRequester = null,
             onAttachmentClick = {},
             onMessageTextChange = {},
             onSendClick = {},

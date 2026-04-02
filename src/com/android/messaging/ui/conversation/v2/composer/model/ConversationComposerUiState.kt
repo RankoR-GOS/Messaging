@@ -2,9 +2,12 @@ package com.android.messaging.ui.conversation.v2.composer.model
 
 import androidx.compose.runtime.Immutable
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerDisabledReason
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Immutable
 internal data class ConversationComposerUiState(
+    val attachments: ImmutableList<ConversationComposerAttachmentUiState> = persistentListOf(),
     val messageText: String = "",
     val subjectText: String = "",
     val selfParticipantId: String = "",

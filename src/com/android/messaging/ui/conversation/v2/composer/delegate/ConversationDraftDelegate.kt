@@ -2,11 +2,13 @@ package com.android.messaging.ui.conversation.v2.composer.delegate
 
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
+import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachment
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepository
 import com.android.messaging.di.core.ApplicationCoroutineScope
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.domain.conversation.usecase.SendConversationDraft
 import com.android.messaging.ui.conversation.v2.common.ConversationScreenDelegate
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.util.LogUtil
 import com.android.messaging.util.core.extension.unitFlow
 import javax.inject.Inject
@@ -16,10 +18,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
@@ -38,12 +38,26 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-internal interface ConversationDraftDelegate : ConversationScreenDelegate<ConversationDraft> {
-    val effects: Flow<ConversationDraftEffect>
-
+internal interface ConversationDraftDelegate : ConversationScreenDelegate<ConversationDraftState> {
     fun onMessageTextChanged(messageText: String)
 
-    fun onAttachmentClick()
+    fun addAttachments(attachments: Collection<ConversationDraftAttachment>)
+
+    fun addPendingAttachment(pendingAttachment: ConversationDraftPendingAttachment)
+
+    fun removeAttachment(contentUri: String)
+
+    fun removePendingAttachment(pendingAttachmentId: String)
+
+    fun resolvePendingAttachment(
+        pendingAttachmentId: String,
+        attachment: ConversationDraftAttachment,
+    )
+
+    fun updateAttachmentCaption(
+        contentUri: String,
+        captionText: String,
+    )
 
     fun onSendClick()
 
@@ -62,11 +76,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
     private val defaultDispatcher: CoroutineDispatcher,
 ) : ConversationDraftDelegate {
 
-    private val _effects = MutableSharedFlow<ConversationDraftEffect>(
-        extraBufferCapacity = 1,
-    )
-    private val _state = MutableStateFlow(ConversationDraft())
-    override val effects = _effects.asSharedFlow()
+    private val _state = MutableStateFlow(ConversationDraftState())
     override val state = _state.asStateFlow()
 
     private val draftEditorState = MutableStateFlow(DraftEditorState())
@@ -93,17 +103,59 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
 
     override fun onMessageTextChanged(messageText: String) {
         updateDraftEditorState { currentDraftEditorState ->
-            return@updateDraftEditorState currentDraftEditorState.withMessageText(
-                messageText = messageText,
+            currentDraftEditorState.withMessageText(messageText)
+        }
+    }
+
+    override fun addAttachments(attachments: Collection<ConversationDraftAttachment>) {
+        if (attachments.isEmpty()) {
+            return
+        }
+
+        updateDraftEditorState { currentDraftEditorState ->
+            currentDraftEditorState.withAttachmentsAdded(attachments)
+        }
+    }
+
+    override fun addPendingAttachment(pendingAttachment: ConversationDraftPendingAttachment) {
+        updateDraftEditorState { currentDraftEditorState ->
+            currentDraftEditorState.withPendingAttachmentAdded(pendingAttachment)
+        }
+    }
+
+    override fun removeAttachment(contentUri: String) {
+        updateDraftEditorState { currentDraftEditorState ->
+            currentDraftEditorState.withAttachmentRemoved(contentUri)
+        }
+    }
+
+    override fun removePendingAttachment(pendingAttachmentId: String) {
+        updateDraftEditorState { currentDraftEditorState ->
+            currentDraftEditorState.withPendingAttachmentRemoved(pendingAttachmentId)
+        }
+    }
+
+    override fun resolvePendingAttachment(
+        pendingAttachmentId: String,
+        attachment: ConversationDraftAttachment,
+    ) {
+        updateDraftEditorState { currentDraftEditorState ->
+            currentDraftEditorState.withPendingAttachmentResolved(
+                pendingAttachmentId = pendingAttachmentId,
+                attachment = attachment,
             )
         }
     }
 
-    override fun onAttachmentClick() {
-        val scope = boundScope ?: return
-
-        launchDraftOperation(scope = scope) {
-            createAttachmentClickFlow()
+    override fun updateAttachmentCaption(
+        contentUri: String,
+        captionText: String,
+    ) {
+        updateDraftEditorState { currentDraftEditorState ->
+            currentDraftEditorState.withAttachmentCaption(
+                contentUri = contentUri,
+                captionText = captionText,
+            )
         }
     }
 
@@ -112,9 +164,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
         val sendRequest = markSendingAndCreateSendRequestOrNull() ?: return
 
         launchDraftOperation(scope = scope) {
-            createSendDraftFlow(
-                sendRequest = sendRequest,
-            )
+            createSendDraftFlow(sendRequest)
         }
     }
 
@@ -171,7 +221,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
             }
 
             updateDraftEditorState { currentDraftEditorState ->
-                return@updateDraftEditorState currentDraftEditorState.markPersistedIfUnchanged(
+                currentDraftEditorState.markPersistedIfUnchanged(
                     saveRequest = saveRequest,
                 )
             }
@@ -214,15 +264,15 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
     }
 
     private suspend fun resetDraftEditorState(conversationId: String?) {
-        val previousDraftEditorState = draftEditorState.value
-        updateDraftEditorState(
-            draftEditorState = DraftEditorState(
-                conversationId = conversationId,
-            ),
-        )
+        var previousDraftEditorState: DraftEditorState? = null
+
+        updateDraftEditorState { currentDraftEditorState ->
+            previousDraftEditorState = currentDraftEditorState
+            DraftEditorState(conversationId = conversationId)
+        }
 
         previousDraftEditorState
-            .toSaveRequestOrNull()
+            ?.toSaveRequestOrNull()
             ?.let { saveRequest ->
                 createSaveDraftOperationFlow(
                     operationName = "flush previous draft",
@@ -240,36 +290,6 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
     ) {
         scope.launch(defaultDispatcher) {
             createOperationFlow().collect()
-        }
-    }
-
-    private fun createAttachmentClickFlow(): Flow<Unit> {
-        return runDraftOperationBoundary(
-            operationName = "launch attachment chooser",
-            conversationId = draftEditorState.value.conversationId,
-        ) {
-            unitFlow {
-                val currentDraftEditorState = draftEditorState.value
-                if (!currentDraftEditorState.canLaunchAttachmentChooser()) {
-                    return@unitFlow
-                }
-
-                val saveRequest = currentDraftEditorState.toSaveRequestOrNull()
-                if (saveRequest != null) {
-                    saveDraft(
-                        saveRequest = saveRequest,
-                        shouldMarkCurrentDraftAsPersisted = true,
-                        shouldSkipIfRequestIsStale = true,
-                    )
-                }
-
-                val conversationId = draftEditorState.value.conversationId ?: return@unitFlow
-                _effects.emit(
-                    value = ConversationDraftEffect.LaunchAttachmentChooser(
-                        conversationId = conversationId,
-                    ),
-                )
-            }
         }
     }
 
@@ -388,15 +408,10 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
         }
     }
 
-    private fun updateDraftEditorState(draftEditorState: DraftEditorState) {
-        this.draftEditorState.value = draftEditorState
-        _state.value = draftEditorState.visibleDraft
-    }
-
     private fun updateDraftEditorState(transform: (DraftEditorState) -> DraftEditorState) {
         draftEditorState.update { currentDraftEditorState ->
             val updatedDraftEditorState = transform(currentDraftEditorState)
-            _state.value = updatedDraftEditorState.visibleDraft
+            _state.value = updatedDraftEditorState.visibleState
 
             updatedDraftEditorState
         }
@@ -408,7 +423,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
                 return@updateDraftEditorState currentDraftEditorState
             }
 
-            return@updateDraftEditorState currentDraftEditorState.markIdle()
+            currentDraftEditorState.markIdle()
         }
     }
 
@@ -418,7 +433,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
                 return@updateDraftEditorState latestDraftEditorState
             }
 
-            return@updateDraftEditorState latestDraftEditorState.clearDraftAfterSend(
+            latestDraftEditorState.clearDraftAfterSend(
                 sentDraft = sendRequest.draft,
             )
         }
@@ -469,267 +484,3 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
         private const val DRAFT_AUTOSAVE_DELAY_MILLIS = 300L
     }
 }
-
-private data class DraftEditorState(
-    val conversationId: String? = null,
-    val persistedDraft: ConversationDraft = ConversationDraft(),
-    val localEdits: ConversationDraftEdits = ConversationDraftEdits(),
-    val isLoaded: Boolean = false,
-    val isSending: Boolean = false,
-    val pendingSentDraft: ConversationDraft? = null,
-) {
-    val effectiveDraft: ConversationDraft
-        get() = localEdits.applyTo(baseDraft = persistedDraft)
-
-    val visibleDraft: ConversationDraft
-        get() {
-            if (conversationId == null) {
-                return ConversationDraft()
-            }
-
-            return effectiveDraft.copy(
-                isCheckingDraft = !isLoaded,
-                isSending = isSending,
-            )
-        }
-
-    fun withPersistedDraft(persistedDraft: ConversationDraft): DraftEditorState {
-        pendingSentDraft?.let { draft ->
-            return withPersistedDraftWhileAwaitingSentDraftClear(
-                persistedDraft = persistedDraft,
-                sentDraftAwaitingClear = draft,
-            )
-        }
-
-        return copy(
-            persistedDraft = persistedDraft,
-            localEdits = localEdits.normalizedAgainst(
-                baseDraft = persistedDraft,
-            ),
-            isLoaded = true,
-        )
-    }
-
-    fun withMessageText(messageText: String): DraftEditorState {
-        if (conversationId == null) {
-            return this
-        }
-
-        return copy(
-            localEdits = localEdits
-                .copy(messageText = messageText)
-                .normalizedAgainst(baseDraft = persistedDraft),
-        )
-    }
-
-    fun toSaveRequestOrNull(): DraftSaveRequest? {
-        val currentConversationId = conversationId ?: return null
-
-        if (!isLoaded || isSending || !localEdits.hasChanges) {
-            return null
-        }
-
-        return DraftSaveRequest(
-            conversationId = currentConversationId,
-            draft = effectiveDraft,
-        )
-    }
-
-    fun canLaunchAttachmentChooser(): Boolean {
-        return conversationId != null &&
-            isLoaded &&
-            !isSending
-    }
-
-    fun canSendDraft(): Boolean {
-        return conversationId != null &&
-            isLoaded &&
-            !isSending &&
-            effectiveDraft.hasContent
-    }
-
-    fun markPersistedIfUnchanged(saveRequest: DraftSaveRequest): DraftEditorState {
-        if (conversationId != saveRequest.conversationId) {
-            return this
-        }
-
-        if (effectiveDraft != saveRequest.draft) {
-            return this
-        }
-
-        return copy(
-            persistedDraft = saveRequest.draft,
-            localEdits = ConversationDraftEdits(),
-            isLoaded = true,
-            pendingSentDraft = null,
-        )
-    }
-
-    fun matchesSaveRequest(saveRequest: DraftSaveRequest): Boolean {
-        return toSaveRequestOrNull() == saveRequest
-    }
-
-    fun markSending(): DraftEditorState {
-        if (conversationId == null) {
-            return this
-        }
-
-        return copy(isSending = true)
-    }
-
-    fun markIdle(): DraftEditorState {
-        return copy(isSending = false)
-    }
-
-    fun clearDraftAfterSend(sentDraft: ConversationDraft): DraftEditorState {
-        val latestEffectiveDraft = effectiveDraft
-
-        val clearedDraft = createClearedDraftForSentDraft(
-            sentDraft = sentDraft,
-        )
-
-        val visibleDraftAfterSend = when {
-            latestEffectiveDraft == sentDraft -> clearedDraft
-
-            // Preserve edits made while the send is enqueued
-            else -> latestEffectiveDraft.copy(
-                selfParticipantId = sentDraft.selfParticipantId,
-            )
-        }
-
-        return copy(
-            persistedDraft = clearedDraft,
-            localEdits = createConversationDraftEdits(
-                baseDraft = clearedDraft,
-                targetDraft = visibleDraftAfterSend,
-            ),
-            isLoaded = true,
-            isSending = false,
-            pendingSentDraft = sentDraft,
-        )
-    }
-
-    private fun withPersistedDraftWhileAwaitingSentDraftClear(
-        persistedDraft: ConversationDraft,
-        sentDraftAwaitingClear: ConversationDraft,
-    ): DraftEditorState {
-        if (persistedDraft == sentDraftAwaitingClear) {
-            return rebaseVisibleDraftOnPersistedDraft(
-                persistedDraft = persistedDraft,
-                shouldKeepPendingSentDraft = true,
-            )
-        }
-
-        val clearedDraft = createClearedDraftForSentDraft(
-            sentDraft = sentDraftAwaitingClear,
-        )
-        if (effectiveDraft == clearedDraft) {
-            return copy(
-                persistedDraft = persistedDraft,
-                localEdits = ConversationDraftEdits(),
-                isLoaded = true,
-                pendingSentDraft = null,
-            )
-        }
-
-        return rebaseVisibleDraftOnPersistedDraft(
-            persistedDraft = persistedDraft,
-            shouldKeepPendingSentDraft = false,
-        )
-    }
-
-    private fun rebaseVisibleDraftOnPersistedDraft(
-        persistedDraft: ConversationDraft,
-        shouldKeepPendingSentDraft: Boolean,
-    ): DraftEditorState {
-        val visibleDraft = effectiveDraft
-
-        return copy(
-            persistedDraft = persistedDraft,
-            localEdits = createConversationDraftEdits(
-                baseDraft = persistedDraft,
-                targetDraft = visibleDraft,
-            ),
-            isLoaded = true,
-            pendingSentDraft = pendingSentDraft.takeIf { shouldKeepPendingSentDraft },
-        )
-    }
-}
-
-private fun createClearedDraftForSentDraft(
-    sentDraft: ConversationDraft,
-): ConversationDraft {
-    return ConversationDraft(
-        selfParticipantId = sentDraft.selfParticipantId,
-    )
-}
-
-private data class ConversationDraftEdits(
-    val messageText: String? = null,
-    val subjectText: String? = null,
-    val selfParticipantId: String? = null,
-    val attachments: List<ConversationDraftAttachment>? = null,
-) {
-    val hasChanges: Boolean
-        get() {
-            return messageText != null ||
-                subjectText != null ||
-                selfParticipantId != null ||
-                attachments != null
-        }
-
-    fun applyTo(baseDraft: ConversationDraft): ConversationDraft {
-        return baseDraft.copy(
-            messageText = messageText ?: baseDraft.messageText,
-            subjectText = subjectText ?: baseDraft.subjectText,
-            selfParticipantId = selfParticipantId ?: baseDraft.selfParticipantId,
-            attachments = attachments ?: baseDraft.attachments,
-        )
-    }
-
-    fun normalizedAgainst(baseDraft: ConversationDraft): ConversationDraftEdits {
-        return ConversationDraftEdits(
-            messageText = messageText?.takeUnless { value ->
-                value == baseDraft.messageText
-            },
-            subjectText = subjectText?.takeUnless { value ->
-                value == baseDraft.subjectText
-            },
-            selfParticipantId = selfParticipantId?.takeUnless { value ->
-                value == baseDraft.selfParticipantId
-            },
-            attachments = attachments?.takeUnless { value ->
-                value == baseDraft.attachments
-            },
-        )
-    }
-}
-
-private fun createConversationDraftEdits(
-    baseDraft: ConversationDraft,
-    targetDraft: ConversationDraft,
-): ConversationDraftEdits {
-    return ConversationDraftEdits(
-        messageText = targetDraft.messageText.takeUnless { value ->
-            value == baseDraft.messageText
-        },
-        subjectText = targetDraft.subjectText.takeUnless { value ->
-            value == baseDraft.subjectText
-        },
-        selfParticipantId = targetDraft.selfParticipantId.takeUnless { value ->
-            value == baseDraft.selfParticipantId
-        },
-        attachments = targetDraft.attachments.takeUnless { value ->
-            value == baseDraft.attachments
-        },
-    )
-}
-
-private data class DraftSaveRequest(val conversationId: String, val draft: ConversationDraft)
-
-private data class DraftSendRequest(val conversationId: String, val draft: ConversationDraft)
-
-private data class PersistedDraftUpdate(
-    val conversationId: String,
-    val persistedDraft: ConversationDraft,
-)

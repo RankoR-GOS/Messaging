@@ -1,13 +1,16 @@
 package com.android.messaging.ui.conversation.v2.composer.mapper
 
-import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 
 internal interface ConversationComposerUiStateMapper {
     fun map(
-        draft: ConversationDraft,
+        draftState: ConversationDraftState,
         composerAvailability: ConversationComposerAvailability,
     ): ConversationComposerUiState
 }
@@ -16,9 +19,10 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
     ConversationComposerUiStateMapper {
 
     override fun map(
-        draft: ConversationDraft,
+        draftState: ConversationDraftState,
         composerAvailability: ConversationComposerAvailability,
     ): ConversationComposerUiState {
+        val draft = draftState.draft
         val hasWorkingDraft = draft.hasContent
 
         val isAttachmentActionEnabled = composerAvailability.isAttachmentActionEnabled &&
@@ -30,9 +34,11 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
         val isSendEnabled = composerAvailability.isSendAvailable &&
             hasWorkingDraft &&
             !draft.isCheckingDraft &&
-            !draft.isSending
+            !draft.isSending &&
+            draftState.pendingAttachments.isEmpty()
 
         return ConversationComposerUiState(
+            attachments = draftState.toAttachmentUiState(),
             messageText = draft.messageText,
             subjectText = draft.subjectText,
             selfParticipantId = draft.selfParticipantId,
@@ -42,12 +48,37 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
             hasWorkingDraft = hasWorkingDraft,
             isMms = draft.isMms,
             attachmentCount = draft.attachments.size,
-            pendingAttachmentCount = 0,
+            pendingAttachmentCount = draftState.pendingAttachments.size,
             messageCount = draft.messageCount,
             codePointsRemainingInCurrentMessage = draft.codePointsRemainingInCurrentMessage,
             isCheckingDraft = draft.isCheckingDraft,
             isSending = draft.isSending,
             disabledReason = composerAvailability.disabledReason,
         )
+    }
+
+    private fun ConversationDraftState.toAttachmentUiState():
+        ImmutableList<ConversationComposerAttachmentUiState> {
+        val resolvedAttachments = draft.attachments.map { attachment ->
+            ConversationComposerAttachmentUiState.Resolved(
+                key = attachment.contentUri,
+                contentType = attachment.contentType,
+                contentUri = attachment.contentUri,
+                captionText = attachment.captionText,
+                width = attachment.width,
+                height = attachment.height,
+            )
+        }
+
+        val pendingAttachments = pendingAttachments.map { pendingAttachment ->
+            ConversationComposerAttachmentUiState.Pending(
+                key = pendingAttachment.pendingAttachmentId,
+                contentType = pendingAttachment.contentType,
+                contentUri = pendingAttachment.contentUri,
+                displayName = pendingAttachment.displayName,
+            )
+        }
+
+        return (resolvedAttachments + pendingAttachments).toImmutableList()
     }
 }

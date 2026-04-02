@@ -53,7 +53,7 @@ class ConversationDraftDelegateImplTest {
                 harness.conversationIdFlow.value = CONVERSATION_ID
                 advanceUntilIdle()
 
-                assertTrue(harness.delegate.state.value.isCheckingDraft)
+                assertTrue(harness.delegate.state.value.draft.isCheckingDraft)
 
                 repository.emitDraft(
                     conversationId = CONVERSATION_ID,
@@ -63,8 +63,8 @@ class ConversationDraftDelegateImplTest {
                 )
                 advanceUntilIdle()
 
-                assertEquals("Persisted", harness.delegate.state.value.messageText)
-                assertFalse(harness.delegate.state.value.isCheckingDraft)
+                assertEquals("Persisted", harness.delegate.state.value.draft.messageText)
+                assertFalse(harness.delegate.state.value.draft.isCheckingDraft)
             } finally {
                 harness.cancel()
             }
@@ -107,7 +107,7 @@ class ConversationDraftDelegateImplTest {
                 harness.delegate.persistDraft()
                 advanceUntilIdle()
 
-                assertEquals("Hello", harness.delegate.state.value.messageText)
+                assertEquals("Hello", harness.delegate.state.value.draft.messageText)
                 assertTrue(repository.savedDrafts.isEmpty())
 
                 repository.saveFailure = null
@@ -136,8 +136,13 @@ class ConversationDraftDelegateImplTest {
                 harness.conversationIdFlow.value = CONVERSATION_ID
                 advanceUntilIdle()
 
-                assertEquals(ConversationDraft(), harness.delegate.state.value)
-                assertFalse(harness.delegate.state.value.isCheckingDraft)
+                assertEquals(
+                    ConversationDraftState(
+                        draft = ConversationDraft(),
+                    ),
+                    harness.delegate.state.value,
+                )
+                assertFalse(harness.delegate.state.value.draft.isCheckingDraft)
             } finally {
                 harness.cancel()
             }
@@ -166,8 +171,8 @@ class ConversationDraftDelegateImplTest {
 
                 assertEquals(1, repository.savedDrafts.size)
                 assertEquals(CONVERSATION_ID, repository.savedDrafts.single().conversationId)
-                assertTrue(harness.delegate.state.value.isCheckingDraft)
-                assertEquals("", harness.delegate.state.value.messageText)
+                assertTrue(harness.delegate.state.value.draft.isCheckingDraft)
+                assertEquals("", harness.delegate.state.value.draft.messageText)
             } finally {
                 harness.cancel()
             }
@@ -189,8 +194,8 @@ class ConversationDraftDelegateImplTest {
                 harness.delegate.onSendClick()
                 advanceUntilIdle()
 
-                assertFalse(harness.delegate.state.value.isSending)
-                assertEquals("", harness.delegate.state.value.messageText)
+                assertFalse(harness.delegate.state.value.draft.isSending)
+                assertEquals("", harness.delegate.state.value.draft.messageText)
 
                 harness.delegate.onMessageTextChanged(messageText = "Next")
                 advanceTimeBy(300)
@@ -225,8 +230,8 @@ class ConversationDraftDelegateImplTest {
                 harness.delegate.onSendClick()
                 advanceUntilIdle()
 
-                assertFalse(harness.delegate.state.value.isSending)
-                assertEquals("Hello", harness.delegate.state.value.messageText)
+                assertFalse(harness.delegate.state.value.draft.isSending)
+                assertEquals("Hello", harness.delegate.state.value.draft.messageText)
             } finally {
                 harness.cancel()
             }
@@ -254,8 +259,8 @@ class ConversationDraftDelegateImplTest {
                 harness.delegate.onSendClick()
                 advanceUntilIdle()
 
-                assertFalse(harness.delegate.state.value.isSending)
-                assertEquals("Hello", harness.delegate.state.value.messageText)
+                assertFalse(harness.delegate.state.value.draft.isSending)
+                assertEquals("Hello", harness.delegate.state.value.draft.messageText)
             } finally {
                 harness.cancel()
             }
@@ -284,14 +289,14 @@ class ConversationDraftDelegateImplTest {
                 harness.delegate.onMessageTextChanged(messageText = "Hello")
                 harness.delegate.onSendClick()
                 advanceUntilIdle()
-                assertTrue(harness.delegate.state.value.isSending)
+                assertTrue(harness.delegate.state.value.draft.isSending)
 
                 harness.delegate.onMessageTextChanged(messageText = "Next")
                 sendGate.complete(Unit)
                 advanceUntilIdle()
 
-                assertFalse(harness.delegate.state.value.isSending)
-                assertEquals("Next", harness.delegate.state.value.messageText)
+                assertFalse(harness.delegate.state.value.draft.isSending)
+                assertEquals("Next", harness.delegate.state.value.draft.messageText)
 
                 advanceTimeBy(300)
                 advanceUntilIdle()
@@ -323,8 +328,8 @@ class ConversationDraftDelegateImplTest {
                 harness.delegate.onSendClick()
                 advanceUntilIdle()
 
-                assertFalse(harness.delegate.state.value.isSending)
-                assertEquals("Hello", harness.delegate.state.value.messageText)
+                assertFalse(harness.delegate.state.value.draft.isSending)
+                assertEquals("Hello", harness.delegate.state.value.draft.messageText)
             } finally {
                 harness.cancel()
             }
@@ -449,7 +454,10 @@ class ConversationDraftDelegateImplTest {
         }
     }
 
-    private data class SaveDraftCall(val conversationId: String, val draft: ConversationDraft)
+    private data class SaveDraftCall(
+        val conversationId: String,
+        val draft: ConversationDraft,
+    )
 
     private data class DelegateHarness(
         val delegate: ConversationDraftDelegateImpl,
