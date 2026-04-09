@@ -18,13 +18,22 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.height
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_TEXT_FIELD_TEST_TAG
 import com.android.messaging.ui.conversation.v2.conversationShapeSemanticsKey
 import com.android.messaging.ui.core.AppTheme
+import io.mockk.clearAllMocks
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
+import io.mockk.unmockkAll
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -32,6 +41,12 @@ class ConversationComposeBarTest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
+
+    @Before
+    fun setUp() {
+        unmockkAll()
+        clearAllMocks()
+    }
 
     @Test
     fun singleLineInput_keepsTextFieldAndSendButtonHeightsEqual() {
@@ -164,7 +179,7 @@ class ConversationComposeBarTest {
 
     @Test
     fun sendButton_performsHapticFeedbackOnClick() {
-        val hapticFeedback = RecordingHapticFeedback()
+        val hapticFeedback = createHapticFeedbackMock()
 
         composeTestRule.setContent {
             CompositionLocalProvider(LocalHapticFeedback provides hapticFeedback) {
@@ -187,23 +202,72 @@ class ConversationComposeBarTest {
             .performClick()
 
         composeTestRule.runOnIdle {
-            assertEquals(
-                listOf(HapticFeedbackType.ContextClick),
-                hapticFeedback.performedFeedbackTypes,
-            )
+            verify(exactly = 1) {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
+            }
         }
+    }
+
+    @Test
+    fun attachmentButton_performsHapticFeedbackAndCallback() {
+        val hapticFeedback = createHapticFeedbackMock()
+        var attachmentClicks = 0
+
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalHapticFeedback provides hapticFeedback) {
+                AppTheme {
+                    ConversationComposeBar(
+                        messageText = "",
+                        isMessageFieldEnabled = true,
+                        isAttachmentActionEnabled = true,
+                        isSendActionEnabled = false,
+                        onAttachmentClick = {
+                            attachmentClicks += 1
+                        },
+                        onMessageTextChange = {},
+                        onSendClick = {},
+                    )
+                }
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG)
+            .assertIsEnabled()
+            .performClick()
+
+        composeTestRule.runOnIdle {
+            verify(exactly = 1) {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
+            }
+            assertEquals(1, attachmentClicks)
+        }
+    }
+
+    @Test
+    fun attachmentButton_canBeDisabled() {
+        setComposeBarContent(
+            messageText = "",
+            isSendActionEnabled = false,
+            isAttachmentActionEnabled = false,
+        )
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG)
+            .assertIsNotEnabled()
     }
 
     private fun setComposeBarContent(
         messageText: String,
         isSendActionEnabled: Boolean = true,
+        isAttachmentActionEnabled: Boolean = false,
     ) {
         composeTestRule.setContent {
             AppTheme {
                 ConversationComposeBar(
                     messageText = messageText,
                     isMessageFieldEnabled = true,
-                    isAttachmentActionEnabled = false,
+                    isAttachmentActionEnabled = isAttachmentActionEnabled,
                     isSendActionEnabled = isSendActionEnabled,
                     onAttachmentClick = {},
                     onMessageTextChange = {},
@@ -213,11 +277,11 @@ class ConversationComposeBarTest {
         }
     }
 
-    private class RecordingHapticFeedback : HapticFeedback {
-        val performedFeedbackTypes = mutableListOf<HapticFeedbackType>()
-
-        override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
-            performedFeedbackTypes += hapticFeedbackType
-        }
+    private fun createHapticFeedbackMock(): HapticFeedback {
+        val hapticFeedback = mockk<HapticFeedback>()
+        every {
+            hapticFeedback.performHapticFeedback(any())
+        } just runs
+        return hapticFeedback
     }
 }

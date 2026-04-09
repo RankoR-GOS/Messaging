@@ -5,9 +5,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -15,25 +18,31 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.media.model.ConversationMediaItem
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_COMPOSE_BAR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_MEDIA_PICKER_OVERLAY_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_MESSAGES_LIST_TEST_TAG
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.conversationMessageItemTestTag
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
-import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessageUiModel
-import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessagesUiState
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
-import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMediaPickerOverlayUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import com.android.messaging.ui.core.AppTheme
+import io.mockk.clearAllMocks
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.unmockkAll
+import io.mockk.verify
 import kotlinx.collections.immutable.toPersistentList
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -42,11 +51,17 @@ class ConversationScreenTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
+    @Before
+    fun setUp() {
+        unmockkAll()
+        clearAllMocks()
+    }
+
     @Test
     fun loadingState_showsLoadingIndicator() {
-        val screenModel = FakeConversationScreenModel()
+        val screenModel = createScreenModel()
 
-        setScreenContent(screenModel = screenModel)
+        setScreenContent(screenModel = screenModel.model)
 
         composeTestRule
             .onNodeWithTag(CONVERSATION_LOADING_INDICATOR_TEST_TAG)
@@ -55,7 +70,7 @@ class ConversationScreenTest {
 
     @Test
     fun presentState_showsMessagesList() {
-        val screenModel = FakeConversationScreenModel()
+        val screenModel = createScreenModel()
         screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 8,
@@ -64,7 +79,7 @@ class ConversationScreenTest {
             ),
         )
 
-        setScreenContent(screenModel = screenModel)
+        setScreenContent(screenModel = screenModel.model)
 
         composeTestRule
             .onNodeWithTag(CONVERSATION_MESSAGES_LIST_TEST_TAG)
@@ -76,7 +91,7 @@ class ConversationScreenTest {
 
     @Test
     fun stoppingLifecycle_persistsDraft() {
-        val screenModel = FakeConversationScreenModel()
+        val screenModel = createScreenModel()
         lateinit var lifecycleOwner: TestLifecycleOwner
 
         composeTestRule.runOnIdle {
@@ -90,7 +105,7 @@ class ConversationScreenTest {
                 AppTheme {
                     ConversationScreen(
                         conversationId = "conversation-1",
-                        screenModel = screenModel,
+                        screenModel = screenModel.model,
                     )
                 }
             }
@@ -100,12 +115,14 @@ class ConversationScreenTest {
         }
         composeTestRule.waitForIdle()
 
-        assertEquals(1, screenModel.persistDraftCalls)
+        verify(exactly = 1) {
+            screenModel.model.persistDraft()
+        }
     }
 
     @Test
     fun outgoingInsert_scrollsToLatestMessage() {
-        val screenModel = FakeConversationScreenModel()
+        val screenModel = createScreenModel()
         screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 30,
@@ -114,7 +131,7 @@ class ConversationScreenTest {
             ),
         )
 
-        setScreenContent(screenModel = screenModel)
+        setScreenContent(screenModel = screenModel.model)
         composeTestRule
             .onNodeWithTag(CONVERSATION_MESSAGES_LIST_TEST_TAG)
             .performScrollToIndex(index = 20)
@@ -135,7 +152,7 @@ class ConversationScreenTest {
 
     @Test
     fun incomingInsert_doesNotScrollToLatestWhenUserIsAwayFromEnd() {
-        val screenModel = FakeConversationScreenModel()
+        val screenModel = createScreenModel()
         screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
                 count = 30,
@@ -144,7 +161,7 @@ class ConversationScreenTest {
             ),
         )
 
-        setScreenContent(screenModel = screenModel)
+        setScreenContent(screenModel = screenModel.model)
         composeTestRule
             .onNodeWithTag(CONVERSATION_MESSAGES_LIST_TEST_TAG)
             .performScrollToIndex(index = 20)
@@ -165,7 +182,7 @@ class ConversationScreenTest {
 
     @Test
     fun conversationChange_resetsListStateToLatestMessage() {
-        val screenModel = FakeConversationScreenModel()
+        val screenModel = createScreenModel()
         var conversationId by mutableStateOf("conversation-1")
         screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
@@ -180,7 +197,7 @@ class ConversationScreenTest {
             AppTheme {
                 ConversationScreen(
                     conversationId = conversationId,
-                    screenModel = screenModel,
+                    screenModel = screenModel.model,
                 )
             }
         }
@@ -211,7 +228,33 @@ class ConversationScreenTest {
             .assertExists()
     }
 
-    private fun setScreenContent(screenModel: FakeConversationScreenModel) {
+    @Test
+    fun openingMediaPicker_hidesComposerAndShowsOverlay() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 3,
+                latestMessageId = "message-3",
+                latestMessageIncoming = false,
+            ),
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG)
+            .performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_COMPOSE_BAR_TEST_TAG)
+            .assertCountEquals(0)
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_MEDIA_PICKER_OVERLAY_TEST_TAG)
+            .assertCountEquals(1)
+    }
+
+    private fun setScreenContent(screenModel: ConversationScreenModel) {
         composeTestRule.setContent {
             AppTheme {
                 ConversationScreen(
@@ -238,6 +281,7 @@ class ConversationScreenTest {
             ),
             composer = ConversationComposerUiState(
                 isMessageFieldEnabled = true,
+                isAttachmentActionEnabled = true,
                 isSendEnabled = true,
             ),
         )
@@ -276,78 +320,32 @@ class ConversationScreenTest {
         return messages
     }
 
-    private class FakeConversationScreenModel : ConversationScreenModel {
+    private fun createScreenModel(): ScreenModelHandle {
         val effectsFlow = MutableSharedFlow<ConversationScreenEffect>()
         val scaffoldUiStateFlow = MutableStateFlow(ConversationScreenScaffoldUiState())
         val mediaPickerOverlayUiStateFlow = MutableStateFlow(
             ConversationMediaPickerOverlayUiState(),
         )
+        val model = mockk<ConversationScreenModel>(relaxed = true)
 
-        override val effects: Flow<ConversationScreenEffect> = effectsFlow
-        override val scaffoldUiState: StateFlow<ConversationScreenScaffoldUiState> =
-            scaffoldUiStateFlow
-        override val mediaPickerOverlayUiState: StateFlow<ConversationMediaPickerOverlayUiState> =
-            mediaPickerOverlayUiStateFlow
+        every { model.effects } returns effectsFlow
+        every { model.scaffoldUiState } returns scaffoldUiStateFlow
+        every { model.mediaPickerOverlayUiState } returns mediaPickerOverlayUiStateFlow
 
-        val attachmentClicks = mutableListOf<ConversationComposerAttachmentUiState.Resolved>()
-        val galleryConfirmations = mutableListOf<List<ConversationMediaItem>>()
-        val galleryVisibilityChanges = mutableListOf<Boolean>()
-        val capturedMedia = mutableListOf<ConversationCapturedMedia>()
-        val removedPendingAttachmentIds = mutableListOf<String>()
-        val removedResolvedAttachmentUris = mutableListOf<String>()
-        val updatedAttachmentCaptions = mutableListOf<Pair<String, String>>()
-        var persistDraftCalls = 0
-        var sendClicks = 0
-
-        override fun onConversationChanged(conversationId: String?) {
-        }
-
-        override fun onMessageTextChanged(text: String) {
-        }
-
-        override fun onAttachmentClicked(
-            attachment: ConversationComposerAttachmentUiState.Resolved,
-        ) {
-            attachmentClicks += attachment
-        }
-
-        override fun onGalleryMediaConfirmed(mediaItems: List<ConversationMediaItem>) {
-            galleryConfirmations += mediaItems
-        }
-
-        override fun onGalleryVisibilityChanged(isVisible: Boolean) {
-            galleryVisibilityChanges += isVisible
-        }
-
-        override fun onCapturedMediaReady(capturedMedia: ConversationCapturedMedia) {
-            this.capturedMedia += capturedMedia
-        }
-
-        override fun onRemovePendingAttachment(pendingAttachmentId: String) {
-            removedPendingAttachmentIds += pendingAttachmentId
-        }
-
-        override fun onRemoveResolvedAttachment(contentUri: String) {
-            removedResolvedAttachmentUris += contentUri
-        }
-
-        override fun onUpdateAttachmentCaption(
-            contentUri: String,
-            captionText: String,
-        ) {
-            updatedAttachmentCaptions += contentUri to captionText
-        }
-
-        override fun onSendClick() {
-            sendClicks += 1
-        }
-
-        override fun persistDraft() {
-            persistDraftCalls += 1
-        }
+        return ScreenModelHandle(
+            model = model,
+            scaffoldUiStateFlow = scaffoldUiStateFlow,
+        )
     }
 
-    private class TestLifecycleOwner(initialState: Lifecycle.State) : LifecycleOwner {
+    private class ScreenModelHandle(
+        val model: ConversationScreenModel,
+        val scaffoldUiStateFlow: MutableStateFlow<ConversationScreenScaffoldUiState>,
+    )
+
+    private class TestLifecycleOwner(
+        initialState: Lifecycle.State,
+    ) : LifecycleOwner {
         private val lifecycleRegistry = LifecycleRegistry(this)
 
         init {

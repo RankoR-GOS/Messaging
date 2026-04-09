@@ -27,12 +27,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.android.messaging.R
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_PREVIEW_LIST_TEST_TAG
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.conversationAttachmentPreviewItemTestTag
+import com.android.messaging.ui.conversation.v2.conversationAttachmentPreviewRemoveButtonTestTag
 import com.android.messaging.ui.conversation.v2.mediapicker.component.ConversationMediaThumbnail
 import com.android.messaging.ui.core.AppTheme
 import com.android.messaging.util.ContentType
@@ -53,7 +57,7 @@ internal fun ConversationAttachmentPreview(
     }
 
     LazyRow(
-        modifier = modifier,
+        modifier = modifier.testTag(CONVERSATION_ATTACHMENT_PREVIEW_LIST_TEST_TAG),
         contentPadding = PaddingValues(
             start = 12.dp,
             top = 4.dp,
@@ -69,6 +73,7 @@ internal fun ConversationAttachmentPreview(
             when (attachment) {
                 is ConversationComposerAttachmentUiState.Pending -> {
                     PendingAttachmentPreviewItem(
+                        attachmentKey = attachment.key,
                         onRemoveClick = {
                             onPendingAttachmentRemove(attachment.key)
                         },
@@ -78,6 +83,7 @@ internal fun ConversationAttachmentPreview(
                 is ConversationComposerAttachmentUiState.Resolved -> {
                     ResolvedAttachmentPreviewItem(
                         attachment = attachment,
+                        attachmentKey = attachment.key,
                         onAttachmentClick = {
                             onResolvedAttachmentClick(attachment)
                         },
@@ -93,9 +99,11 @@ internal fun ConversationAttachmentPreview(
 
 @Composable
 private fun PendingAttachmentPreviewItem(
+    attachmentKey: String,
     onRemoveClick: () -> Unit,
 ) {
     AttachmentPreviewItemContainer(
+        attachmentKey = attachmentKey,
         onClick = {},
     ) {
         Box(
@@ -116,13 +124,17 @@ private fun PendingAttachmentPreviewItem(
             )
         }
 
-        RemoveAttachmentButton(onClick = onRemoveClick)
+        RemoveAttachmentButton(
+            attachmentKey = attachmentKey,
+            onClick = onRemoveClick,
+        )
     }
 }
 
 @Composable
 private fun ResolvedAttachmentPreviewItem(
     attachment: ConversationComposerAttachmentUiState.Resolved,
+    attachmentKey: String,
     onAttachmentClick: () -> Unit,
     onRemoveClick: () -> Unit,
 ) {
@@ -132,6 +144,7 @@ private fun ResolvedAttachmentPreviewItem(
     )
 
     AttachmentPreviewItemContainer(
+        attachmentKey = attachmentKey,
         onClick = onAttachmentClick,
     ) {
         ConversationMediaThumbnail(
@@ -155,12 +168,16 @@ private fun ResolvedAttachmentPreviewItem(
             }
         }
 
-        RemoveAttachmentButton(onClick = onRemoveClick)
+        RemoveAttachmentButton(
+            attachmentKey = attachmentKey,
+            onClick = onRemoveClick,
+        )
     }
 }
 
 @Composable
 private fun AttachmentPreviewItemContainer(
+    attachmentKey: String,
     onClick: () -> Unit,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -168,7 +185,12 @@ private fun AttachmentPreviewItemContainer(
         modifier = Modifier
             .size(88.dp)
             .clip(RoundedCornerShape(ATTACHMENT_PREVIEW_CORNER_RADIUS))
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .testTag(
+                conversationAttachmentPreviewItemTestTag(
+                    attachmentKey = attachmentKey,
+                ),
+            ),
         shape = RoundedCornerShape(ATTACHMENT_PREVIEW_CORNER_RADIUS),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
@@ -177,12 +199,20 @@ private fun AttachmentPreviewItemContainer(
 }
 
 @Composable
-private fun BoxScope.RemoveAttachmentButton(onClick: () -> Unit) {
+private fun BoxScope.RemoveAttachmentButton(
+    attachmentKey: String,
+    onClick: () -> Unit,
+) {
     FilledIconButton(
         modifier = Modifier
             .align(Alignment.TopEnd)
             .padding(6.dp)
-            .size(28.dp),
+            .size(28.dp)
+            .testTag(
+                conversationAttachmentPreviewRemoveButtonTestTag(
+                    attachmentKey = attachmentKey,
+                ),
+            ),
         onClick = onClick,
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),

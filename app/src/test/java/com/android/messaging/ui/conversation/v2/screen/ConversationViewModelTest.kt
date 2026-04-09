@@ -14,8 +14,8 @@ import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraft
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerUiState
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate
-import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessageUiModel
-import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessagesUiState
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegate
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect

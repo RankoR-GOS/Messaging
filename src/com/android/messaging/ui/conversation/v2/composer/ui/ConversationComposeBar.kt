@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.messaging.R
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_COMPOSE_BAR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_TEST_TAG
@@ -157,6 +158,7 @@ private fun ConversationComposeTextField(
             },
             trailingIcon = {
                 ConversationComposeImageAction(
+                    modifier = Modifier.testTag(CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG),
                     enabled = isAttachmentActionEnabled,
                     onClick = onAttachmentClick,
                 )
@@ -187,12 +189,14 @@ private fun ConversationComposePlaceholder() {
 
 @Composable
 private fun ConversationComposeImageAction(
+    modifier: Modifier = Modifier,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
 
     IconButton(
+        modifier = modifier,
         onClick = {
             hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
             onClick()

@@ -1,7 +1,5 @@
 package com.android.messaging.ui.conversation.v2.messages.ui
 
-import android.content.Context
-import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,14 +26,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.messaging.ui.conversation.v2.CONVERSATION_MESSAGES_LIST_TEST_TAG
 import com.android.messaging.ui.conversation.v2.conversationMessageItemTestTag
-import com.android.messaging.ui.conversation.v2.messages.model.ConversationMessageUiModel
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
+import com.android.messaging.ui.conversation.v2.messages.ui.message.ConversationMessage
+import com.android.messaging.ui.conversation.v2.messages.ui.message.conversationMessageDisplayEpochDay
+import com.android.messaging.ui.conversation.v2.messages.ui.message.formatDateSeparatorText
+import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationAudioPart
+import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationImagePart
+import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationMessage
+import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationTimestamp
+import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationVCardPart
+import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationVideoPart
 import com.android.messaging.ui.core.AppTheme
-import java.time.LocalDate
 import java.util.TimeZone
-
-private const val COMMON_DATE_SEPARATOR_FORMAT_FLAGS = DateUtils.FORMAT_SHOW_WEEKDAY or
-    DateUtils.FORMAT_SHOW_DATE or
-    DateUtils.FORMAT_ABBREV_MONTH
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 private val CONVERSATION_MESSAGES_CONTENT_PADDING = PaddingValues(
     start = 16.dp,
@@ -60,8 +64,10 @@ private enum class ConversationMessagesItemContentType {
 @Composable
 internal fun ConversationMessages(
     modifier: Modifier = Modifier,
-    messages: List<ConversationMessageUiModel>,
+    messages: ImmutableList<ConversationMessageUiModel>,
     listState: LazyListState,
+    onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
+    onExternalUriClick: (String) -> Unit,
 ) {
     val configuration = LocalConfiguration.current
     val displayMessages = remember(messages) {
@@ -97,6 +103,8 @@ internal fun ConversationMessages(
                     messages = displayMessages,
                     index = index,
                 ),
+                onAttachmentClick = onAttachmentClick,
+                onExternalUriClick = onExternalUriClick,
             )
         }
     }
@@ -140,6 +148,8 @@ private fun messageAboveCurrent(
 private fun ConversationMessagesItem(
     message: ConversationMessageUiModel,
     messageAbove: ConversationMessageUiModel?,
+    onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
+    onExternalUriClick: (String) -> Unit,
 ) {
     val presentation = rememberConversationMessagesItemPresentation(
         message = message,
@@ -155,6 +165,8 @@ private fun ConversationMessagesItem(
                 .testTag(conversationMessageItemTestTag(messageId = message.messageId))
                 .padding(top = presentation.topPadding),
             message = message,
+            onAttachmentClick = onAttachmentClick,
+            onExternalUriClick = onExternalUriClick,
         )
     }
 }
@@ -289,38 +301,13 @@ private fun shouldShowDateSeparator(
         displayTimestamp = currentMessage.displayTimestamp,
         timeZone = timeZone,
     ) ?: return false
+
     val messageAboveEpochDay = conversationMessageDisplayEpochDay(
         displayTimestamp = messageAbove.displayTimestamp,
         timeZone = timeZone,
     )
 
     return messageAboveEpochDay != currentEpochDay
-}
-
-private fun formatDateSeparatorText(
-    context: Context,
-    message: ConversationMessageUiModel,
-): String? {
-    val timestamp = message.displayTimestamp
-
-    if (timestamp <= 0L) {
-        return null
-    }
-
-    val isSameYear = conversationMessageDisplayLocalDate(
-        displayTimestamp = timestamp,
-    )?.year == LocalDate.now().year
-
-    val dateTimeFormatFlags = when {
-        isSameYear -> COMMON_DATE_SEPARATOR_FORMAT_FLAGS or DateUtils.FORMAT_NO_YEAR
-        else -> COMMON_DATE_SEPARATOR_FORMAT_FLAGS or DateUtils.FORMAT_SHOW_YEAR
-    }
-
-    return DateUtils.formatDateTime(
-        context,
-        timestamp,
-        dateTimeFormatFlags,
-    )
 }
 
 @Preview(
@@ -333,7 +320,7 @@ private fun ConversationMessagesPreview() {
 
     AppTheme {
         ConversationMessages(
-            messages = listOf(
+            messages = persistentListOf(
                 previewConversationMessage(
                     messageId = "standalone-incoming",
                     text = "Standalone incoming",
@@ -345,7 +332,7 @@ private fun ConversationMessagesPreview() {
                 ),
                 previewConversationMessage(
                     messageId = "pair-top",
-                    text = "Pair top",
+                    text = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
                     isIncoming = true,
                     senderDisplayName = "+15550001234",
                     timestamp = previewConversationTimestamp(dayOffset = 2, hour = 9, minute = 15),
@@ -354,12 +341,20 @@ private fun ConversationMessagesPreview() {
                 ),
                 previewConversationMessage(
                     messageId = "pair-bottom",
-                    text = "Pair bottom",
+                    text = null,
                     isIncoming = true,
                     senderDisplayName = "+15550001234",
                     timestamp = previewConversationTimestamp(dayOffset = 2, hour = 9, minute = 16),
                     canClusterWithPrevious = true,
                     canClusterWithNext = false,
+                    parts = listOf(
+                        previewConversationImagePart(
+                            uniqueId = "pair-bottom-image",
+                            width = 1600,
+                            height = 1200,
+                        ),
+                    ),
+                    protocol = ConversationMessageUiModel.Protocol.MMS,
                 ),
                 previewConversationMessage(
                     messageId = "triplet-top",
@@ -372,21 +367,48 @@ private fun ConversationMessagesPreview() {
                 ),
                 previewConversationMessage(
                     messageId = "triplet-middle",
-                    text = "Triplet middle",
+                    text = null,
                     isIncoming = true,
                     senderDisplayName = "+15550004567",
                     timestamp = previewConversationTimestamp(dayOffset = 1, hour = 18, minute = 11),
                     canClusterWithPrevious = true,
                     canClusterWithNext = true,
+                    parts = listOf(
+                        previewConversationImagePart(
+                            uniqueId = "triplet-middle-image-1",
+                            width = 1400,
+                            height = 1400,
+                        ),
+                        previewConversationImagePart(
+                            uniqueId = "triplet-middle-image-2",
+                            width = 1400,
+                            height = 1400,
+                        ),
+                        previewConversationImagePart(
+                            uniqueId = "triplet-middle-image-3",
+                            width = 1400,
+                            height = 1400,
+                        ),
+                    ),
+                    protocol = ConversationMessageUiModel.Protocol.MMS,
                 ),
                 previewConversationMessage(
                     messageId = "triplet-bottom",
-                    text = "Triplet bottom",
+                    text = null,
                     isIncoming = true,
                     senderDisplayName = "+15550004567",
                     timestamp = previewConversationTimestamp(dayOffset = 1, hour = 18, minute = 12),
                     canClusterWithPrevious = true,
                     canClusterWithNext = false,
+                    parts = listOf(
+                        previewConversationAudioPart(
+                            uniqueId = "triplet-bottom-audio",
+                        ),
+                        previewConversationVCardPart(
+                            uniqueId = "triplet-bottom-vcard",
+                        ),
+                    ),
+                    protocol = ConversationMessageUiModel.Protocol.MMS,
                 ),
                 previewConversationMessage(
                     messageId = "outgoing-standalone",
@@ -399,12 +421,20 @@ private fun ConversationMessagesPreview() {
                 ),
                 previewConversationMessage(
                     messageId = "outgoing-top",
-                    text = "Outgoing pair top",
+                    text = null,
                     isIncoming = false,
                     senderDisplayName = null,
                     timestamp = previewConversationTimestamp(dayOffset = 0, hour = 13, minute = 5),
                     canClusterWithPrevious = false,
                     canClusterWithNext = true,
+                    parts = listOf(
+                        previewConversationVideoPart(
+                            uniqueId = "outgoing-top-video",
+                            width = 1280,
+                            height = 720,
+                        ),
+                    ),
+                    protocol = ConversationMessageUiModel.Protocol.MMS,
                 ),
                 previewConversationMessage(
                     messageId = "outgoing-bottom",
@@ -418,6 +448,8 @@ private fun ConversationMessagesPreview() {
                 ),
             ),
             listState = listState,
+            onAttachmentClick = { _, _ -> },
+            onExternalUriClick = {},
         )
     }
 }
