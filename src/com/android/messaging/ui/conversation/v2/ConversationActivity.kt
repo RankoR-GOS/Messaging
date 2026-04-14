@@ -11,7 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.ui.UIIntents
-import com.android.messaging.ui.conversation.v2.screen.ConversationScreen
+import com.android.messaging.ui.conversation.v2.navigation.ConversationNavGraph
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationLaunchRequest
 import com.android.messaging.ui.conversationlist.ConversationListActivity
 import com.android.messaging.ui.core.AppTheme
@@ -36,9 +36,9 @@ internal class ConversationActivity : ComponentActivity() {
 
         setContent {
             AppTheme {
-                ConversationScreen(
+                ConversationNavGraph(
                     launchRequest = launchRequest,
-                    onNavigateBack = ::finishAfterTransition,
+                    onFinish = ::finishAfterTransition,
                 )
             }
         }

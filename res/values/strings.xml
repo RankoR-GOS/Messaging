@@ -556,6 +556,8 @@
     <string name="numeric_text_keyboard_toggle_button_content_description">Switch between entering text and numbers</string>
     <string name="add_more_participants_button_content_description">Add more participants</string>
     <string name="confrim_participants_button_content_description">Confirm participants</string>
+    <string name="conversation_add_people">Add people</string>
+    <string name="conversation_new_group">New group</string>
     <string name="start_new_conversation">Start new conversation</string>
     <!-- Content description for the checkbox when selecting an item in the gallery -->
     <string name="gallery_checkbox_content_description">Select this item</string>

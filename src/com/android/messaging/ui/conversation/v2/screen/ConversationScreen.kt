@@ -22,10 +22,10 @@ import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
 import com.android.messaging.ui.conversation.v2.composer.ui.ConversationComposerSection
@@ -44,7 +44,7 @@ internal fun ConversationScreen(
     modifier: Modifier = Modifier,
     launchRequest: ConversationLaunchRequest? = null,
     onNavigateBack: () -> Unit = {},
-    screenModel: ConversationScreenModel = viewModel<ConversationViewModel>(),
+    screenModel: ConversationScreenModel = hiltViewModel<ConversationViewModel>(),
 ) {
     val messageFieldFocusRequester = remember {
         FocusRequester()
