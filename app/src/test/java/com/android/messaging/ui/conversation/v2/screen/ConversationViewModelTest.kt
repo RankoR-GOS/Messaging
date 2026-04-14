@@ -4,11 +4,16 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import app.cash.turbine.test
+import com.android.messaging.data.conversation.mapper.ConversationMessageDataDraftMapper
+import com.android.messaging.data.conversation.mapper.ConversationMessageDataDraftMapperImpl
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.datamodel.MessagingContentProvider
+import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
@@ -18,6 +23,7 @@ import com.android.messaging.ui.conversation.v2.messages.model.message.Conversat
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegate
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationLaunchRequest
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import io.mockk.clearAllMocks
@@ -90,7 +96,12 @@ class ConversationViewModelTest {
                 draftDelegate.bindCalls.single().conversationIdFlow.value,
             )
 
-            viewModel.onConversationChanged(conversationId = "conversation-1")
+            viewModel.onLaunchRequest(
+                launchRequest = ConversationLaunchRequest(
+                    launchGeneration = 1,
+                    conversationId = "conversation-1",
+                ),
+            )
             assertEquals(
                 "conversation-1",
                 draftDelegate.bindCalls.single().conversationIdFlow.value,
@@ -182,6 +193,272 @@ class ConversationViewModelTest {
     }
 
     @Test
+    fun onLaunchRequest_seedsDraftAndOpensStartupAttachment() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val draftDelegate = createDraftDelegateMock()
+            val messageDataDraftMapper = mockk<ConversationMessageDataDraftMapper>()
+            val viewModel = createViewModel(
+                draftDelegate = draftDelegate.mock,
+                conversationMessageDataDraftMapper = messageDataDraftMapper,
+            )
+            val draftData = MessageData.createDraftSmsMessage(
+                "conversation-1",
+                "self-1",
+                "Hello",
+            )
+            val mappedDraft = ConversationDraft(
+                messageText = "Hello",
+                selfParticipantId = "self-1",
+            )
+            every {
+                messageDataDraftMapper.map(messageData = draftData)
+            } returns mappedDraft
+
+            viewModel.effects.test {
+                viewModel.onLaunchRequest(
+                    launchRequest = createLaunchRequest(
+                        conversationId = "conversation-1",
+                        launchGeneration = 1,
+                        draftData = draftData,
+                        startupAttachmentUri = "content://media/image/1",
+                        startupAttachmentType = "image/jpeg",
+                    ),
+                )
+                advanceUntilIdle()
+
+                verify(exactly = 1) {
+                    messageDataDraftMapper.map(messageData = draftData)
+                }
+                verify(exactly = 1) {
+                    draftDelegate.mock.seedDraft(
+                        conversationId = "conversation-1",
+                        draft = mappedDraft,
+                    )
+                }
+                assertEquals(
+                    ConversationScreenEffect.OpenAttachmentPreview(
+                        contentType = "image/jpeg",
+                        contentUri = "content://media/image/1",
+                        imageCollectionUri = MessagingContentProvider
+                            .buildConversationImagesUri("conversation-1")
+                            .toString(),
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun onLaunchRequest_sameGenerationSkipsReseedingButStillUpdatesConversationId() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val draftDelegate = createDraftDelegateMock()
+            val messageDataDraftMapper = mockk<ConversationMessageDataDraftMapper>()
+            val viewModel = createViewModel(
+                draftDelegate = draftDelegate.mock,
+                conversationMessageDataDraftMapper = messageDataDraftMapper,
+            )
+            val firstDraftData = MessageData.createDraftSmsMessage(
+                "conversation-1",
+                "self-1",
+                "First",
+            )
+            val secondDraftData = MessageData.createDraftSmsMessage(
+                "conversation-2",
+                "self-2",
+                "Second",
+            )
+            every {
+                messageDataDraftMapper.map(messageData = firstDraftData)
+            } returns ConversationDraft(
+                messageText = "First",
+                selfParticipantId = "self-1",
+            )
+
+            viewModel.effects.test {
+                viewModel.onLaunchRequest(
+                    launchRequest = createLaunchRequest(
+                        conversationId = "conversation-1",
+                        launchGeneration = 1,
+                        draftData = firstDraftData,
+                        startupAttachmentUri = "content://media/image/1",
+                        startupAttachmentType = "image/jpeg",
+                    ),
+                )
+                advanceUntilIdle()
+                awaitItem()
+
+                viewModel.onLaunchRequest(
+                    launchRequest = createLaunchRequest(
+                        conversationId = "conversation-2",
+                        launchGeneration = 1,
+                        draftData = secondDraftData,
+                        startupAttachmentUri = "content://media/image/2",
+                        startupAttachmentType = "image/png",
+                    ),
+                )
+                advanceUntilIdle()
+
+                assertEquals(
+                    "conversation-2",
+                    draftDelegate.bindCalls.single().conversationIdFlow.value,
+                )
+                verify(exactly = 1) {
+                    messageDataDraftMapper.map(messageData = any())
+                }
+                verify(exactly = 1) {
+                    draftDelegate.mock.seedDraft(
+                        conversationId = any(),
+                        draft = any(),
+                    )
+                }
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun onLaunchRequest_withoutConversationIdSkipsDraftSeedAndUsesNullImageCollection() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val draftDelegate = createDraftDelegateMock()
+            val messageDataDraftMapper = mockk<ConversationMessageDataDraftMapper>()
+            val viewModel = createViewModel(
+                draftDelegate = draftDelegate.mock,
+                conversationMessageDataDraftMapper = messageDataDraftMapper,
+            )
+            val draftData = MessageData.createDraftSmsMessage(
+                "conversation-1",
+                "self-1",
+                "Hello",
+            )
+
+            viewModel.effects.test {
+                viewModel.onLaunchRequest(
+                    launchRequest = createLaunchRequest(
+                        conversationId = null,
+                        launchGeneration = 1,
+                        draftData = draftData,
+                        startupAttachmentUri = "content://media/image/1",
+                        startupAttachmentType = "image/jpeg",
+                    ),
+                )
+                advanceUntilIdle()
+
+                verify(exactly = 0) {
+                    messageDataDraftMapper.map(messageData = any())
+                }
+                verify(exactly = 0) {
+                    draftDelegate.mock.seedDraft(
+                        conversationId = any(),
+                        draft = any(),
+                    )
+                }
+                assertEquals(
+                    ConversationScreenEffect.OpenAttachmentPreview(
+                        contentType = "image/jpeg",
+                        contentUri = "content://media/image/1",
+                        imageCollectionUri = null,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun onLaunchRequest_requiresBothStartupAttachmentFields() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+
+            viewModel.effects.test {
+                viewModel.onLaunchRequest(
+                    launchRequest = createLaunchRequest(
+                        conversationId = "conversation-1",
+                        launchGeneration = 1,
+                        startupAttachmentUri = "content://media/image/1",
+                        startupAttachmentType = null,
+                    ),
+                )
+                advanceUntilIdle()
+                expectNoEvents()
+
+                viewModel.onLaunchRequest(
+                    launchRequest = createLaunchRequest(
+                        conversationId = "conversation-1",
+                        launchGeneration = 2,
+                        startupAttachmentUri = null,
+                        startupAttachmentType = "image/jpeg",
+                    ),
+                )
+                advanceUntilIdle()
+                expectNoEvents()
+
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun attachmentPreviewEvents_useDraftAndConversationImageCollections() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val draftDelegate = createDraftDelegateMock()
+            val viewModel = createViewModel(
+                draftDelegate = draftDelegate.mock,
+            )
+            viewModel.onLaunchRequest(
+                launchRequest = createLaunchRequest(
+                    conversationId = "conversation-1",
+                    launchGeneration = 1,
+                ),
+            )
+
+            viewModel.effects.test {
+                viewModel.onAttachmentClicked(
+                    attachment = ConversationComposerAttachmentUiState.Resolved(
+                        key = "attachment-1",
+                        contentType = "image/jpeg",
+                        contentUri = "content://media/image/1",
+                        captionText = "",
+                        width = 640,
+                        height = 480,
+                    ),
+                )
+                advanceUntilIdle()
+                assertEquals(
+                    ConversationScreenEffect.OpenAttachmentPreview(
+                        contentType = "image/jpeg",
+                        contentUri = "content://media/image/1",
+                        imageCollectionUri = MessagingContentProvider
+                            .buildDraftImagesUri("conversation-1")
+                            .toString(),
+                    ),
+                    awaitItem(),
+                )
+
+                viewModel.onMessageAttachmentClicked(
+                    contentType = "image/png",
+                    contentUri = "content://media/image/2",
+                )
+                advanceUntilIdle()
+                assertEquals(
+                    ConversationScreenEffect.OpenAttachmentPreview(
+                        contentType = "image/png",
+                        contentUri = "content://media/image/2",
+                        imageCollectionUri = MessagingContentProvider
+                            .buildConversationImagesUri("conversation-1")
+                            .toString(),
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
     fun eventMethods_forwardToDelegates() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
@@ -229,6 +506,8 @@ class ConversationViewModelTest {
     private fun createViewModel(
         draftDelegate: ConversationDraftDelegate = createDraftDelegateMock().mock,
         messagesDelegate: ConversationMessagesDelegate = createMessagesDelegateMock().mock,
+        conversationMessageDataDraftMapper: ConversationMessageDataDraftMapper =
+            ConversationMessageDataDraftMapperImpl(),
         mediaPickerDelegate: ConversationMediaPickerDelegate = createMediaPickerDelegateMock().mock,
         metadataDelegate: ConversationMetadataDelegate = createMetadataDelegateMock().mock,
         composerUiStateMapper: ConversationComposerUiStateMapper =
@@ -237,6 +516,7 @@ class ConversationViewModelTest {
         return ConversationViewModel(
             conversationDraftDelegate = draftDelegate,
             conversationMessagesDelegate = messagesDelegate,
+            conversationMessageDataDraftMapper = conversationMessageDataDraftMapper,
             conversationMediaPickerDelegate = mediaPickerDelegate,
             conversationMetadataDelegate = metadataDelegate,
             conversationComposerUiStateMapper = composerUiStateMapper,
@@ -249,6 +529,8 @@ class ConversationViewModelTest {
         viewModelStore: ViewModelStore,
         draftDelegate: ConversationDraftDelegate = createDraftDelegateMock().mock,
         messagesDelegate: ConversationMessagesDelegate = createMessagesDelegateMock().mock,
+        conversationMessageDataDraftMapper: ConversationMessageDataDraftMapper =
+            ConversationMessageDataDraftMapperImpl(),
         mediaPickerDelegate: ConversationMediaPickerDelegate = createMediaPickerDelegateMock().mock,
         metadataDelegate: ConversationMetadataDelegate = createMetadataDelegateMock().mock,
         composerUiStateMapper: ConversationComposerUiStateMapper =
@@ -262,6 +544,7 @@ class ConversationViewModelTest {
                     return createViewModel(
                         draftDelegate = draftDelegate,
                         messagesDelegate = messagesDelegate,
+                        conversationMessageDataDraftMapper = conversationMessageDataDraftMapper,
                         mediaPickerDelegate = mediaPickerDelegate,
                         metadataDelegate = metadataDelegate,
                         composerUiStateMapper = composerUiStateMapper,
@@ -416,6 +699,22 @@ class ConversationViewModelTest {
             canClusterWithNext = false,
             mmsSubject = null,
             protocol = ConversationMessageUiModel.Protocol.SMS,
+        )
+    }
+
+    private fun createLaunchRequest(
+        conversationId: String?,
+        launchGeneration: Int,
+        draftData: MessageData? = null,
+        startupAttachmentUri: String? = null,
+        startupAttachmentType: String? = null,
+    ): ConversationLaunchRequest {
+        return ConversationLaunchRequest(
+            launchGeneration = launchGeneration,
+            conversationId = conversationId,
+            draftData = draftData,
+            startupAttachmentUri = startupAttachmentUri,
+            startupAttachmentType = startupAttachmentType,
         )
     }
 }
