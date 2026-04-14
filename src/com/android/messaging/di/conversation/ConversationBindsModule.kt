@@ -2,6 +2,8 @@ package com.android.messaging.di.conversation
 
 import com.android.messaging.data.conversation.mapper.ConversationDraftMessageDataMapper
 import com.android.messaging.data.conversation.mapper.ConversationDraftMessageDataMapperImpl
+import com.android.messaging.data.conversation.mapper.ConversationMessageDataDraftMapper
+import com.android.messaging.data.conversation.mapper.ConversationMessageDataDraftMapperImpl
 import com.android.messaging.data.conversation.repository.ConversationDraftStore
 import com.android.messaging.data.conversation.repository.ConversationDraftStoreImpl
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepository
@@ -37,6 +39,12 @@ internal abstract class ConversationBindsModule {
     abstract fun bindConversationDraftMessageDataMapper(
         impl: ConversationDraftMessageDataMapperImpl,
     ): ConversationDraftMessageDataMapper
+
+    @Binds
+    @Reusable
+    abstract fun bindConversationMessageDataDraftMapper(
+        impl: ConversationMessageDataDraftMapperImpl,
+    ): ConversationMessageDataDraftMapper
 
     @Binds
     @Reusable

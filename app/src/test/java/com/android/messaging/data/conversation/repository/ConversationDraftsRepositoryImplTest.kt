@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.database.ContentObserver
 import app.cash.turbine.test
 import com.android.messaging.data.conversation.mapper.ConversationDraftMessageDataMapperImpl
+import com.android.messaging.data.conversation.mapper.ConversationMessageDataDraftMapperImpl
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.datamodel.data.MessageData
@@ -276,6 +277,7 @@ class ConversationDraftsRepositoryImplTest {
         return ConversationDraftsRepositoryImpl(
             contentResolver = contentResolver,
             conversationDraftMessageDataMapper = ConversationDraftMessageDataMapperImpl(),
+            conversationMessageDataDraftMapper = ConversationMessageDataDraftMapperImpl(),
             conversationDraftStore = conversationDraftStore,
             conversationMetadataNotifier = conversationMetadataNotifier,
             ioDispatcher = UnconfinedTestDispatcher(),
