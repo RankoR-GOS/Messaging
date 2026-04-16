@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,7 +20,7 @@ internal class ConversationActivityRecipientPickerTest {
     val composeTestRule = createAndroidComposeRule<ConversationActivity>()
 
     @Test
-    fun createGroupAction_navigatesToRecipientPickerScreen() {
+    fun createGroupAction_keepsUserOnNewChatScreenAndShowsInlineSelectionMode() {
         composeTestRule
             .onNodeWithText(
                 composeTestRule.activity.getString(R.string.conversation_new_group),
@@ -30,10 +31,22 @@ internal class ConversationActivityRecipientPickerTest {
             .onAllNodesWithText(
                 composeTestRule.activity.getString(R.string.start_new_conversation),
             )
-            .assertCountEquals(0)
+            .assertCountEquals(expectedSize = 0)
         composeTestRule
             .onNodeWithText(
                 composeTestRule.activity.getString(R.string.conversation_new_group),
+            )
+            .assertIsDisplayed()
+
+        composeTestRule
+            .onNodeWithContentDescription(
+                composeTestRule.activity.getString(R.string.back),
+            )
+            .performClick()
+
+        composeTestRule
+            .onNodeWithText(
+                composeTestRule.activity.getString(R.string.start_new_conversation),
             )
             .assertIsDisplayed()
     }

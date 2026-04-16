@@ -6,13 +6,13 @@ import com.android.messaging.R
 import com.android.messaging.data.conversation.mapper.ConversationMessageDataDraftMapper
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.datamodel.data.MessageData
+import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceeded
 import com.android.messaging.domain.conversation.usecase.ResolveConversationId
 import com.android.messaging.domain.conversation.usecase.model.ResolveConversationIdResult
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryEffect
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryLaunchRequest
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
-import com.android.messaging.ui.conversation.v2.navigation.RecipientPickerMode
 import io.mockk.clearAllMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -42,6 +42,7 @@ class ConversationEntryViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private lateinit var conversationMessageDataDraftMapper: ConversationMessageDataDraftMapper
+    private lateinit var isConversationRecipientLimitExceeded: IsConversationRecipientLimitExceeded
     private lateinit var resolveConversationId: ResolveConversationId
 
     @Before
@@ -49,7 +50,11 @@ class ConversationEntryViewModelTest {
         unmockkAll()
         clearAllMocks()
         conversationMessageDataDraftMapper = mockk()
+        isConversationRecipientLimitExceeded = mockk()
         resolveConversationId = mockk()
+        every {
+            isConversationRecipientLimitExceeded.invoke(participantCount = any())
+        } returns false
     }
 
     @Test
@@ -58,17 +63,13 @@ class ConversationEntryViewModelTest {
     ) {
         val viewModel = createViewModel()
 
-        viewModel.effects.test {
-            viewModel.onCreateGroupRequested()
+        viewModel.onCreateGroupRequested()
 
-            assertEquals(
-                ConversationEntryEffect.NavigateToRecipientPicker(
-                    mode = RecipientPickerMode.CREATE_GROUP,
-                ),
-                awaitItem(),
-            )
-            cancelAndIgnoreRemainingEvents()
-        }
+        assertEquals(true, viewModel.uiState.value.isCreatingGroup)
+        assertEquals(
+            emptyList<String>(),
+            viewModel.uiState.value.selectedGroupRecipientDestinations,
+        )
     }
 
     @Test
@@ -85,26 +86,115 @@ class ConversationEntryViewModelTest {
         }
         val viewModel = createViewModel()
 
+        viewModel.onNewChatRecipientSelected(destination = "+1 555 0100")
+        runCurrent()
+        viewModel.onCreateGroupRequested()
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.isCreatingGroup)
+        assertEquals(false, viewModel.uiState.value.isResolvingConversation)
+        assertEquals(
+            false,
+            viewModel.uiState.value.isResolvingConversationIndicatorVisible,
+        )
+        assertNull(viewModel.uiState.value.resolvingRecipientDestination)
+    }
+
+    @Test
+    fun onCreateGroupCanceled_exitsInlineModeAndClearsSelections() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        val viewModel = createViewModel()
+
+        viewModel.onCreateGroupRequested()
+        viewModel.onCreateGroupRecipientClicked(destination = "+1 555 0100")
+        viewModel.onCreateGroupCanceled()
+
+        assertEquals(false, viewModel.uiState.value.isCreatingGroup)
+        assertEquals(
+            emptyList<String>(),
+            viewModel.uiState.value.selectedGroupRecipientDestinations,
+        )
+    }
+
+    @Test
+    fun onCreateGroupRecipientClicked_togglesSelection() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        val viewModel = createViewModel()
+
+        viewModel.onCreateGroupRequested()
+        viewModel.onCreateGroupRecipientClicked(destination = "+1 555 0100")
+        viewModel.onCreateGroupRecipientClicked(destination = "+1 555 0101")
+
+        assertEquals(
+            listOf("+1 555 0100", "+1 555 0101"),
+            viewModel.uiState.value.selectedGroupRecipientDestinations,
+        )
+
+        viewModel.onCreateGroupRecipientClicked(destination = "+1 555 0100")
+
+        assertEquals(
+            listOf("+1 555 0101"),
+            viewModel.uiState.value.selectedGroupRecipientDestinations,
+        )
+    }
+
+    @Test
+    fun onCreateGroupConfirmed_resolvesSelectedRecipientsAndNavigates() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        coEvery {
+            resolveConversationId.invoke(
+                destinations = listOf("+1 555 0100", "+1 555 0101"),
+            )
+        } returns ResolveConversationIdResult.Resolved(
+            conversationId = "conversation-group",
+        )
+        val viewModel = createViewModel()
+
         viewModel.effects.test {
-            viewModel.onNewChatRecipientSelected(destination = "+1 555 0100")
-            runCurrent()
             viewModel.onCreateGroupRequested()
+            viewModel.onCreateGroupRecipientClicked(destination = "+1 555 0100")
+            viewModel.onCreateGroupRecipientClicked(destination = "+1 555 0101")
+            viewModel.onCreateGroupConfirmed()
             advanceUntilIdle()
 
             assertEquals(
-                ConversationEntryEffect.NavigateToRecipientPicker(
-                    mode = RecipientPickerMode.CREATE_GROUP,
+                ConversationEntryEffect.NavigateToConversation(
+                    conversationId = "conversation-group",
                 ),
                 awaitItem(),
             )
-            assertEquals(false, viewModel.uiState.value.isResolvingConversation)
+            assertEquals(false, viewModel.uiState.value.isCreatingGroup)
             assertEquals(
-                false,
-                viewModel.uiState.value.isResolvingConversationIndicatorVisible,
+                emptyList<String>(),
+                viewModel.uiState.value.selectedGroupRecipientDestinations,
             )
-            assertNull(viewModel.uiState.value.resolvingRecipientDestination)
             cancelAndIgnoreRemainingEvents()
         }
+
+        coVerify(exactly = 1) {
+            resolveConversationId.invoke(
+                destinations = listOf("+1 555 0100", "+1 555 0101"),
+            )
+        }
+    }
+
+    @Test
+    fun onNewChatRecipientLongPressed_entersCreateGroupModeWithSelectedRecipient() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        val viewModel = createViewModel()
+
+        viewModel.onNewChatRecipientLongPressed(destination = "+1 555 0100")
+
+        assertEquals(true, viewModel.uiState.value.isCreatingGroup)
+        assertEquals(
+            listOf("+1 555 0100"),
+            viewModel.uiState.value.selectedGroupRecipientDestinations,
+        )
+        assertEquals(false, viewModel.uiState.value.isResolvingConversation)
     }
 
     @Test
@@ -205,10 +295,15 @@ class ConversationEntryViewModelTest {
             mapOf(
                 LAUNCH_GENERATION_KEY to 5,
                 CONVERSATION_ID_KEY to "conversation-2",
+                IS_CREATING_GROUP_KEY to true,
                 LEGACY_IS_RESOLVING_CONVERSATION_KEY to true,
                 PENDING_DRAFT_DATA_KEY to draftData,
                 PENDING_STARTUP_ATTACHMENT_URI_KEY to "content://media/image/2",
                 PENDING_STARTUP_ATTACHMENT_TYPE_KEY to "image/png",
+                SELECTED_GROUP_RECIPIENT_DESTINATIONS_KEY to arrayListOf(
+                    "+1 555 0100",
+                    "+1 555 0101",
+                ),
             ),
         )
 
@@ -216,6 +311,7 @@ class ConversationEntryViewModelTest {
 
         assertEquals(5, viewModel.uiState.value.launchGeneration)
         assertEquals("conversation-2", viewModel.uiState.value.conversationId)
+        assertEquals(true, viewModel.uiState.value.isCreatingGroup)
         assertEquals(false, viewModel.uiState.value.isResolvingConversation)
         assertEquals(
             false,
@@ -228,6 +324,10 @@ class ConversationEntryViewModelTest {
                 contentUri = "content://media/image/2",
             ),
             viewModel.uiState.value.pendingStartupAttachment,
+        )
+        assertEquals(
+            listOf("+1 555 0100", "+1 555 0101"),
+            viewModel.uiState.value.selectedGroupRecipientDestinations,
         )
         assertNull(viewModel.uiState.value.resolvingRecipientDestination)
         verify(exactly = 1) {
@@ -432,6 +532,25 @@ class ConversationEntryViewModelTest {
     }
 
     @Test
+    fun onNewChatRecipientSelected_ignoresSelectionWhileCreatingGroup() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        val viewModel = createViewModel()
+
+        viewModel.onCreateGroupRequested()
+        viewModel.onNewChatRecipientSelected(destination = "+1 555 0100")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) {
+            resolveConversationId.invoke(
+                destinations = any(),
+            )
+        }
+        assertEquals(true, viewModel.uiState.value.isCreatingGroup)
+        assertEquals(false, viewModel.uiState.value.isResolvingConversation)
+    }
+
+    @Test
     fun onDraftPayloadConsumed_clearsOnlyMatchingConversationDraft() = runTest(
         context = mainDispatcherRule.testDispatcher,
     ) {
@@ -506,6 +625,7 @@ class ConversationEntryViewModelTest {
     ): ConversationEntryViewModel {
         return ConversationEntryViewModel(
             conversationMessageDataDraftMapper = conversationMessageDataDraftMapper,
+            isConversationRecipientLimitExceeded = isConversationRecipientLimitExceeded,
             resolveConversationId = resolveConversationId,
             savedStateHandle = savedStateHandle,
             mainDispatcher = mainDispatcherRule.testDispatcher,
@@ -514,11 +634,14 @@ class ConversationEntryViewModelTest {
 
     private companion object {
         private const val CONVERSATION_ID_KEY = "conversation_id"
+        private const val IS_CREATING_GROUP_KEY = "is_creating_group"
         private const val LEGACY_IS_RESOLVING_CONVERSATION_KEY = "is_resolving_conversation"
         private const val LAUNCH_GENERATION_KEY = "launch_generation"
         private const val PENDING_DRAFT_DATA_KEY = "pending_draft_data"
         private const val PENDING_STARTUP_ATTACHMENT_TYPE_KEY = "pending_startup_attachment_type"
         private const val PENDING_STARTUP_ATTACHMENT_URI_KEY = "pending_startup_attachment_uri"
         private const val PROCESSED_LAUNCH_GENERATION_KEY = "processed_launch_generation"
+        private const val SELECTED_GROUP_RECIPIENT_DESTINATIONS_KEY =
+            "selected_group_recipient_destinations"
     }
 }
