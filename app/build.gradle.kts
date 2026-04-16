@@ -114,6 +114,14 @@ android {
             applicationIdSuffix = ".debug"
             resValue("string", "app_name", "Messaging d")
         }
+
+        create("perf") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            matchingFallbacks += listOf("release")
+            resValue("string", "app_name", "Messaging d")
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     lint {
