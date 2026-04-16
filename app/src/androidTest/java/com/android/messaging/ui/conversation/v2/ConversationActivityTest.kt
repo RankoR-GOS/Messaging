@@ -8,7 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.ui.UIIntents
-import com.android.messaging.ui.conversation.v2.screen.model.ConversationLaunchRequest
+import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryLaunchRequest
 import com.android.messaging.ui.conversationlist.ConversationListActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -90,7 +90,7 @@ class ConversationActivityTest {
                 )
 
                 assertEquals(
-                    ConversationLaunchRequest(
+                    ConversationEntryLaunchRequest(
                         launchGeneration = 1,
                         conversationId = "conversation-2",
                     ),
@@ -139,11 +139,10 @@ class ConversationActivityTest {
         }
     }
 
-    private fun ConversationActivity.getLaunchRequest(): ConversationLaunchRequest? {
+    private fun ConversationActivity.getLaunchRequest(): ConversationEntryLaunchRequest? {
         val method = ConversationActivity::class.java.getDeclaredMethod("getLaunchRequest")
         method.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        return method.invoke(this) as ConversationLaunchRequest?
+        return method.invoke(this) as ConversationEntryLaunchRequest?
     }
 
     private fun ConversationActivity.invokeOnNewIntent(intent: Intent) {

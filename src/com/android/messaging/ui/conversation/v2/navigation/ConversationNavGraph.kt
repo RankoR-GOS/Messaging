@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +35,9 @@ internal fun ConversationNavGraph(
 ) {
     val entryUiState by entryModel.uiState.collectAsStateWithLifecycle()
     val backStack = rememberNavBackStack(initialNavKey(launchRequest = launchRequest))
+    val latestEntryModel = rememberUpdatedState(newValue = entryModel)
+    val latestEntryUiState = rememberUpdatedState(newValue = entryUiState)
+    val latestOnFinish = rememberUpdatedState(newValue = onFinish)
 
     val entryDecorators = listOf(
         rememberSaveableStateHolderNavEntryDecorator(),
@@ -41,35 +45,38 @@ internal fun ConversationNavGraph(
     )
 
     val entryProvider = remember(
-        entryUiState,
-        onFinish,
+        backStack,
     ) {
         entryProvider {
             entry<ConversationNavKey> { navKey ->
+                val currentEntryUiState = latestEntryUiState.value
+                val currentEntryModel = latestEntryModel.value
+                val currentOnFinish = latestOnFinish.value
+
                 ConversationScreen(
                     conversationId = navKey.conversationId,
-                    launchGeneration = entryUiState.launchGeneration,
+                    launchGeneration = currentEntryUiState.launchGeneration,
                     onNavigateBack = {
                         popBackStackOrFinish(
                             backStack = backStack,
-                            onFinish = onFinish,
+                            onFinish = currentOnFinish,
                         )
                     },
                     pendingDraft = pendingDraftForConversation(
-                        entryUiState = entryUiState,
+                        entryUiState = currentEntryUiState,
                         conversationId = navKey.conversationId,
                     ),
                     pendingStartupAttachment = pendingStartupAttachmentForConversation(
-                        entryUiState = entryUiState,
+                        entryUiState = currentEntryUiState,
                         conversationId = navKey.conversationId,
                     ),
                     onPendingDraftConsumed = {
-                        entryModel.onDraftPayloadConsumed(
+                        currentEntryModel.onDraftPayloadConsumed(
                             conversationId = navKey.conversationId,
                         )
                     },
                     onPendingStartupAttachmentConsumed = {
-                        entryModel.onStartupAttachmentConsumed(
+                        currentEntryModel.onStartupAttachmentConsumed(
                             conversationId = navKey.conversationId,
                         )
                     },
@@ -77,7 +84,19 @@ internal fun ConversationNavGraph(
             }
 
             entry<NewChatNavKey> {
-                NewChatScreen()
+                val currentEntryUiState = latestEntryUiState.value
+                val currentEntryModel = latestEntryModel.value
+
+                NewChatScreen(
+                    isResolvingConversation = currentEntryUiState.isResolvingConversation,
+                    isResolvingConversationIndicatorVisible = currentEntryUiState
+                        .isResolvingConversationIndicatorVisible,
+                    onContactClick = currentEntryModel::onNewChatRecipientSelected,
+                    onCreateGroupClick = currentEntryModel::onCreateGroupRequested,
+                    onNavigateBack = currentEntryModel::navigateBack,
+                    resolvingRecipientDestination = currentEntryUiState
+                        .resolvingRecipientDestination,
+                )
             }
 
             entry<RecipientPickerNavKey> { navKey ->
@@ -195,6 +214,13 @@ private fun handleEntryEffect(
             )
         }
 
+        is ConversationEntryEffect.NavigateToRecipientPicker -> {
+            navigateToRecipientPicker(
+                backStack = backStack,
+                mode = effect.mode,
+            )
+        }
+
         is ConversationEntryEffect.ShowMessage -> {
             UiUtils.showToastAtBottom(effect.messageResId)
         }
@@ -206,6 +232,15 @@ private fun navigateToConversation(
     conversationId: String,
 ) {
     ConversationNavKey(conversationId = conversationId)
+        .takeIf { it != backStack.lastOrNull() }
+        ?.let(backStack::add)
+}
+
+private fun navigateToRecipientPicker(
+    backStack: MutableList<NavKey>,
+    mode: RecipientPickerMode,
+) {
+    RecipientPickerNavKey(mode = mode)
         .takeIf { it != backStack.lastOrNull() }
         ?.let(backStack::add)
 }

@@ -317,6 +317,11 @@
     <!-- Hint text on the audio recorder that instructs user how to start recording -->
     <string name="audio_picker_hint_text">Tap &amp; hold</string>
 
+    <!-- Prefix label shown before the new chat recipient search field. -->
+    <string name="new_chat_recipient_prefix">To:</string>
+    <!-- Placeholder text shown in the new chat recipient search field. -->
+    <string name="new_chat_query_hint">Type name or phone number</string>
+
     <!-- An enumeration comma for separating multiple names in notifications. [CHAR LIMIT=2] -->
     <string name="enumeration_comma">,\u0020</string>
     <!-- Separator between parts of a notification in each line of an inboxStyle notification. [CHAR LIMIT=2] -->

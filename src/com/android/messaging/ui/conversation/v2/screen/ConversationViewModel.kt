@@ -20,6 +20,7 @@ import com.android.messaging.ui.conversation.v2.screen.model.ConversationMediaPi
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,7 +30,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 internal interface ConversationScreenModel {
     val effects: Flow<ConversationScreenEffect>

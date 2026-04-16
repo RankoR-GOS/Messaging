@@ -16,6 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_COMPOSE_BAR_TEST_TAG
@@ -24,10 +25,10 @@ import com.android.messaging.ui.conversation.v2.CONVERSATION_MEDIA_PICKER_OVERLA
 import com.android.messaging.ui.conversation.v2.CONVERSATION_MESSAGES_LIST_TEST_TAG
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.conversationMessageItemTestTag
+import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
-import com.android.messaging.ui.conversation.v2.screen.model.ConversationLaunchRequest
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMediaPickerOverlayUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
@@ -102,7 +103,8 @@ class ConversationScreenTest {
             CompositionLocalProvider(LocalLifecycleOwner provides lifecycleOwner) {
                 AppTheme {
                     ConversationScreen(
-                        launchRequest = createLaunchRequest(conversationId = "conversation-1"),
+                        conversationId = "conversation-1",
+                        launchGeneration = 1,
                         screenModel = screenModel.model,
                     )
                 }
@@ -116,6 +118,54 @@ class ConversationScreenTest {
         verify(exactly = 1) {
             screenModel.model.persistDraft()
         }
+    }
+
+    @Test
+    fun pendingLaunchPayloads_seedDraftOpenAttachmentAndNotifyConsumption() {
+        val screenModel = createScreenModel()
+        var draftConsumedCount = 0
+        var attachmentConsumedCount = 0
+        val pendingDraft = ConversationDraft(
+            messageText = "Hello",
+        )
+        val pendingAttachment = ConversationEntryStartupAttachment(
+            contentType = "image/jpeg",
+            contentUri = "content://media/image/1",
+        )
+
+        composeTestRule.setContent {
+            AppTheme {
+                ConversationScreen(
+                    conversationId = "conversation-1",
+                    launchGeneration = 1,
+                    pendingDraft = pendingDraft,
+                    pendingStartupAttachment = pendingAttachment,
+                    onPendingDraftConsumed = {
+                        draftConsumedCount += 1
+                    },
+                    onPendingStartupAttachmentConsumed = {
+                        attachmentConsumedCount += 1
+                    },
+                    screenModel = screenModel.model,
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        verify(exactly = 1) {
+            screenModel.model.onSeedDraft(
+                conversationId = "conversation-1",
+                draft = pendingDraft,
+            )
+        }
+        verify(exactly = 1) {
+            screenModel.model.onOpenStartupAttachment(
+                conversationId = "conversation-1",
+                startupAttachment = pendingAttachment,
+            )
+        }
+        org.junit.Assert.assertEquals(1, draftConsumedCount)
+        org.junit.Assert.assertEquals(1, attachmentConsumedCount)
     }
 
     @Test
@@ -181,8 +231,11 @@ class ConversationScreenTest {
     @Test
     fun conversationChange_resetsListStateToLatestMessage() {
         val screenModel = createScreenModel()
-        var launchRequest by mutableStateOf(
-            createLaunchRequest(conversationId = "conversation-1"),
+        var conversationState by mutableStateOf(
+            Pair(
+                "conversation-1",
+                1,
+            ),
         )
         screenModel.scaffoldUiStateFlow.value = createPresentUiState(
             messages = createMessages(
@@ -196,7 +249,8 @@ class ConversationScreenTest {
         composeTestRule.setContent {
             AppTheme {
                 ConversationScreen(
-                    launchRequest = launchRequest,
+                    conversationId = conversationState.first,
+                    launchGeneration = conversationState.second,
                     screenModel = screenModel.model,
                 )
             }
@@ -211,9 +265,9 @@ class ConversationScreenTest {
             .assertDoesNotExist()
 
         composeTestRule.runOnIdle {
-            launchRequest = createLaunchRequest(
-                conversationId = "conversation-2",
-                launchGeneration = 2,
+            conversationState = Pair(
+                "conversation-2",
+                2,
             )
             screenModel.scaffoldUiStateFlow.value = createPresentUiState(
                 messages = createMessages(
@@ -261,7 +315,8 @@ class ConversationScreenTest {
         composeTestRule.setContent {
             AppTheme {
                 ConversationScreen(
-                    launchRequest = createLaunchRequest(conversationId = "conversation-1"),
+                    conversationId = "conversation-1",
+                    launchGeneration = 1,
                     screenModel = screenModel,
                 )
             }
@@ -358,20 +413,8 @@ class ConversationScreenTest {
         override val lifecycle: Lifecycle
             get() = lifecycleRegistry
 
-        fun moveTo(
-            state: Lifecycle.State,
-        ) {
+        fun moveTo(state: Lifecycle.State) {
             lifecycleRegistry.currentState = state
         }
-    }
-
-    private fun createLaunchRequest(
-        conversationId: String,
-        launchGeneration: Int = 1,
-    ): ConversationLaunchRequest {
-        return ConversationLaunchRequest(
-            launchGeneration = launchGeneration,
-            conversationId = conversationId,
-        )
     }
 }

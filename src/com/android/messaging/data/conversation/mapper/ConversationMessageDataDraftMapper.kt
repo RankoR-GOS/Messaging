@@ -5,8 +5,8 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraftAtta
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.MessagePartData
 import com.android.messaging.util.LogUtil
-import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
+import kotlinx.collections.immutable.toImmutableList
 
 internal interface ConversationMessageDataDraftMapper {
     fun map(
