@@ -10,6 +10,8 @@ import com.android.messaging.data.conversation.repository.ConversationDraftsRepo
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepositoryImpl
 import com.android.messaging.data.conversation.repository.ConversationMetadataNotifier
 import com.android.messaging.data.conversation.repository.ConversationMetadataNotifierImpl
+import com.android.messaging.data.conversation.repository.ConversationParticipantsRepository
+import com.android.messaging.data.conversation.repository.ConversationParticipantsRepositoryImpl
 import com.android.messaging.data.conversation.repository.ConversationRecipientsRepository
 import com.android.messaging.data.conversation.repository.ConversationRecipientsRepositoryImpl
 import com.android.messaging.data.conversation.repository.ConversationsRepository
@@ -18,6 +20,8 @@ import com.android.messaging.data.media.repository.ConversationMediaRepository
 import com.android.messaging.data.media.repository.ConversationMediaRepositoryImpl
 import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGranted
 import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGrantedImpl
+import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
+import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipantsImpl
 import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceeded
 import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceededImpl
 import com.android.messaging.domain.conversation.usecase.ResolveConversationId
@@ -74,9 +78,21 @@ internal abstract class ConversationBindsModule {
 
     @Binds
     @Reusable
+    abstract fun bindConversationParticipantsRepository(
+        impl: ConversationParticipantsRepositoryImpl,
+    ): ConversationParticipantsRepository
+
+    @Binds
+    @Reusable
     abstract fun bindConversationRecipientsRepository(
         impl: ConversationRecipientsRepositoryImpl,
     ): ConversationRecipientsRepository
+
+    @Binds
+    @Reusable
+    abstract fun bindCanAddMoreConversationParticipants(
+        impl: CanAddMoreConversationParticipantsImpl,
+    ): CanAddMoreConversationParticipants
 
     @Binds
     @Reusable

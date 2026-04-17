@@ -7,6 +7,7 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.media.model.ConversationMediaItem
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.di.core.DefaultDispatcher
+import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
@@ -80,6 +81,7 @@ internal class ConversationViewModel @Inject constructor(
     private val conversationMediaPickerDelegate: ConversationMediaPickerDelegate,
     private val conversationMetadataDelegate: ConversationMetadataDelegate,
     private val conversationComposerUiStateMapper: ConversationComposerUiStateMapper,
+    private val canAddMoreConversationParticipants: CanAddMoreConversationParticipants,
     @param:DefaultDispatcher
     private val defaultDispatcher: CoroutineDispatcher,
     private val savedStateHandle: SavedStateHandle,
@@ -121,6 +123,7 @@ internal class ConversationViewModel @Inject constructor(
         composerUiState,
     ) { metadataState, messagesUiState, composerUiState ->
         ConversationScreenScaffoldUiState(
+            canAddPeople = canAddPeople(metadataState = metadataState),
             metadata = metadataState,
             messages = messagesUiState,
             composer = composerUiState,
@@ -131,6 +134,9 @@ internal class ConversationViewModel @Inject constructor(
             stopTimeoutMillis = STATEFLOW_STOP_TIMEOUT_MILLIS,
         ),
         initialValue = ConversationScreenScaffoldUiState(
+            canAddPeople = canAddPeople(
+                metadataState = conversationMetadataDelegate.state.value,
+            ),
             metadata = conversationMetadataDelegate.state.value,
             messages = conversationMessagesDelegate.state.value,
             composer = composerUiState.value,
@@ -204,6 +210,19 @@ internal class ConversationViewModel @Inject constructor(
     private fun updateConversationId(conversationId: String?) {
         if (conversationId != conversationIdFlow.value) {
             savedStateHandle[CONVERSATION_ID_KEY] = conversationId
+        }
+    }
+
+    private fun canAddPeople(
+        metadataState: ConversationMetadataUiState,
+    ): Boolean {
+        return when (metadataState) {
+            is ConversationMetadataUiState.Present -> {
+                canAddMoreConversationParticipants(
+                    participantCount = metadataState.participantCount,
+                )
+            }
+            else -> false
         }
     }
 

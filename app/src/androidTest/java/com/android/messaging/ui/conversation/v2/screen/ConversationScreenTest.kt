@@ -18,6 +18,7 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_COMPOSE_BAR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
@@ -86,6 +87,34 @@ class ConversationScreenTest {
         composeTestRule
             .onNodeWithTag(CONVERSATION_LOADING_INDICATOR_TEST_TAG)
             .assertDoesNotExist()
+    }
+
+    @Test
+    fun addPeopleAction_isShownWhenEnabled_andForwardsClicks() {
+        val screenModel = createScreenModel()
+        var addPeopleClicks = 0
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 3,
+                latestMessageId = "message-3",
+                latestMessageIncoming = false,
+            ),
+            canAddPeople = true,
+        )
+
+        setScreenContent(
+            screenModel = screenModel.model,
+            onAddPeopleClick = {
+                addPeopleClicks += 1
+            },
+        )
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG)
+            .assertIsDisplayed()
+            .performClick()
+
+        org.junit.Assert.assertEquals(1, addPeopleClicks)
     }
 
     @Test
@@ -311,12 +340,16 @@ class ConversationScreenTest {
             .assertCountEquals(1)
     }
 
-    private fun setScreenContent(screenModel: ConversationScreenModel) {
+    private fun setScreenContent(
+        screenModel: ConversationScreenModel,
+        onAddPeopleClick: () -> Unit = {},
+    ) {
         composeTestRule.setContent {
             AppTheme {
                 ConversationScreen(
                     conversationId = "conversation-1",
                     launchGeneration = 1,
+                    onAddPeopleClick = onAddPeopleClick,
                     screenModel = screenModel,
                 )
             }
@@ -325,8 +358,10 @@ class ConversationScreenTest {
 
     private fun createPresentUiState(
         messages: List<ConversationMessageUiModel>,
+        canAddPeople: Boolean = false,
     ): ConversationScreenScaffoldUiState {
         return ConversationScreenScaffoldUiState(
+            canAddPeople = canAddPeople,
             metadata = ConversationMetadataUiState.Present(
                 title = "Weekend plan",
                 selfParticipantId = "self-1",

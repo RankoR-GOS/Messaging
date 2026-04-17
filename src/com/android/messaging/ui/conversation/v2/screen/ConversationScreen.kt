@@ -45,6 +45,7 @@ internal fun ConversationScreen(
     modifier: Modifier = Modifier,
     conversationId: String? = null,
     launchGeneration: Int? = null,
+    onAddPeopleClick: () -> Unit = {},
     onNavigateBack: () -> Unit = {},
     pendingDraft: ConversationDraft? = null,
     pendingStartupAttachment: ConversationEntryStartupAttachment? = null,
@@ -128,6 +129,7 @@ internal fun ConversationScreen(
             uiState = scaffoldUiState,
             isMediaPickerOpen = mediaPickerState.isOpen,
             messageFieldFocusRequester = messageFieldFocusRequester,
+            onAddPeopleClick = onAddPeopleClick,
             onNavigateBack = onNavigateBack,
             onOpenMediaPicker = mediaPickerState::open,
             onMessageTextChange = screenModel::onMessageTextChanged,
@@ -166,6 +168,7 @@ private fun ConversationScreenScaffold(
     uiState: ConversationScreenScaffoldUiState,
     isMediaPickerOpen: Boolean,
     messageFieldFocusRequester: FocusRequester,
+    onAddPeopleClick: () -> Unit,
     onNavigateBack: () -> Unit,
     onOpenMediaPicker: () -> Unit,
     onMessageTextChange: (String) -> Unit,
@@ -181,6 +184,8 @@ private fun ConversationScreenScaffold(
         topBar = {
             ConversationTopAppBar(
                 metadata = uiState.metadata,
+                isAddPeopleVisible = uiState.canAddPeople,
+                onAddPeopleClick = onAddPeopleClick,
                 onNavigateBack = onNavigateBack,
             )
         },

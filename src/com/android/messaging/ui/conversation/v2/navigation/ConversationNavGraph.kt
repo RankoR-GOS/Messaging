@@ -15,6 +15,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
+import com.android.messaging.ui.conversation.v2.addparticipants.AddParticipantsScreen
 import com.android.messaging.ui.conversation.v2.entry.ConversationEntryModel
 import com.android.messaging.ui.conversation.v2.entry.ConversationEntryViewModel
 import com.android.messaging.ui.conversation.v2.entry.NewChatScreen
@@ -32,11 +33,13 @@ internal fun ConversationNavGraph(
     modifier: Modifier = Modifier,
     onFinish: () -> Unit,
     entryModel: ConversationEntryModel = hiltViewModel<ConversationEntryViewModel>(),
+    navigationReducer: ConversationNavigationReducer = DEFAULT_CONVERSATION_NAVIGATION_REDUCER,
 ) {
     val entryUiState by entryModel.uiState.collectAsStateWithLifecycle()
     val backStack = rememberNavBackStack(initialNavKey(launchRequest = launchRequest))
     val latestEntryModel = rememberUpdatedState(newValue = entryModel)
     val latestEntryUiState = rememberUpdatedState(newValue = entryUiState)
+    val latestNavigationReducer = rememberUpdatedState(newValue = navigationReducer)
     val latestOnFinish = rememberUpdatedState(newValue = onFinish)
 
     val entryDecorators = listOf(
@@ -56,9 +59,16 @@ internal fun ConversationNavGraph(
                 ConversationScreen(
                     conversationId = navKey.conversationId,
                     launchGeneration = currentEntryUiState.launchGeneration,
+                    onAddPeopleClick = {
+                        latestNavigationReducer.value.navigateToAddParticipants(
+                            backStack = backStack,
+                            conversationId = navKey.conversationId,
+                        )
+                    },
                     onNavigateBack = {
                         popBackStackOrFinish(
                             backStack = backStack,
+                            navigationReducer = latestNavigationReducer.value,
                             onFinish = currentOnFinish,
                         )
                     },
@@ -102,6 +112,7 @@ internal fun ConversationNavGraph(
                             entryModel = currentEntryModel,
                             entryUiState = currentEntryUiState,
                             backStack = backStack,
+                            navigationReducer = latestNavigationReducer.value,
                             onFinish = latestOnFinish.value,
                         )
                     },
@@ -109,6 +120,25 @@ internal fun ConversationNavGraph(
                         .resolvingRecipientDestination,
                     selectedGroupRecipientDestinations = currentEntryUiState
                         .selectedGroupRecipientDestinations,
+                )
+            }
+
+            entry<AddParticipantsNavKey> { navKey ->
+                AddParticipantsScreen(
+                    conversationId = navKey.conversationId,
+                    onNavigateBack = {
+                        popBackStackOrFinish(
+                            backStack = backStack,
+                            navigationReducer = latestNavigationReducer.value,
+                            onFinish = latestOnFinish.value,
+                        )
+                    },
+                    onNavigateToConversation = { resolvedConversationId ->
+                        latestNavigationReducer.value.replaceCurrentConversation(
+                            backStack = backStack,
+                            conversationId = resolvedConversationId,
+                        )
+                    },
                 )
             }
 
@@ -123,6 +153,7 @@ internal fun ConversationNavGraph(
         updateBackStackForLaunch(
             backStack = backStack,
             launchRequest = launchRequest,
+            navigationReducer = latestNavigationReducer.value,
         )
     }
 
@@ -131,6 +162,7 @@ internal fun ConversationNavGraph(
             handleEntryEffect(
                 backStack = backStack,
                 effect = effect,
+                navigationReducer = latestNavigationReducer.value,
                 onFinish = onFinish,
             )
         }
@@ -144,6 +176,7 @@ internal fun ConversationNavGraph(
                 backStack = backStack,
                 entryModel = latestEntryModel.value,
                 entryUiState = latestEntryUiState.value,
+                navigationReducer = latestNavigationReducer.value,
                 onFinish = latestOnFinish.value,
             )
         },
@@ -174,23 +207,21 @@ private fun pendingDraftForConversation(
 private fun updateBackStackForLaunch(
     backStack: MutableList<NavKey>,
     launchRequest: ConversationEntryLaunchRequest?,
+    navigationReducer: ConversationNavigationReducer,
 ) {
     val destination = initialNavKey(launchRequest = launchRequest)
-
-    if (backStack.size == 1 && backStack.firstOrNull() == destination) {
-        return
-    }
-
-    backStack.clear()
-    backStack.add(destination)
+    navigationReducer.resetBackStack(
+        backStack = backStack,
+        destination = destination,
+    )
 }
 
 private fun popBackStackOrFinish(
     backStack: MutableList<NavKey>,
+    navigationReducer: ConversationNavigationReducer,
     onFinish: () -> Unit,
 ) {
-    if (backStack.size > 1) {
-        backStack.removeAt(backStack.lastIndex)
+    if (navigationReducer.popBackStack(backStack = backStack)) {
         return
     }
 
@@ -201,6 +232,7 @@ private fun handleNavBack(
     backStack: MutableList<NavKey>,
     entryModel: ConversationEntryModel,
     entryUiState: ConversationEntryUiState,
+    navigationReducer: ConversationNavigationReducer,
     onFinish: () -> Unit,
 ) {
     if (backStack.lastOrNull() == NewChatNavKey && entryUiState.isCreatingGroup) {
@@ -210,6 +242,7 @@ private fun handleNavBack(
 
     popBackStackOrFinish(
         backStack = backStack,
+        navigationReducer = navigationReducer,
         onFinish = onFinish,
     )
 }
@@ -218,6 +251,7 @@ private fun handleNewChatBack(
     entryModel: ConversationEntryModel,
     entryUiState: ConversationEntryUiState,
     backStack: MutableList<NavKey>,
+    navigationReducer: ConversationNavigationReducer,
     onFinish: () -> Unit,
 ) {
     if (entryUiState.isCreatingGroup) {
@@ -227,6 +261,7 @@ private fun handleNewChatBack(
 
     popBackStackOrFinish(
         backStack = backStack,
+        navigationReducer = navigationReducer,
         onFinish = onFinish,
     )
 }
@@ -246,25 +281,27 @@ private fun pendingStartupAttachmentForConversation(
 private fun handleEntryEffect(
     backStack: MutableList<NavKey>,
     effect: ConversationEntryEffect,
+    navigationReducer: ConversationNavigationReducer,
     onFinish: () -> Unit,
 ) {
     when (effect) {
         is ConversationEntryEffect.NavigateBack -> {
             popBackStackOrFinish(
                 backStack = backStack,
+                navigationReducer = navigationReducer,
                 onFinish = onFinish,
             )
         }
 
         is ConversationEntryEffect.NavigateToConversation -> {
-            navigateToConversation(
+            navigationReducer.navigateToConversation(
                 backStack = backStack,
                 conversationId = effect.conversationId,
             )
         }
 
         is ConversationEntryEffect.NavigateToRecipientPicker -> {
-            navigateToRecipientPicker(
+            navigationReducer.navigateToRecipientPicker(
                 backStack = backStack,
                 mode = effect.mode,
             )
@@ -276,20 +313,5 @@ private fun handleEntryEffect(
     }
 }
 
-private fun navigateToConversation(
-    backStack: MutableList<NavKey>,
-    conversationId: String,
-) {
-    ConversationNavKey(conversationId = conversationId)
-        .takeIf { it != backStack.lastOrNull() }
-        ?.let(backStack::add)
-}
-
-private fun navigateToRecipientPicker(
-    backStack: MutableList<NavKey>,
-    mode: RecipientPickerMode,
-) {
-    RecipientPickerNavKey(mode = mode)
-        .takeIf { it != backStack.lastOrNull() }
-        ?.let(backStack::add)
-}
+private val DEFAULT_CONVERSATION_NAVIGATION_REDUCER: ConversationNavigationReducer =
+    ConversationNavigationReducerImpl()

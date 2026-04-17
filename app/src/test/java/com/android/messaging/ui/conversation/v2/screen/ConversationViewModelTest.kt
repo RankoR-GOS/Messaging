@@ -7,6 +7,7 @@ import app.cash.turbine.test
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.datamodel.MessagingContentProvider
+import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
@@ -147,9 +148,68 @@ class ConversationViewModelTest {
                 )
 
                 val mappedState = awaitItem()
+                assertEquals(false, mappedState.canAddPeople)
                 assertEquals(metadataState, mappedState.metadata)
                 assertEquals(messagesState, mappedState.messages)
                 assertEquals(composerUiState, mappedState.composer)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun scaffoldUiState_enablesAddPeopleWhenConversationIsBelowRecipientLimit() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val metadataDelegate = createMetadataDelegateMock()
+            val canAddMoreConversationParticipants = mockk<CanAddMoreConversationParticipants>()
+            every {
+                canAddMoreConversationParticipants.invoke(participantCount = 2)
+            } returns true
+            val viewModel = createViewModel(
+                metadataDelegate = metadataDelegate.mock,
+                canAddMoreConversationParticipants = canAddMoreConversationParticipants,
+            )
+
+            metadataDelegate.stateFlow.value = ConversationMetadataUiState.Present(
+                title = "Weekend plan",
+                selfParticipantId = "self-1",
+                isGroupConversation = true,
+                participantCount = 2,
+                composerAvailability = ConversationComposerAvailability.editable(),
+            )
+            viewModel.scaffoldUiState.test {
+                assertEquals(false, awaitItem().canAddPeople)
+                advanceUntilIdle()
+                assertEquals(true, awaitItem().canAddPeople)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun scaffoldUiState_disablesAddPeopleWhenConversationReachedRecipientLimit() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val metadataDelegate = createMetadataDelegateMock()
+            val canAddMoreConversationParticipants = mockk<CanAddMoreConversationParticipants>()
+            every {
+                canAddMoreConversationParticipants.invoke(participantCount = 10)
+            } returns false
+            val viewModel = createViewModel(
+                metadataDelegate = metadataDelegate.mock,
+                canAddMoreConversationParticipants = canAddMoreConversationParticipants,
+            )
+
+            metadataDelegate.stateFlow.value = ConversationMetadataUiState.Present(
+                title = "Weekend plan",
+                selfParticipantId = "self-1",
+                isGroupConversation = true,
+                participantCount = 10,
+                composerAvailability = ConversationComposerAvailability.editable(),
+            )
+            viewModel.scaffoldUiState.test {
+                assertEquals(false, awaitItem().canAddPeople)
+                advanceUntilIdle()
+                assertEquals(false, awaitItem().canAddPeople)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -345,6 +405,9 @@ class ConversationViewModelTest {
         messagesDelegate: ConversationMessagesDelegate = createMessagesDelegateMock().mock,
         mediaPickerDelegate: ConversationMediaPickerDelegate = createMediaPickerDelegateMock().mock,
         metadataDelegate: ConversationMetadataDelegate = createMetadataDelegateMock().mock,
+        canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
+            every { invoke(participantCount = any()) } returns false
+        },
         composerUiStateMapper: ConversationComposerUiStateMapper =
             createComposerUiStateMapperMock(mappedUiState = ConversationComposerUiState()),
     ): ConversationViewModel {
@@ -354,6 +417,7 @@ class ConversationViewModelTest {
             conversationMediaPickerDelegate = mediaPickerDelegate,
             conversationMetadataDelegate = metadataDelegate,
             conversationComposerUiStateMapper = composerUiStateMapper,
+            canAddMoreConversationParticipants = canAddMoreConversationParticipants,
             defaultDispatcher = mainDispatcherRule.testDispatcher,
             savedStateHandle = SavedStateHandle(),
         )
@@ -365,6 +429,9 @@ class ConversationViewModelTest {
         messagesDelegate: ConversationMessagesDelegate = createMessagesDelegateMock().mock,
         mediaPickerDelegate: ConversationMediaPickerDelegate = createMediaPickerDelegateMock().mock,
         metadataDelegate: ConversationMetadataDelegate = createMetadataDelegateMock().mock,
+        canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
+            every { invoke(participantCount = any()) } returns false
+        },
         composerUiStateMapper: ConversationComposerUiStateMapper =
             createComposerUiStateMapperMock(mappedUiState = ConversationComposerUiState()),
     ): ConversationViewModel {
@@ -378,6 +445,7 @@ class ConversationViewModelTest {
                         messagesDelegate = messagesDelegate,
                         mediaPickerDelegate = mediaPickerDelegate,
                         metadataDelegate = metadataDelegate,
+                        canAddMoreConversationParticipants = canAddMoreConversationParticipants,
                         composerUiStateMapper = composerUiStateMapper,
                     ) as T
                 }

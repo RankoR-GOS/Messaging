@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +36,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 import com.android.messaging.ui.core.AppTheme
 
@@ -46,6 +49,8 @@ private val CONVERSATION_TOP_APP_BAR_AVATAR_ICON_SIZE = 20.dp
 internal fun ConversationTopAppBar(
     modifier: Modifier = Modifier,
     metadata: ConversationMetadataUiState,
+    isAddPeopleVisible: Boolean = false,
+    onAddPeopleClick: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     val presentation = rememberConversationTopAppBarPresentation(
@@ -64,6 +69,13 @@ internal fun ConversationTopAppBar(
             ConversationTopAppBarNavigationIcon(
                 onNavigateBack = onNavigateBack,
             )
+        },
+        actions = {
+            if (isAddPeopleVisible) {
+                ConversationTopAppBarAddPeopleAction(
+                    onAddPeopleClick = onAddPeopleClick,
+                )
+            }
         },
     )
 }
@@ -112,7 +124,7 @@ private fun ConversationTopAppBarTitle(
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(
-            space = CONVERSATION_TOP_APP_BAR_TITLE_SPACING
+            space = CONVERSATION_TOP_APP_BAR_TITLE_SPACING,
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -164,6 +176,21 @@ private fun ConversationTopAppBarNavigationIcon(
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = stringResource(id = R.string.back),
+        )
+    }
+}
+
+@Composable
+private fun ConversationTopAppBarAddPeopleAction(
+    onAddPeopleClick: () -> Unit,
+) {
+    IconButton(
+        modifier = Modifier.testTag(CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG),
+        onClick = onAddPeopleClick,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.GroupAdd,
+            contentDescription = stringResource(id = R.string.conversation_add_people),
         )
     }
 }
@@ -260,6 +287,7 @@ private fun ConversationTopAppBarLoadingPreview() {
     AppTheme {
         ConversationTopAppBar(
             metadata = ConversationMetadataUiState.Loading,
+            onAddPeopleClick = {},
             onNavigateBack = {},
         )
     }
@@ -277,6 +305,8 @@ private fun ConversationTopAppBarLoadedPreview() {
                 participantCount = 3,
                 composerAvailability = ConversationComposerAvailability.editable(),
             ),
+            isAddPeopleVisible = true,
+            onAddPeopleClick = {},
             onNavigateBack = {},
         )
     }
