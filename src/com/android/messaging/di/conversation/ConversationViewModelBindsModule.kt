@@ -8,6 +8,8 @@ import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMe
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegateImpl
 import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegate
 import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegateImpl
+import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegate
+import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegateImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -41,4 +43,10 @@ internal abstract class ConversationViewModelBindsModule {
     abstract fun bindConversationMetadataDelegate(
         impl: ConversationMetadataDelegateImpl,
     ): ConversationMetadataDelegate
+
+    @Binds
+    @ViewModelScoped
+    abstract fun bindRecipientPickerDelegate(
+        impl: RecipientPickerDelegateImpl,
+    ): RecipientPickerDelegate
 }

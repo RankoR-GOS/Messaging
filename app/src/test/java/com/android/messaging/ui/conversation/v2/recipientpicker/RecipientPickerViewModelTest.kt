@@ -6,6 +6,7 @@ import com.android.messaging.data.conversation.repository.ConversationRecipients
 import com.android.messaging.data.conversation.repository.ConversationRecipientsRepository
 import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGranted
 import com.android.messaging.testutil.MainDispatcherRule
+import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegateImpl
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
@@ -214,6 +215,99 @@ class RecipientPickerViewModelTest {
             conversationRecipientsRepository.searchRecipients(
                 query = "Bob",
                 offset = 0,
+            )
+        }
+    }
+
+    @Test
+    fun onExcludedDestinationsChanged_filtersExcludedContactsAndContinuesPaging() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        every {
+            isReadContactsPermissionGranted.invoke()
+        } returns true
+        every {
+            conversationRecipientsRepository.searchRecipients(
+                query = "",
+                offset = 0,
+            )
+        } returnsMany listOf(
+            flowOf(
+                page(
+                    recipients = listOf(
+                        recipient(
+                            id = "1",
+                            displayName = "Ada",
+                            destination = "+1 555 0100",
+                        ),
+                    ),
+                ),
+            ),
+            flowOf(
+                page(
+                    recipients = listOf(
+                        recipient(
+                            id = "1",
+                            displayName = "Ada",
+                            destination = "+1 555 0100",
+                        ),
+                    ),
+                    nextOffset = 1,
+                ),
+            ),
+        )
+        every {
+            conversationRecipientsRepository.searchRecipients(
+                query = "",
+                offset = 1,
+            )
+        } returns flowOf(
+            page(
+                recipients = listOf(
+                    recipient(
+                        id = "2",
+                        displayName = "Bob",
+                        destination = "+1 555 0101",
+                    ),
+                ),
+            ),
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        clearAllMocks(
+            answers = false,
+            recordedCalls = true,
+        )
+
+        viewModel.onExcludedDestinationsChanged(
+            destinations = setOf("+1 555 0100"),
+        )
+        advanceTimeBy(150L)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                recipient(
+                    id = "2",
+                    displayName = "Bob",
+                    destination = "+1 555 0101",
+                ),
+            ),
+            viewModel.uiState.value.contacts,
+        )
+        verify(exactly = 1) {
+            @Suppress("UnusedFlow")
+            conversationRecipientsRepository.searchRecipients(
+                query = "",
+                offset = 0,
+            )
+        }
+        verify(exactly = 1) {
+            @Suppress("UnusedFlow")
+            conversationRecipientsRepository.searchRecipients(
+                query = "",
+                offset = 1,
             )
         }
     }
@@ -434,11 +528,15 @@ class RecipientPickerViewModelTest {
     private fun createViewModel(
         savedStateHandle: SavedStateHandle = SavedStateHandle(),
     ): RecipientPickerViewModel {
-        return RecipientPickerViewModel(
+        val recipientPickerDelegate = RecipientPickerDelegateImpl(
             conversationRecipientsRepository = conversationRecipientsRepository,
             isReadContactsPermissionGranted = isReadContactsPermissionGranted,
-            defaultDispatcher = mainDispatcherRule.testDispatcher,
             savedStateHandle = savedStateHandle,
+            defaultDispatcher = mainDispatcherRule.testDispatcher,
+        )
+
+        return RecipientPickerViewModel(
+            recipientPickerDelegate = recipientPickerDelegate,
         )
     }
 
