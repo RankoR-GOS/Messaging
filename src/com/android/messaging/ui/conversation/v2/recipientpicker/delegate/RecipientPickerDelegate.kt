@@ -94,9 +94,7 @@ internal class RecipientPickerDelegateImpl @Inject constructor(
     }
 
     override fun onLoadMore() {
-        val scope = boundScope ?: return
-
-        scope.launch(defaultDispatcher) {
+        boundScope?.launch(defaultDispatcher) {
             val loadMoreRequest = createLoadMoreRequest() ?: return@launch
             loadMore(request = loadMoreRequest)
         }
