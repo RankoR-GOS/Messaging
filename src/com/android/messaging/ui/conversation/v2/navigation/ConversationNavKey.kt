@@ -17,6 +17,11 @@ internal data class RecipientPickerNavKey(
 ) : NavKey
 
 @Serializable
+internal data class AddParticipantsNavKey(
+    val conversationId: String,
+) : NavKey
+
+@Serializable
 internal enum class RecipientPickerMode {
     CREATE_GROUP,
     ADD_PARTICIPANTS,
