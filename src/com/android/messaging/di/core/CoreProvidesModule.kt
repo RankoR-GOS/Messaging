@@ -1,5 +1,6 @@
 package com.android.messaging.di.core
 
+import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.content.Context
 import dagger.Module
@@ -56,5 +57,14 @@ internal class CoreProvidesModule {
         context: Context,
     ): ContentResolver {
         return context.contentResolver
+    }
+
+    @Provides
+    @Reusable
+    fun provideClipboardManager(
+        @ApplicationContext
+        context: Context,
+    ): ClipboardManager {
+        return context.getSystemService(ClipboardManager::class.java)
     }
 }

@@ -1,0 +1,668 @@
+package com.android.messaging.ui.conversation.v2.messages.delegate
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.net.Uri
+import app.cash.turbine.test
+import com.android.messaging.data.conversation.repository.ConversationMessageDetailsData
+import com.android.messaging.data.conversation.repository.ConversationsRepository
+import com.android.messaging.datamodel.data.ConversationMessageData
+import com.android.messaging.datamodel.data.ConversationParticipantsData
+import com.android.messaging.datamodel.data.MessageData
+import com.android.messaging.datamodel.data.ParticipantData
+import com.android.messaging.domain.conversation.usecase.CreateForwardedMessage
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionAction
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
+import io.mockk.clearAllMocks
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
+import io.mockk.slot
+import io.mockk.unmockkAll
+import io.mockk.verify
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class ConversationMessageSelectionDelegateImplTest {
+
+    @Before
+    fun setUp() {
+        unmockkAll()
+        clearAllMocks()
+    }
+
+    @Test
+    fun onMessageLongClick_selectsSingleMessageAndExposesSupportedActions() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        text = "Hello",
+                        canCopyMessageToClipboard = true,
+                        canForwardMessage = true,
+                    ),
+                )
+                advanceUntilIdle()
+
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                assertEquals(
+                    persistentSetOf("message-1"),
+                    harness.delegate.state.value.selectedMessageIds,
+                )
+                assertEquals(
+                    persistentSetOf(
+                        ConversationMessageSelectionAction.Delete,
+                        ConversationMessageSelectionAction.Share,
+                        ConversationMessageSelectionAction.Forward,
+                        ConversationMessageSelectionAction.Copy,
+                        ConversationMessageSelectionAction.Details,
+                    ),
+                    harness.delegate.state.value.availableActions,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onMessageClick_doesNothingOutsideSelectionMode() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(messageId = "message-1"),
+                )
+                advanceUntilIdle()
+
+                harness.delegate.onMessageClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onMessageClick_togglesSelectionWhenSelectionModeIsActive() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(messageId = "message-1"),
+                    createMessageUiModel(messageId = "message-2"),
+                )
+                advanceUntilIdle()
+
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+                harness.delegate.onMessageClick(messageId = "message-2")
+                advanceUntilIdle()
+
+                assertEquals(
+                    persistentSetOf("message-1", "message-2"),
+                    harness.delegate.state.value.selectedMessageIds,
+                )
+                assertEquals(
+                    persistentSetOf(ConversationMessageSelectionAction.Delete),
+                    harness.delegate.state.value.availableActions,
+                )
+
+                harness.delegate.onMessageClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                assertEquals(
+                    persistentSetOf("message-2"),
+                    harness.delegate.state.value.selectedMessageIds,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun bind_clearsSelectionWhenConversationChanges() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(messageId = "message-1"),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+                harness.delegate.onMessageSelectionActionClick(
+                    action = ConversationMessageSelectionAction.Delete,
+                )
+                advanceUntilIdle()
+
+                harness.conversationIdFlow.value = "conversation-2"
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun copyAction_copiesTextAndClearsSelection() {
+        runTest {
+            val harness = createHarness()
+            val copiedClipData = slot<ClipData>()
+            every {
+                harness.clipboardManager.setPrimaryClip(capture(copiedClipData))
+            } just runs
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        text = "Copied text",
+                        canCopyMessageToClipboard = true,
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.onMessageSelectionActionClick(
+                    action = ConversationMessageSelectionAction.Copy,
+                )
+                advanceUntilIdle()
+
+                assertEquals(
+                    "Copied text",
+                    copiedClipData.captured.getItemAt(0).text.toString(),
+                )
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun deleteAction_showsAndDismissesConfirmation() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(messageId = "message-1"),
+                    createMessageUiModel(messageId = "message-2"),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+                harness.delegate.onMessageClick(messageId = "message-2")
+                advanceUntilIdle()
+
+                harness.delegate.onMessageSelectionActionClick(
+                    action = ConversationMessageSelectionAction.Delete,
+                )
+                advanceUntilIdle()
+
+                assertEquals(
+                    persistentSetOf("message-1", "message-2"),
+                    harness.delegate.state.value.deleteConfirmation?.messageIds,
+                )
+
+                harness.delegate.dismissDeleteMessageConfirmation()
+                advanceUntilIdle()
+
+                assertNull(harness.delegate.state.value.deleteConfirmation)
+                assertEquals(
+                    persistentSetOf("message-1", "message-2"),
+                    harness.delegate.state.value.selectedMessageIds,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun confirmDeleteSelectedMessages_deletesSelectedMessagesAndClearsSelection() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(messageId = "message-1"),
+                    createMessageUiModel(messageId = "message-2"),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+                harness.delegate.onMessageClick(messageId = "message-2")
+                advanceUntilIdle()
+                harness.delegate.onMessageSelectionActionClick(
+                    action = ConversationMessageSelectionAction.Delete,
+                )
+                advanceUntilIdle()
+
+                harness.delegate.confirmDeleteSelectedMessages()
+                advanceUntilIdle()
+
+                verify(exactly = 1) {
+                    harness.conversationsRepository.deleteMessages(
+                        messageIds = persistentSetOf("message-1", "message-2"),
+                    )
+                }
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun downloadAction_downloadsSelectedMessageAndClearsSelection() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        canDownloadMessage = true,
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.onMessageSelectionActionClick(
+                    action = ConversationMessageSelectionAction.Download,
+                )
+                advanceUntilIdle()
+
+                verify(exactly = 1) {
+                    harness.conversationsRepository.downloadMessage(messageId = "message-1")
+                }
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun resendAction_resendsSelectedMessageAndClearsSelection() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        canResendMessage = true,
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.onMessageSelectionActionClick(
+                    action = ConversationMessageSelectionAction.Resend,
+                )
+                advanceUntilIdle()
+
+                verify(exactly = 1) {
+                    harness.conversationsRepository.resendMessage(messageId = "message-1")
+                }
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun forwardAction_emitsForwardEffectAndClearsSelection() {
+        runTest {
+            val harness = createHarness()
+            val forwardedMessage = mockk<MessageData>()
+            every {
+                harness.createForwardedMessage.invoke(
+                    conversationId = "conversation-1",
+                    messageId = "message-1",
+                )
+            } returns forwardedMessage
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        canForwardMessage = true,
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.Forward,
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.LaunchForwardMessage(
+                            message = forwardedMessage,
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun detailsAction_emitsDetailsEffectAndClearsSelection() {
+        runTest {
+            val harness = createHarness()
+            val messageDetails = mockk<ConversationMessageData>()
+            val participants = mockk<ConversationParticipantsData>()
+            val selfParticipant = mockk<ParticipantData>()
+            every {
+                harness.conversationsRepository.getMessageDetailsData(
+                    conversationId = "conversation-1",
+                    messageId = "message-1",
+                )
+            } returns ConversationMessageDetailsData(
+                message = messageDetails,
+                participants = participants,
+                selfParticipant = selfParticipant,
+            )
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(messageId = "message-1"),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.Details,
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.ShowMessageDetails(
+                            message = messageDetails,
+                            participants = participants,
+                            selfParticipant = selfParticipant,
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun shareAction_emitsTextShareWhenSelectedMessageHasText() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        text = "Share me",
+                        canForwardMessage = true,
+                        parts = listOf(
+                            createAttachmentPart(
+                                contentType = "image/jpeg",
+                                contentUri = "content://media/image/1",
+                            ),
+                        ),
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.Share,
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.ShareMessage(
+                            attachmentContentType = null,
+                            attachmentContentUri = null,
+                            text = "Share me",
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun shareAction_emitsAttachmentShareWhenSelectedMessageHasNoText() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        text = null,
+                        canForwardMessage = true,
+                        parts = listOf(
+                            createAttachmentPart(
+                                contentType = "image/jpeg",
+                                contentUri = "content://media/image/1",
+                            ),
+                        ),
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.Share,
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.ShareMessage(
+                            attachmentContentType = "image/jpeg",
+                            attachmentContentUri = "content://media/image/1",
+                            text = null,
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    private fun TestScope.createHarness(): DelegateHarness {
+        val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
+        val scope = TestScope(dispatcher)
+        val clipboardManager = mockk<ClipboardManager>(relaxed = true)
+        val conversationMessagesDelegate = mockk<ConversationMessagesDelegate>()
+        val createForwardedMessage = mockk<CreateForwardedMessage>()
+        val conversationsRepository = mockk<ConversationsRepository>(relaxed = true)
+        val messagesStateFlow = MutableStateFlow<ConversationMessagesUiState>(
+            value = ConversationMessagesUiState.Loading,
+        )
+        val conversationIdFlow = MutableStateFlow<String?>("conversation-1")
+
+        every { conversationMessagesDelegate.state } returns messagesStateFlow
+        every {
+            createForwardedMessage.invoke(any(), any())
+        } returns null
+
+        val delegate = ConversationMessageSelectionDelegateImpl(
+            clipboardManager = clipboardManager,
+            conversationMessagesDelegate = conversationMessagesDelegate,
+            createForwardedMessage = createForwardedMessage,
+            conversationsRepository = conversationsRepository,
+            defaultDispatcher = dispatcher,
+        )
+        delegate.bind(
+            scope = scope,
+            conversationIdFlow = conversationIdFlow,
+        )
+
+        return DelegateHarness(
+            delegate = delegate,
+            clipboardManager = clipboardManager,
+            conversationIdFlow = conversationIdFlow,
+            conversationsRepository = conversationsRepository,
+            createForwardedMessage = createForwardedMessage,
+            messagesStateFlow = messagesStateFlow,
+            scope = scope,
+        )
+    }
+
+    private fun createAttachmentPart(
+        contentType: String,
+        contentUri: String,
+    ): ConversationMessagePartUiModel {
+        return ConversationMessagePartUiModel(
+            contentType = contentType,
+            text = null,
+            contentUri = Uri.parse(contentUri),
+            width = 640,
+            height = 480,
+        )
+    }
+
+    private fun createMessageUiModel(
+        messageId: String,
+        text: String? = "Hello",
+        parts: List<ConversationMessagePartUiModel> = emptyList(),
+        canCopyMessageToClipboard: Boolean = false,
+        canDownloadMessage: Boolean = false,
+        canForwardMessage: Boolean = false,
+        canResendMessage: Boolean = false,
+    ): ConversationMessageUiModel {
+        return ConversationMessageUiModel(
+            messageId = messageId,
+            conversationId = "conversation-1",
+            text = text,
+            parts = parts,
+            sentTimestamp = 1L,
+            receivedTimestamp = 1L,
+            displayTimestamp = 1L,
+            status = ConversationMessageUiModel.Status.Outgoing.Complete,
+            isIncoming = false,
+            senderDisplayName = null,
+            senderAvatarUri = null,
+            senderContactLookupKey = null,
+            canClusterWithPrevious = false,
+            canClusterWithNext = false,
+            canCopyMessageToClipboard = canCopyMessageToClipboard,
+            canDownloadMessage = canDownloadMessage,
+            canForwardMessage = canForwardMessage,
+            canResendMessage = canResendMessage,
+            mmsSubject = null,
+            protocol = ConversationMessageUiModel.Protocol.SMS,
+        )
+    }
+
+    private fun createMessagesUiState(
+        vararg messages: ConversationMessageUiModel,
+    ): ConversationMessagesUiState.Present {
+        return ConversationMessagesUiState.Present(
+            messages = messages.toList().toPersistentList(),
+        )
+    }
+
+    private data class DelegateHarness(
+        val delegate: ConversationMessageSelectionDelegateImpl,
+        val clipboardManager: ClipboardManager,
+        val conversationIdFlow: MutableStateFlow<String?>,
+        val conversationsRepository: ConversationsRepository,
+        val createForwardedMessage: CreateForwardedMessage,
+        val messagesStateFlow: MutableStateFlow<ConversationMessagesUiState>,
+        val scope: TestScope,
+    ) {
+        fun cancel() {
+            scope.cancel()
+        }
+    }
+}

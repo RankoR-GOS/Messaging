@@ -17,11 +17,14 @@ import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraft
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerUiState
+import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegate
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegate
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionAction
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import io.mockk.clearAllMocks
@@ -29,6 +32,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll
 import io.mockk.verify
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -63,11 +67,13 @@ class ConversationViewModelTest {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
             val messagesDelegate = createMessagesDelegateMock()
+            val messageSelectionDelegate = createMessageSelectionDelegateMock()
             val mediaPickerDelegate = createMediaPickerDelegateMock()
             val metadataDelegate = createMetadataDelegateMock()
             val viewModel = createViewModel(
                 draftDelegate = draftDelegate.mock,
                 messagesDelegate = messagesDelegate.mock,
+                messageSelectionDelegate = messageSelectionDelegate.mock,
                 mediaPickerDelegate = mediaPickerDelegate.mock,
                 metadataDelegate = metadataDelegate.mock,
             )
@@ -76,10 +82,16 @@ class ConversationViewModelTest {
 
             assertEquals(1, draftDelegate.bindCalls.size)
             assertEquals(1, messagesDelegate.bindCalls.size)
+            assertEquals(1, messageSelectionDelegate.bindCalls.size)
+            assertEquals(1, mediaPickerDelegate.bindCalls.size)
             assertEquals(1, metadataDelegate.bindCalls.size)
             assertSame(
                 draftDelegate.bindCalls.single().conversationIdFlow,
                 messagesDelegate.bindCalls.single().conversationIdFlow,
+            )
+            assertSame(
+                draftDelegate.bindCalls.single().conversationIdFlow,
+                messageSelectionDelegate.bindCalls.single().conversationIdFlow,
             )
             assertSame(
                 draftDelegate.bindCalls.single().conversationIdFlow,
@@ -97,6 +109,9 @@ class ConversationViewModelTest {
                 "conversation-1",
                 draftDelegate.bindCalls.single().conversationIdFlow.value,
             )
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.dismissMessageSelection()
+            }
         }
     }
 
@@ -109,10 +124,12 @@ class ConversationViewModelTest {
             )
             val draftDelegate = createDraftDelegateMock()
             val messagesDelegate = createMessagesDelegateMock()
+            val messageSelectionDelegate = createMessageSelectionDelegateMock()
             val metadataDelegate = createMetadataDelegateMock()
             val viewModel = createViewModel(
                 draftDelegate = draftDelegate.mock,
                 messagesDelegate = messagesDelegate.mock,
+                messageSelectionDelegate = messageSelectionDelegate.mock,
                 metadataDelegate = metadataDelegate.mock,
                 composerUiStateMapper = createComposerUiStateMapperMock(
                     mappedUiState = composerUiState,
@@ -133,6 +150,10 @@ class ConversationViewModelTest {
             )
             metadataDelegate.stateFlow.value = metadataState
             messagesDelegate.stateFlow.value = messagesState
+            val selectionState = ConversationMessageSelectionUiState(
+                selectedMessageIds = persistentSetOf("message-1"),
+            )
+            messageSelectionDelegate.stateFlow.value = selectionState
             draftDelegate.stateFlow.value = ConversationDraftState(
                 draft = ConversationDraft(
                     messageText = "Draft text",
@@ -152,6 +173,7 @@ class ConversationViewModelTest {
                 assertEquals(metadataState, mappedState.metadata)
                 assertEquals(messagesState, mappedState.messages)
                 assertEquals(composerUiState, mappedState.composer)
+                assertEquals(selectionState, mappedState.selection)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -234,6 +256,33 @@ class ConversationViewModelTest {
                 assertEquals(
                     ConversationScreenEffect.ShowMessage(
                         messageResId = 123,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun messageSelectionEffects_areExposedAsScreenEffects() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val messageSelectionDelegate = createMessageSelectionDelegateMock()
+            val viewModel = createViewModel(
+                messageSelectionDelegate = messageSelectionDelegate.mock,
+            )
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                messageSelectionDelegate.effectsFlow.emit(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = 456,
+                    ),
+                )
+
+                assertEquals(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = 456,
                     ),
                     awaitItem(),
                 )
@@ -351,17 +400,38 @@ class ConversationViewModelTest {
     fun eventMethods_forwardToDelegates() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
+            val messageSelectionDelegate = createMessageSelectionDelegateMock()
             val mediaPickerDelegate = createMediaPickerDelegateMock()
             val viewModel = createViewModel(
                 draftDelegate = draftDelegate.mock,
+                messageSelectionDelegate = messageSelectionDelegate.mock,
                 mediaPickerDelegate = mediaPickerDelegate.mock,
             )
 
+            viewModel.onMessageClick(messageId = "message-1")
+            viewModel.onMessageLongClick(messageId = "message-2")
+            viewModel.onMessageSelectionActionClick(
+                action = ConversationMessageSelectionAction.Delete,
+            )
             viewModel.onMessageTextChanged(text = "Hello")
             viewModel.onGalleryVisibilityChanged(isVisible = true)
             viewModel.onSendClick()
+            viewModel.dismissDeleteMessageConfirmation()
+            viewModel.dismissMessageSelection()
+            viewModel.confirmDeleteSelectedMessages()
             viewModel.persistDraft()
 
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.onMessageClick(messageId = "message-1")
+            }
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.onMessageLongClick(messageId = "message-2")
+            }
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.onMessageSelectionActionClick(
+                    action = ConversationMessageSelectionAction.Delete,
+                )
+            }
             verify(exactly = 1) {
                 draftDelegate.mock.onMessageTextChanged(messageText = "Hello")
             }
@@ -370,6 +440,15 @@ class ConversationViewModelTest {
             }
             verify(exactly = 1) {
                 draftDelegate.mock.onSendClick()
+            }
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.dismissDeleteMessageConfirmation()
+            }
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.dismissMessageSelection()
+            }
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.confirmDeleteSelectedMessages()
             }
             verify(exactly = 1) {
                 draftDelegate.mock.persistDraft()
@@ -403,6 +482,8 @@ class ConversationViewModelTest {
     private fun createViewModel(
         draftDelegate: ConversationDraftDelegate = createDraftDelegateMock().mock,
         messagesDelegate: ConversationMessagesDelegate = createMessagesDelegateMock().mock,
+        messageSelectionDelegate: ConversationMessageSelectionDelegate =
+            createMessageSelectionDelegateMock().mock,
         mediaPickerDelegate: ConversationMediaPickerDelegate = createMediaPickerDelegateMock().mock,
         metadataDelegate: ConversationMetadataDelegate = createMetadataDelegateMock().mock,
         canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
@@ -414,6 +495,7 @@ class ConversationViewModelTest {
         return ConversationViewModel(
             conversationDraftDelegate = draftDelegate,
             conversationMessagesDelegate = messagesDelegate,
+            conversationMessageSelectionDelegate = messageSelectionDelegate,
             conversationMediaPickerDelegate = mediaPickerDelegate,
             conversationMetadataDelegate = metadataDelegate,
             conversationComposerUiStateMapper = composerUiStateMapper,
@@ -427,6 +509,8 @@ class ConversationViewModelTest {
         viewModelStore: ViewModelStore,
         draftDelegate: ConversationDraftDelegate = createDraftDelegateMock().mock,
         messagesDelegate: ConversationMessagesDelegate = createMessagesDelegateMock().mock,
+        messageSelectionDelegate: ConversationMessageSelectionDelegate =
+            createMessageSelectionDelegateMock().mock,
         mediaPickerDelegate: ConversationMediaPickerDelegate = createMediaPickerDelegateMock().mock,
         metadataDelegate: ConversationMetadataDelegate = createMetadataDelegateMock().mock,
         canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
@@ -443,6 +527,7 @@ class ConversationViewModelTest {
                     return createViewModel(
                         draftDelegate = draftDelegate,
                         messagesDelegate = messagesDelegate,
+                        messageSelectionDelegate = messageSelectionDelegate,
                         mediaPickerDelegate = mediaPickerDelegate,
                         metadataDelegate = metadataDelegate,
                         canAddMoreConversationParticipants = canAddMoreConversationParticipants,
@@ -518,6 +603,29 @@ class ConversationViewModelTest {
         )
     }
 
+    private fun createMessageSelectionDelegateMock(): MessageSelectionDelegateMock {
+        val bindCalls = mutableListOf<BindCall<ConversationMessageSelectionUiState>>()
+        val stateFlow = MutableStateFlow(ConversationMessageSelectionUiState())
+        val effectsFlow = MutableSharedFlow<ConversationScreenEffect>()
+        val mock = mockk<ConversationMessageSelectionDelegate>(relaxed = true)
+        every { mock.state } returns stateFlow
+        every { mock.effects } returns effectsFlow
+        every {
+            mock.bind(any(), any())
+        } answers {
+            bindCalls += BindCall(
+                scope = firstArg(),
+                conversationIdFlow = secondArg(),
+            )
+        }
+        return MessageSelectionDelegateMock(
+            mock = mock,
+            stateFlow = stateFlow,
+            effectsFlow = effectsFlow,
+            bindCalls = bindCalls,
+        )
+    }
+
     private fun createMetadataDelegateMock(): MetadataDelegateMock {
         val bindCalls = mutableListOf<BindCall<ConversationMetadataUiState>>()
         val stateFlow = MutableStateFlow<ConversationMetadataUiState>(
@@ -574,6 +682,13 @@ class ConversationViewModelTest {
         val bindCalls: List<BindCall<ConversationMessagesUiState>>,
     )
 
+    private data class MessageSelectionDelegateMock(
+        val mock: ConversationMessageSelectionDelegate,
+        val stateFlow: MutableStateFlow<ConversationMessageSelectionUiState>,
+        val effectsFlow: MutableSharedFlow<ConversationScreenEffect>,
+        val bindCalls: List<BindCall<ConversationMessageSelectionUiState>>,
+    )
+
     private data class MetadataDelegateMock(
         val mock: ConversationMetadataDelegate,
         val stateFlow: MutableStateFlow<ConversationMetadataUiState>,
@@ -596,6 +711,10 @@ class ConversationViewModelTest {
             senderContactLookupKey = null,
             canClusterWithPrevious = false,
             canClusterWithNext = false,
+            canCopyMessageToClipboard = false,
+            canDownloadMessage = false,
+            canForwardMessage = false,
+            canResendMessage = false,
             mmsSubject = null,
             protocol = ConversationMessageUiModel.Protocol.SMS,
         )

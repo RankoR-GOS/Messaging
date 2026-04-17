@@ -75,6 +75,10 @@ internal fun previewConversationMessage(
         senderContactLookupKey = null,
         canClusterWithPrevious = canClusterWithPrevious,
         canClusterWithNext = canClusterWithNext,
+        canCopyMessageToClipboard = !text.isNullOrBlank(),
+        canDownloadMessage = false,
+        canForwardMessage = true,
+        canResendMessage = false,
         mmsSubject = mmsSubject,
         protocol = protocol,
     )
