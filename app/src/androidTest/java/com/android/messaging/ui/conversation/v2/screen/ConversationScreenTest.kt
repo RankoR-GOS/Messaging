@@ -9,13 +9,18 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTouchInput
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.test.espresso.Espresso
+import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG
@@ -31,6 +36,9 @@ import com.android.messaging.ui.conversation.v2.messages.model.message.Conversat
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMediaPickerOverlayUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageDeleteConfirmationUiState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionAction
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import com.android.messaging.ui.core.AppTheme
@@ -39,6 +47,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll
 import io.mockk.verify
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -134,6 +143,9 @@ class ConversationScreenTest {
                     ConversationScreen(
                         conversationId = "conversation-1",
                         launchGeneration = 1,
+                        onAddPeopleClick = {},
+                        onConversationDetailsClick = {},
+                        onNavigateBack = {},
                         screenModel = screenModel.model,
                     )
                 }
@@ -167,6 +179,9 @@ class ConversationScreenTest {
                 ConversationScreen(
                     conversationId = "conversation-1",
                     launchGeneration = 1,
+                    onAddPeopleClick = {},
+                    onConversationDetailsClick = {},
+                    onNavigateBack = {},
                     pendingDraft = pendingDraft,
                     pendingStartupAttachment = pendingAttachment,
                     onPendingDraftConsumed = {
@@ -280,6 +295,9 @@ class ConversationScreenTest {
                 ConversationScreen(
                     conversationId = conversationState.first,
                     launchGeneration = conversationState.second,
+                    onAddPeopleClick = {},
+                    onConversationDetailsClick = {},
+                    onNavigateBack = {},
                     screenModel = screenModel.model,
                 )
             }
@@ -340,6 +358,211 @@ class ConversationScreenTest {
             .assertCountEquals(1)
     }
 
+    @Test
+    fun longPressingMessage_forwardsLongClickToScreenModel() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 3,
+                latestMessageId = "message-3",
+                latestMessageIncoming = false,
+            ),
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithText("Message 3")
+            .performTouchInput {
+                down(center)
+                advanceEventTime(1_000)
+                up()
+            }
+
+        verify(exactly = 1) {
+            screenModel.model.onMessageLongClick(messageId = "message-3")
+        }
+    }
+
+    @Test
+    fun clickingMessageInSelectionMode_forwardsClickToScreenModel() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 3,
+                latestMessageId = "message-3",
+                latestMessageIncoming = false,
+            ),
+            selection = ConversationMessageSelectionUiState(
+                selectedMessageIds = persistentSetOf("message-3"),
+                availableActions = persistentSetOf(
+                    ConversationMessageSelectionAction.Copy,
+                    ConversationMessageSelectionAction.Delete,
+                ),
+            ),
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithText("Message 2")
+            .performClick()
+
+        verify(exactly = 1) {
+            screenModel.model.onMessageClick(messageId = "message-2")
+        }
+    }
+
+    @Test
+    fun singleSelection_showsCopyAndDeleteInTopAppBar_andForwardsActionClicks() {
+        val screenModel = createScreenModel()
+        val copyLabel = composeTestRule.activity.getString(R.string.message_context_menu_copy_text)
+        val deleteLabel = composeTestRule.activity.getString(R.string.action_delete_message)
+        val moreOptionsLabel = composeTestRule.activity.getString(R.string.more_options)
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 1,
+                latestMessageId = "message-1",
+                latestMessageIncoming = false,
+            ),
+            selection = ConversationMessageSelectionUiState(
+                selectedMessageIds = persistentSetOf("message-1"),
+                availableActions = persistentSetOf(
+                    ConversationMessageSelectionAction.Copy,
+                    ConversationMessageSelectionAction.Delete,
+                ),
+            ),
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithContentDescription(copyLabel)
+            .assertIsDisplayed()
+            .performClick()
+        verify(exactly = 1) {
+            screenModel.model.onMessageSelectionActionClick(
+                action = ConversationMessageSelectionAction.Copy,
+            )
+        }
+
+        composeTestRule
+            .onNodeWithContentDescription(deleteLabel)
+            .assertIsDisplayed()
+            .performClick()
+        verify(exactly = 1) {
+            screenModel.model.onMessageSelectionActionClick(
+                action = ConversationMessageSelectionAction.Delete,
+            )
+        }
+
+        composeTestRule
+            .onNodeWithContentDescription(copyLabel)
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription(deleteLabel)
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription(moreOptionsLabel)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun multiSelection_showsOnlyDeleteActionInTopAppBar() {
+        val screenModel = createScreenModel()
+        val copyLabel = composeTestRule.activity.getString(R.string.message_context_menu_copy_text)
+        val deleteLabel = composeTestRule.activity.getString(R.string.action_delete_message)
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 2,
+                latestMessageId = "message-2",
+                latestMessageIncoming = false,
+            ),
+            selection = ConversationMessageSelectionUiState(
+                selectedMessageIds = persistentSetOf("message-1", "message-2"),
+                availableActions = persistentSetOf(
+                    ConversationMessageSelectionAction.Delete,
+                ),
+            ),
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithContentDescription(deleteLabel)
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription(copyLabel)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun deleteConfirmationButtons_forwardToScreenModel() {
+        val screenModel = createScreenModel()
+        val deleteLabel = composeTestRule.activity.getString(
+            R.string.delete_message_confirmation_button,
+        )
+        val cancelLabel = composeTestRule.activity.getString(android.R.string.cancel)
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 1,
+                latestMessageId = "message-1",
+                latestMessageIncoming = false,
+            ),
+            selection = ConversationMessageSelectionUiState(
+                selectedMessageIds = persistentSetOf("message-1"),
+                availableActions = persistentSetOf(
+                    ConversationMessageSelectionAction.Delete,
+                ),
+                deleteConfirmation = ConversationMessageDeleteConfirmationUiState(
+                    messageIds = persistentSetOf("message-1"),
+                ),
+            ),
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithText(cancelLabel)
+            .performClick()
+        verify(exactly = 1) {
+            screenModel.model.dismissDeleteMessageConfirmation()
+        }
+
+        composeTestRule
+            .onNodeWithText(deleteLabel)
+            .performClick()
+        verify(exactly = 1) {
+            screenModel.model.confirmDeleteSelectedMessages()
+        }
+    }
+
+    @Test
+    fun systemBackInSelectionMode_dismissesMessageSelection() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 2,
+                latestMessageId = "message-2",
+                latestMessageIncoming = false,
+            ),
+            selection = ConversationMessageSelectionUiState(
+                selectedMessageIds = persistentSetOf("message-2"),
+                availableActions = persistentSetOf(
+                    ConversationMessageSelectionAction.Delete,
+                ),
+            ),
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        Espresso.pressBack()
+
+        verify(exactly = 1) {
+            screenModel.model.dismissMessageSelection()
+        }
+    }
+
     private fun setScreenContent(
         screenModel: ConversationScreenModel,
         onAddPeopleClick: () -> Unit = {},
@@ -350,6 +573,8 @@ class ConversationScreenTest {
                     conversationId = "conversation-1",
                     launchGeneration = 1,
                     onAddPeopleClick = onAddPeopleClick,
+                    onConversationDetailsClick = {},
+                    onNavigateBack = {},
                     screenModel = screenModel,
                 )
             }
@@ -359,6 +584,7 @@ class ConversationScreenTest {
     private fun createPresentUiState(
         messages: List<ConversationMessageUiModel>,
         canAddPeople: Boolean = false,
+        selection: ConversationMessageSelectionUiState = ConversationMessageSelectionUiState(),
     ): ConversationScreenScaffoldUiState {
         return ConversationScreenScaffoldUiState(
             canAddPeople = canAddPeople,
@@ -377,6 +603,7 @@ class ConversationScreenTest {
                 isAttachmentActionEnabled = true,
                 isSendEnabled = true,
             ),
+            selection = selection,
         )
     }
 
@@ -405,6 +632,10 @@ class ConversationScreenTest {
                 senderContactLookupKey = null,
                 canClusterWithPrevious = false,
                 canClusterWithNext = false,
+                canCopyMessageToClipboard = !latestMessageIncoming,
+                canDownloadMessage = false,
+                canForwardMessage = true,
+                canResendMessage = false,
                 mmsSubject = null,
                 protocol = ConversationMessageUiModel.Protocol.SMS,
             )
