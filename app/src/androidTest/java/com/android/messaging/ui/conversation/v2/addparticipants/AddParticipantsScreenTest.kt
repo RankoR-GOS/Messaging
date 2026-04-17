@@ -19,7 +19,6 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,7 +34,6 @@ class AddParticipantsScreenTest {
 
     @Before
     fun setUp() {
-        unmockkAll()
         clearAllMocks()
     }
 

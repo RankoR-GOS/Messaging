@@ -27,10 +27,8 @@ import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessage
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
@@ -55,12 +53,6 @@ class ConversationViewModelTest {
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
-
-    @Before
-    fun setUp() {
-        unmockkAll()
-        clearAllMocks()
-    }
 
     @Test
     fun init_bindsAllDelegates() {

@@ -14,12 +14,10 @@ import com.android.messaging.domain.conversation.usecase.model.ResolveConversati
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.addparticipants.model.AddParticipantsEffect
 import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegateImpl
-import io.mockk.clearAllMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -57,8 +55,6 @@ class AddParticipantsViewModelTest {
 
     @Before
     fun setUp() {
-        unmockkAll()
-        clearAllMocks()
         conversationRecipientsRepository = mockk()
         conversationParticipantsRepository = mockk()
         isReadContactsPermissionGranted = mockk()

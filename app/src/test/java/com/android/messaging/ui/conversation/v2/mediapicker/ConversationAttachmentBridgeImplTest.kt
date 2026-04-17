@@ -8,27 +8,18 @@ import com.android.messaging.data.media.model.ConversationMediaItem
 import com.android.messaging.data.media.model.ConversationMediaType
 import com.android.messaging.datamodel.MediaScratchFileProvider
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class ConversationAttachmentBridgeImplTest {
-
-    @Before
-    fun setUp() {
-        unmockkAll()
-        clearAllMocks()
-    }
 
     @Test
     fun createDraftAttachments_mapsMediaItemsToDraftAttachments() {

@@ -4,11 +4,9 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepository
 import com.android.messaging.domain.conversation.usecase.SendConversationDraft
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
-import io.mockk.clearAllMocks
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,7 +24,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -34,12 +31,6 @@ import org.robolectric.RobolectricTestRunner
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class ConversationDraftDelegateImplTest {
-
-    @Before
-    fun setUp() {
-        unmockkAll()
-        clearAllMocks()
-    }
 
     @Test
     fun bind_setsCheckingStateUntilPersistedDraftArrives() {

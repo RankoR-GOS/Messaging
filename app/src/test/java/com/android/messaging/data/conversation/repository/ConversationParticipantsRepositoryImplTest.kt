@@ -8,13 +8,11 @@ import app.cash.turbine.test
 import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.datamodel.data.ParticipantData
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -33,8 +31,6 @@ class ConversationParticipantsRepositoryImplTest {
 
     @Before
     fun setUp() {
-        unmockkAll()
-        clearAllMocks()
         contentResolver = mockk()
     }
 

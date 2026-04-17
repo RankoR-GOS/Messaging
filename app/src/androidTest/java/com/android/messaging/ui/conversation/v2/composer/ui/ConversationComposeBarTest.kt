@@ -24,16 +24,13 @@ import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_TEST_TA
 import com.android.messaging.ui.conversation.v2.CONVERSATION_TEXT_FIELD_TEST_TAG
 import com.android.messaging.ui.conversation.v2.conversationShapeSemanticsKey
 import com.android.messaging.ui.core.AppTheme
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
-import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -41,12 +38,6 @@ class ConversationComposeBarTest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
-
-    @Before
-    fun setUp() {
-        unmockkAll()
-        clearAllMocks()
-    }
 
     @Test
     fun singleLineInput_keepsTextFieldAndSendButtonHeightsEqual() {

@@ -10,7 +10,6 @@ import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.Recipie
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,8 +40,6 @@ class RecipientPickerViewModelTest {
 
     @Before
     fun setUp() {
-        unmockkAll()
-        clearAllMocks()
         conversationRecipientsRepository = mockk()
         isReadContactsPermissionGranted = mockk()
     }

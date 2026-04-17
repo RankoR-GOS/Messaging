@@ -10,10 +10,8 @@ import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Directory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -33,8 +31,6 @@ class ConversationRecipientsRepositoryImplTest {
 
     @Before
     fun setUp() {
-        unmockkAll()
-        clearAllMocks()
         contentResolver = mockk()
     }
 

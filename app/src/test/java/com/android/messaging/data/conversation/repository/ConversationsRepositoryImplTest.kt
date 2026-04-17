@@ -13,12 +13,10 @@ import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.datamodel.data.ConversationListItemData
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.MessageData
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestDispatcher
@@ -39,8 +37,6 @@ class ConversationsRepositoryImplTest {
 
     @Before
     fun setUp() {
-        unmockkAll()
-        clearAllMocks()
         contentResolver = mockk()
     }
 

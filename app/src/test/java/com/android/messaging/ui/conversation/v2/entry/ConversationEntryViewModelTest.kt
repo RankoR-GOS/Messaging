@@ -13,12 +13,10 @@ import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryEffect
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryLaunchRequest
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
-import io.mockk.clearAllMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -47,8 +45,6 @@ class ConversationEntryViewModelTest {
 
     @Before
     fun setUp() {
-        unmockkAll()
-        clearAllMocks()
         conversationMessageDataDraftMapper = mockk()
         isConversationRecipientLimitExceeded = mockk()
         resolveConversationId = mockk()

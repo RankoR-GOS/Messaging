@@ -5,7 +5,6 @@ import com.android.messaging.datamodel.action.GetOrCreateConversationAction
 import com.android.messaging.datamodel.data.ParticipantData
 import com.android.messaging.domain.conversation.usecase.model.ResolveConversationIdResult
 import com.android.messaging.testutil.MainDispatcherRule
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -34,7 +33,6 @@ class ResolveConversationIdImplTest {
     @Before
     fun setUp() {
         unmockkAll()
-        clearAllMocks()
         mockkStatic(GetOrCreateConversationAction::class)
     }
 

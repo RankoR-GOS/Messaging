@@ -7,10 +7,8 @@ import com.android.messaging.data.media.repository.ConversationMediaRepository
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +26,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,12 +33,6 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConversationMediaPickerDelegateImplTest {
-
-    @Before
-    fun setUp() {
-        unmockkAll()
-        clearAllMocks()
-    }
 
     @Test
     fun onGalleryMediaConfirmed_mapsMediaItemsToDraftAttachments() = runTest {

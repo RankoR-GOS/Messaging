@@ -17,18 +17,16 @@ import com.android.messaging.ui.conversation.v2.messages.model.message.Conversat
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionAction
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -36,7 +34,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -44,12 +41,6 @@ import org.robolectric.RobolectricTestRunner
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class ConversationMessageSelectionDelegateImplTest {
-
-    @Before
-    fun setUp() {
-        unmockkAll()
-        clearAllMocks()
-    }
 
     @Test
     fun onMessageLongClick_selectsSingleMessageAndExposesSupportedActions() {

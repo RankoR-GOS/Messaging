@@ -24,17 +24,14 @@ import com.android.messaging.ui.conversation.v2.newChatContactRowTestTag
 import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientPickerModel
 import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerUiState
 import com.android.messaging.ui.core.AppTheme
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
-import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -42,12 +39,6 @@ class NewChatScreenTest {
 
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
-
-    @Before
-    fun setUp() {
-        unmockkAll()
-        clearAllMocks()
-    }
 
     @Test
     fun interactions_forwardQueryContactAndCreateGroupCallbacks() {

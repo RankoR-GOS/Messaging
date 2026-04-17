@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -24,7 +23,6 @@ class IsReadContactsPermissionGrantedImplTest {
     @Before
     fun setUp() {
         unmockkAll()
-        clearAllMocks()
         mockkStatic(ContextCompat::class)
         context = mockk()
     }

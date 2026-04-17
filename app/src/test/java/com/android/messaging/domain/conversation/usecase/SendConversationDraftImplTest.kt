@@ -5,7 +5,6 @@ import com.android.messaging.data.conversation.mapper.ConversationDraftMessageDa
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.datamodel.action.InsertNewMessageAction
 import com.android.messaging.datamodel.data.MessageData
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -34,7 +33,6 @@ class SendConversationDraftImplTest {
     @Before
     fun setUp() {
         unmockkAll()
-        clearAllMocks()
         mockkStatic(InsertNewMessageAction::class)
         every { InsertNewMessageAction.insertNewMessage(any()) } just runs
     }
