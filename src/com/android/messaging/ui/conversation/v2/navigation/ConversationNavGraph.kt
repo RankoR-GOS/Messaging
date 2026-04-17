@@ -31,16 +31,18 @@ import com.android.messaging.util.UiUtils
 internal fun ConversationNavGraph(
     launchRequest: ConversationEntryLaunchRequest?,
     modifier: Modifier = Modifier,
+    onConversationDetailsClick: (String) -> Unit = {},
     onFinish: () -> Unit,
     entryModel: ConversationEntryModel = hiltViewModel<ConversationEntryViewModel>(),
-    navigationReducer: ConversationNavigationReducer = DEFAULT_CONVERSATION_NAVIGATION_REDUCER,
+    navigationReducer: ConversationNavigationReducer = defaultConversationNavReducer,
 ) {
     val entryUiState by entryModel.uiState.collectAsStateWithLifecycle()
-    val backStack = rememberNavBackStack(initialNavKey(launchRequest = launchRequest))
-    val latestEntryModel = rememberUpdatedState(newValue = entryModel)
-    val latestEntryUiState = rememberUpdatedState(newValue = entryUiState)
-    val latestNavigationReducer = rememberUpdatedState(newValue = navigationReducer)
-    val latestOnFinish = rememberUpdatedState(newValue = onFinish)
+    val backStack = rememberNavBackStack(initialNavKey(launchRequest))
+    val latestEntryModel = rememberUpdatedState(entryModel)
+    val latestEntryUiState = rememberUpdatedState(entryUiState)
+    val latestNavigationReducer = rememberUpdatedState(navigationReducer)
+    val latestOnConversationDetailsClick = rememberUpdatedState(onConversationDetailsClick)
+    val latestOnFinish = rememberUpdatedState(onFinish)
 
     val entryDecorators = listOf(
         rememberSaveableStateHolderNavEntryDecorator(),
@@ -64,6 +66,9 @@ internal fun ConversationNavGraph(
                             backStack = backStack,
                             conversationId = navKey.conversationId,
                         )
+                    },
+                    onConversationDetailsClick = {
+                        latestOnConversationDetailsClick.value(navKey.conversationId)
                     },
                     onNavigateBack = {
                         popBackStackOrFinish(
@@ -313,5 +318,5 @@ private fun handleEntryEffect(
     }
 }
 
-private val DEFAULT_CONVERSATION_NAVIGATION_REDUCER: ConversationNavigationReducer =
+private val defaultConversationNavReducer: ConversationNavigationReducer =
     ConversationNavigationReducerImpl()

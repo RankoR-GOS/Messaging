@@ -38,6 +38,7 @@ internal class ConversationActivity : ComponentActivity() {
             AppTheme {
                 ConversationNavGraph(
                     launchRequest = launchRequest,
+                    onConversationDetailsClick = ::launchConversationDetails,
                     onFinish = ::finishAfterTransition,
                 )
             }
@@ -102,6 +103,13 @@ internal class ConversationActivity : ComponentActivity() {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             .let(::startActivity)
+    }
+
+    private fun launchConversationDetails(conversationId: String) {
+        UIIntents.get().launchPeopleAndOptionsActivity(
+            this,
+            conversationId,
+        )
     }
 
     private companion object {
