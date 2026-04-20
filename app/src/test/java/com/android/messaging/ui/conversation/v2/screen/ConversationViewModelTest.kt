@@ -136,8 +136,11 @@ class ConversationViewModelTest {
             val metadataState = ConversationMetadataUiState.Present(
                 title = "Weekend plan",
                 selfParticipantId = "self-1",
-                isGroupConversation = false,
+                avatar = ConversationMetadataUiState.Avatar.Single(
+                    photoUri = null,
+                ),
                 participantCount = 2,
+                otherParticipantDisplayDestination = null,
                 otherParticipantPhoneNumber = null,
                 otherParticipantContactLookupKey = null,
                 isArchived = false,
@@ -195,8 +198,9 @@ class ConversationViewModelTest {
             metadataDelegate.stateFlow.value = ConversationMetadataUiState.Present(
                 title = "Weekend plan",
                 selfParticipantId = "self-1",
-                isGroupConversation = true,
+                avatar = ConversationMetadataUiState.Avatar.Group,
                 participantCount = 2,
+                otherParticipantDisplayDestination = null,
                 otherParticipantPhoneNumber = null,
                 otherParticipantContactLookupKey = null,
                 isArchived = false,
@@ -227,8 +231,9 @@ class ConversationViewModelTest {
             metadataDelegate.stateFlow.value = ConversationMetadataUiState.Present(
                 title = "Weekend plan",
                 selfParticipantId = "self-1",
-                isGroupConversation = true,
+                avatar = ConversationMetadataUiState.Avatar.Group,
                 participantCount = 10,
+                otherParticipantDisplayDestination = null,
                 otherParticipantPhoneNumber = null,
                 otherParticipantContactLookupKey = null,
                 isArchived = false,

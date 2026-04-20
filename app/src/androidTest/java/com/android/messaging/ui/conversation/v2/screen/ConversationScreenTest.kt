@@ -661,8 +661,11 @@ class ConversationScreenTest {
             metadata = ConversationMetadataUiState.Present(
                 title = "Weekend plan",
                 selfParticipantId = "self-1",
-                isGroupConversation = false,
+                avatar = ConversationMetadataUiState.Avatar.Single(
+                    photoUri = null,
+                ),
                 participantCount = 2,
+                otherParticipantDisplayDestination = null,
                 otherParticipantPhoneNumber = otherParticipantPhoneNumber,
                 otherParticipantContactLookupKey = otherParticipantContactLookupKey,
                 isArchived = isArchived,

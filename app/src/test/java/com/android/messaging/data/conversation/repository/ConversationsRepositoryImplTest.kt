@@ -13,6 +13,7 @@ import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.datamodel.data.ConversationListItemData
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.MessageData
+import com.android.messaging.datamodel.data.ParticipantData
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -198,6 +199,81 @@ class ConversationsRepositoryImplTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun getConversationMetadata_oneOnOneConversation_usesParticipantDetailsForSubtitleAndAvatar() =
+        runTest {
+            val registeredObservers = mutableListOf<ContentObserver>()
+            val metadataProjections = mutableListOf<Array<String>?>()
+            val participantsProjections = mutableListOf<Array<String>?>()
+            val repository = createRepository(
+                testDispatcher = UnconfinedTestDispatcher(scheduler = testScheduler),
+            )
+            val metadataUri = MessagingContentProvider.buildConversationMetadataUri(CONVERSATION_ID)
+            val participantsUri = MessagingContentProvider
+                .buildConversationParticipantsUri(CONVERSATION_ID)
+
+            stubObserverRegistration(
+                registeredObservers = registeredObservers,
+                expectedUri = metadataUri,
+            )
+            stubQuery(
+                expectedUri = metadataUri,
+                capturedProjections = metadataProjections,
+                result = createConversationMetadataCursor(
+                    row = conversationMetadataRow(
+                        conversationName = "Carol",
+                        selfParticipantId = "self-2",
+                        participantCount = 1,
+                        otherParticipantLookupKey = "legacy-lookup-key",
+                        otherParticipantNormalizedDestination = "+15551234567",
+                    ),
+                ),
+            )
+            stubQuery(
+                expectedUri = participantsUri,
+                capturedProjections = participantsProjections,
+                result = createParticipantsCursor(
+                    rows = listOf(
+                        participantRow(
+                            participantId = "self-2",
+                            subId = 1,
+                            displayDestination = "",
+                            normalizedDestination = "",
+                            profilePhotoUri = "",
+                            lookupKey = "",
+                        ),
+                        participantRow(
+                            participantId = "participant-1",
+                            subId = ParticipantData.OTHER_THAN_SELF_SUB_ID,
+                            displayDestination = "(555) 123-4567",
+                            normalizedDestination = "+15551234567",
+                            profilePhotoUri = "content://contacts/people/1/photo",
+                            lookupKey = "lookup-key-carol",
+                        ),
+                    ),
+                ),
+            )
+
+            repository.getConversationMetadata(conversationId = CONVERSATION_ID).test {
+                val metadata = awaitItem()
+
+                assertEquals("(555) 123-4567", metadata?.otherParticipantDisplayDestination)
+                assertEquals("+15551234567", metadata?.otherParticipantNormalizedDestination)
+                assertEquals("lookup-key-carol", metadata?.otherParticipantContactLookupKey)
+                assertEquals(
+                    "content://contacts/people/1/photo",
+                    metadata?.otherParticipantPhotoUri,
+                )
+
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(
+                ParticipantData.ParticipantsQuery.PROJECTION.toList(),
+                participantsProjections.single()?.toList(),
+            )
+        }
 
     @Test
     fun getConversationMetadata_returnsNullWhenCursorIsEmpty() = runTest {
@@ -730,6 +806,20 @@ class ConversationsRepositoryImplTest {
         return cursor
     }
 
+    private fun createParticipantsCursor(rows: List<TestParticipantRow>): Cursor {
+        val cursor = MatrixCursor(ParticipantData.ParticipantsQuery.PROJECTION)
+
+        rows.forEach { row ->
+            cursor.addRow(
+                ParticipantData.ParticipantsQuery.PROJECTION.map { columnName ->
+                    row.toColumnValues()[columnName]
+                }.toTypedArray(),
+            )
+        }
+
+        return cursor
+    }
+
     private fun assertClusterState(
         message: ConversationMessageData,
         canClusterWithPrevious: Boolean,
@@ -763,6 +853,7 @@ class ConversationsRepositoryImplTest {
         participantCount: Int,
         isArchived: Boolean = false,
         otherParticipantLookupKey: String = "",
+        otherParticipantNormalizedDestination: String = "",
     ): TestConversationMetadataRow {
         return TestConversationMetadataRow(
             conversationName = conversationName,
@@ -770,6 +861,25 @@ class ConversationsRepositoryImplTest {
             participantCount = participantCount,
             isArchived = isArchived,
             otherParticipantLookupKey = otherParticipantLookupKey,
+            otherParticipantNormalizedDestination = otherParticipantNormalizedDestination,
+        )
+    }
+
+    private fun participantRow(
+        participantId: String,
+        subId: Int,
+        displayDestination: String,
+        normalizedDestination: String,
+        profilePhotoUri: String,
+        lookupKey: String,
+    ): TestParticipantRow {
+        return TestParticipantRow(
+            participantId = participantId,
+            subId = subId,
+            displayDestination = displayDestination,
+            normalizedDestination = normalizedDestination,
+            profilePhotoUri = profilePhotoUri,
+            lookupKey = lookupKey,
         )
     }
 
@@ -824,6 +934,7 @@ class ConversationsRepositoryImplTest {
         val participantCount: Int,
         val isArchived: Boolean = false,
         val otherParticipantLookupKey: String = "",
+        val otherParticipantNormalizedDestination: String = "",
     ) {
         fun toColumnValues(): Map<String, Any?> {
             return mapOf(
@@ -837,7 +948,8 @@ class ConversationsRepositoryImplTest {
                 ConversationColumns.PREVIEW_CONTENT_TYPE to "",
                 ConversationColumns.PARTICIPANT_CONTACT_ID to -1L,
                 ConversationColumns.PARTICIPANT_LOOKUP_KEY to otherParticipantLookupKey,
-                ConversationColumns.OTHER_PARTICIPANT_NORMALIZED_DESTINATION to "",
+                ConversationColumns.OTHER_PARTICIPANT_NORMALIZED_DESTINATION to
+                    otherParticipantNormalizedDestination,
                 ConversationColumns.PARTICIPANT_COUNT to participantCount,
                 ConversationColumns.CURRENT_SELF_ID to selfParticipantId,
                 ConversationColumns.NOTIFICATION_ENABLED to 1,
@@ -857,6 +969,35 @@ class ConversationsRepositoryImplTest {
                 "snippet_sender_first_name" to "",
                 "snippet_sender_display_destination" to "",
                 ConversationColumns.IS_ENTERPRISE to 0,
+            )
+        }
+    }
+
+    private data class TestParticipantRow(
+        val participantId: String,
+        val subId: Int,
+        val displayDestination: String,
+        val normalizedDestination: String,
+        val profilePhotoUri: String,
+        val lookupKey: String,
+    ) {
+        fun toColumnValues(): Map<String, Any?> {
+            return mapOf(
+                ParticipantColumns._ID to participantId,
+                ParticipantColumns.SUB_ID to subId,
+                ParticipantColumns.SIM_SLOT_ID to 0,
+                ParticipantColumns.NORMALIZED_DESTINATION to normalizedDestination,
+                ParticipantColumns.SEND_DESTINATION to normalizedDestination,
+                ParticipantColumns.DISPLAY_DESTINATION to displayDestination,
+                ParticipantColumns.FULL_NAME to "Name $participantId",
+                ParticipantColumns.FIRST_NAME to "Name",
+                ParticipantColumns.PROFILE_PHOTO_URI to profilePhotoUri,
+                ParticipantColumns.CONTACT_ID to 1L,
+                ParticipantColumns.LOOKUP_KEY to lookupKey,
+                ParticipantColumns.BLOCKED to 0,
+                ParticipantColumns.SUBSCRIPTION_COLOR to 0,
+                ParticipantColumns.SUBSCRIPTION_NAME to "",
+                ParticipantColumns.CONTACT_DESTINATION to normalizedDestination,
             )
         }
     }

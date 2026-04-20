@@ -230,8 +230,11 @@ class ConversationMetadataDelegateImplTest {
             ConversationMetadataUiState.Present(
                 title = "Carol",
                 selfParticipantId = "self-1",
-                isGroupConversation = false,
+                avatar = ConversationMetadataUiState.Avatar.Single(
+                    photoUri = metadata.otherParticipantPhotoUri,
+                ),
                 participantCount = 2,
+                otherParticipantDisplayDestination = metadata.otherParticipantDisplayDestination,
                 otherParticipantPhoneNumber = metadata.otherParticipantNormalizedDestination,
                 otherParticipantContactLookupKey = null,
                 isArchived = false,

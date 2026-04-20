@@ -1,10 +1,14 @@
 package com.android.messaging.ui.conversation.v2.metadata.ui
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscriptionLabel
@@ -13,6 +17,7 @@ import com.android.messaging.ui.conversation.v2.CONVERSATION_SIM_SELECTOR_MENU_I
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationSimSelectorUiState
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 import com.android.messaging.ui.core.AppTheme
+import com.android.messaging.util.AccessibilityUtil
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -44,8 +49,11 @@ class ConversationTopAppBarSimSelectorTest {
     private val presentMetadata = ConversationMetadataUiState.Present(
         title = "Carol",
         selfParticipantId = "self-1",
-        isGroupConversation = false,
+        avatar = ConversationMetadataUiState.Avatar.Single(
+            photoUri = null,
+        ),
         participantCount = 1,
+        otherParticipantDisplayDestination = "(555) 123-4567",
         otherParticipantPhoneNumber = "+15551234567",
         otherParticipantContactLookupKey = null,
         isArchived = false,
@@ -122,6 +130,80 @@ class ConversationTopAppBarSimSelectorTest {
         composeTestRule
             .onNodeWithTag(CONVERSATION_SIM_SELECTOR_MENU_ITEM_TEST_TAG)
             .assertDoesNotExist()
+    }
+
+    @Test
+    fun oneOnOneConversation_showsDisplayDestinationSubtitleAndAccessibilityLabel() {
+        setContent(simSelector = ConversationSimSelectorUiState())
+
+        composeTestRule
+            .onAllNodesWithText("(555) 123-4567")
+            .assertCountEquals(1)
+        composeTestRule
+            .onNodeWithText("+15551234567")
+            .assertDoesNotExist()
+
+        val resources = ApplicationProvider
+            .getApplicationContext<android.content.Context>()
+            .resources
+        val expectedContentDescription = AccessibilityUtil.getVocalizedPhoneNumber(
+            resources,
+            "(555) 123-4567",
+        )
+
+        composeTestRule
+            .onNodeWithContentDescription(expectedContentDescription)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun oneOnOneConversation_hidesSubtitleWhenItMatchesTitle() {
+        composeTestRule.setContent {
+            AppTheme {
+                ConversationTopAppBar(
+                    metadata = presentMetadata.copy(
+                        title = "(555) 123-4567",
+                    ),
+                    onAddPeopleClick = {},
+                    onSimSelectorClick = {},
+                    onTitleClick = {},
+                    onNavigateBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithText("(555) 123-4567")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun groupConversation_showsParticipantCountSubtitle() {
+        composeTestRule.setContent {
+            AppTheme {
+                ConversationTopAppBar(
+                    metadata = ConversationMetadataUiState.Present(
+                        title = "Weekend plan",
+                        selfParticipantId = "self-1",
+                        avatar = ConversationMetadataUiState.Avatar.Group,
+                        participantCount = 3,
+                        otherParticipantDisplayDestination = null,
+                        otherParticipantPhoneNumber = null,
+                        otherParticipantContactLookupKey = null,
+                        isArchived = false,
+                        composerAvailability = ConversationComposerAvailability.editable(),
+                    ),
+                    onAddPeopleClick = {},
+                    onSimSelectorClick = {},
+                    onTitleClick = {},
+                    onNavigateBack = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithText("3 participants")
+            .assertIsDisplayed()
     }
 
     private fun setContent(simSelector: ConversationSimSelectorUiState) {
