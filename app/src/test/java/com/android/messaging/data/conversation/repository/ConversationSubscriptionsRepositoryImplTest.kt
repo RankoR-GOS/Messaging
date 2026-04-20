@@ -1,0 +1,501 @@
+package com.android.messaging.data.conversation.repository
+
+import android.content.ContentResolver
+import android.database.ContentObserver
+import android.database.MatrixCursor
+import android.net.Uri
+import app.cash.turbine.test
+import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
+import com.android.messaging.data.conversation.model.metadata.ConversationSubscriptionLabel
+import com.android.messaging.datamodel.DatabaseHelper.ParticipantColumns
+import com.android.messaging.datamodel.MessagingContentProvider
+import com.android.messaging.datamodel.data.ParticipantData
+import com.android.messaging.debug.DebugSimEmulationMode
+import com.android.messaging.debug.DebugSimEmulationSource
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
+import io.mockk.slot
+import io.mockk.verify
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class ConversationSubscriptionsRepositoryImplTest {
+
+    private lateinit var contentResolver: ContentResolver
+    private lateinit var emulationModeFlow: MutableStateFlow<DebugSimEmulationMode>
+    private lateinit var emulationSource: DebugSimEmulationSource
+
+    @Before
+    fun setUp() {
+        contentResolver = mockk()
+        emulationModeFlow = MutableStateFlow(DebugSimEmulationMode.DEFAULT)
+        emulationSource = object : DebugSimEmulationSource {
+            override val mode = emulationModeFlow.asStateFlow()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_mapsActiveSelfParticipantsAndSortsBySlot() = runTest {
+        stubQuery(
+            cursor = createParticipantsCursor(
+                participantRow(
+                    id = "self-slot-2",
+                    subId = 2,
+                    slotId = 1,
+                    subscriptionName = "Carrier B",
+                    displayDestination = "+1 555 0200",
+                    subscriptionColor = 0x112233,
+                ),
+                participantRow(
+                    id = "self-slot-1",
+                    subId = 1,
+                    slotId = 0,
+                    subscriptionName = "Carrier A",
+                    displayDestination = "+1 555 0100",
+                    subscriptionColor = 0x445566,
+                ),
+            ),
+        )
+        stubObserverRegistration()
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            assertEquals(
+                listOf(
+                    ConversationSubscription(
+                        selfParticipantId = "self-slot-1",
+                        label = ConversationSubscriptionLabel.Named(name = "Carrier A"),
+                        displayDestination = "+1 555 0100",
+                        displaySlotId = 1,
+                        color = 0xFF445566.toInt(),
+                    ),
+                    ConversationSubscription(
+                        selfParticipantId = "self-slot-2",
+                        label = ConversationSubscriptionLabel.Named(name = "Carrier B"),
+                        displayDestination = "+1 555 0200",
+                        displaySlotId = 2,
+                        color = 0xFF112233.toInt(),
+                    ),
+                ),
+                awaitItem(),
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_skipsDefaultSelfAndInactiveParticipants() = runTest {
+        stubQuery(
+            cursor = createParticipantsCursor(
+                participantRow(
+                    id = "default-self",
+                    subId = ParticipantData.DEFAULT_SELF_SUB_ID,
+                    slotId = 0,
+                    subscriptionName = "Default",
+                    displayDestination = "+1 555 0000",
+                ),
+                participantRow(
+                    id = "inactive",
+                    subId = 5,
+                    slotId = ParticipantData.INVALID_SLOT_ID,
+                    subscriptionName = "Inactive",
+                    displayDestination = "+1 555 0001",
+                ),
+                participantRow(
+                    id = "active",
+                    subId = 1,
+                    slotId = 0,
+                    subscriptionName = "Active",
+                    displayDestination = "+1 555 0002",
+                    subscriptionColor = 0xAABBCC,
+                ),
+            ),
+        )
+        stubObserverRegistration()
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            assertEquals(
+                listOf(
+                    ConversationSubscription(
+                        selfParticipantId = "active",
+                        label = ConversationSubscriptionLabel.Named(name = "Active"),
+                        displayDestination = "+1 555 0002",
+                        displaySlotId = 1,
+                        color = 0xFFAABBCC.toInt(),
+                    ),
+                ),
+                awaitItem(),
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_emitsSlotLabelWhenSubscriptionNameIsBlank() = runTest {
+        stubQuery(
+            cursor = createParticipantsCursor(
+                participantRow(
+                    id = "self",
+                    subId = 1,
+                    slotId = 2,
+                    subscriptionName = "   ",
+                    displayDestination = "   ",
+                    subscriptionColor = 0xAABBCC,
+                ),
+            ),
+        )
+        stubObserverRegistration()
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            val items = awaitItem()
+            assertEquals(1, items.size)
+            assertEquals(
+                ConversationSubscriptionLabel.Slot(slotId = 3),
+                items.single().label,
+            )
+            assertEquals(null, items.single().displayDestination)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_defaultModeReturnsRealSubscriptionsUnchanged() = runTest {
+        stubQuery(
+            cursor = createParticipantsCursor(
+                participantRow(
+                    id = "real",
+                    subId = 1,
+                    slotId = 0,
+                    subscriptionName = "Real",
+                    displayDestination = "+1 555 0100",
+                    subscriptionColor = 0x112233,
+                ),
+            ),
+        )
+        stubObserverRegistration()
+        emulationModeFlow.value = DebugSimEmulationMode.DEFAULT
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            val items = awaitItem()
+            assertEquals(1, items.size)
+            assertEquals("real", items.single().selfParticipantId)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_singleModeKeepsRealSubscriptionWhenPresent() = runTest {
+        stubQuery(
+            cursor = createParticipantsCursor(
+                participantRow(
+                    id = "real",
+                    subId = 1,
+                    slotId = 0,
+                    subscriptionName = "Real",
+                    displayDestination = "+1 555 0100",
+                    subscriptionColor = 0x112233,
+                ),
+            ),
+        )
+        stubObserverRegistration()
+        emulationModeFlow.value = DebugSimEmulationMode.SINGLE
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            val items = awaitItem()
+            assertEquals(1, items.size)
+            assertEquals("real", items.single().selfParticipantId)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_singleModeInjectsFakeSimWhenNoRealSubscriptionsExist() =
+        runTest {
+            stubQuery(cursor = createParticipantsCursor())
+            stubObserverRegistration()
+            emulationModeFlow.value = DebugSimEmulationMode.SINGLE
+
+            val repository = createRepository()
+
+            repository.observeActiveSubscriptions().test {
+                val items = awaitItem()
+                assertEquals(1, items.size)
+                val fake = items.single()
+                assertEquals(1, fake.displaySlotId)
+                assertTrue(fake.selfParticipantId.startsWith("debug_sim_emulated_"))
+                assertEquals(
+                    ConversationSubscriptionLabel.DebugFake(slotId = 1),
+                    fake.label,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun observeActiveSubscriptions_dualModeInjectsTwoFakeSimsWhenNoRealSubscriptionsExist() =
+        runTest {
+            stubQuery(cursor = createParticipantsCursor())
+            stubObserverRegistration()
+            emulationModeFlow.value = DebugSimEmulationMode.DUAL
+
+            val repository = createRepository()
+
+            repository.observeActiveSubscriptions().test {
+                val items = awaitItem()
+                assertEquals(2, items.size)
+                assertEquals(1, items[0].displaySlotId)
+                assertEquals(2, items[1].displaySlotId)
+                assertTrue(
+                    items.all { it.selfParticipantId.startsWith("debug_sim_emulated_") },
+                )
+                assertTrue(
+                    items.all { it.label is ConversationSubscriptionLabel.DebugFake },
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun observeActiveSubscriptions_dualModePairsSingleRealSimWithFakeInOtherSlot() = runTest {
+        stubQuery(
+            cursor = createParticipantsCursor(
+                participantRow(
+                    id = "real",
+                    subId = 1,
+                    slotId = 1,
+                    subscriptionName = "Real",
+                    displayDestination = "+1 555 0100",
+                    subscriptionColor = 0x112233,
+                ),
+            ),
+        )
+        stubObserverRegistration()
+        emulationModeFlow.value = DebugSimEmulationMode.DUAL
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            val items = awaitItem()
+            assertEquals(2, items.size)
+            val bySlot = items.associateBy { it.displaySlotId }
+            assertEquals("real", bySlot[2]?.selfParticipantId)
+            assertTrue(
+                bySlot[1]?.selfParticipantId.orEmpty().startsWith("debug_sim_emulated_"),
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_dualModePairsRealSimInSlot2WithFakeInSlot1() = runTest {
+        stubQuery(
+            cursor = createParticipantsCursor(
+                participantRow(
+                    id = "real",
+                    subId = 1,
+                    slotId = 0,
+                    subscriptionName = "Real",
+                    displayDestination = "+1 555 0100",
+                    subscriptionColor = 0x112233,
+                ),
+            ),
+        )
+        stubObserverRegistration()
+        emulationModeFlow.value = DebugSimEmulationMode.DUAL
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            val items = awaitItem()
+            assertEquals(2, items.size)
+            val bySlot = items.associateBy { it.displaySlotId }
+            assertEquals("real", bySlot[1]?.selfParticipantId)
+            assertTrue(
+                bySlot[2]?.selfParticipantId.orEmpty().startsWith("debug_sim_emulated_"),
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_dualModePassesThroughWhenTwoRealSubscriptionsExist() = runTest {
+        stubQuery(
+            cursor = createParticipantsCursor(
+                participantRow(
+                    id = "real-a",
+                    subId = 1,
+                    slotId = 0,
+                    subscriptionName = "A",
+                    displayDestination = "+1 555 0100",
+                    subscriptionColor = 0x112233,
+                ),
+                participantRow(
+                    id = "real-b",
+                    subId = 2,
+                    slotId = 1,
+                    subscriptionName = "B",
+                    displayDestination = "+1 555 0200",
+                    subscriptionColor = 0x445566,
+                ),
+            ),
+        )
+        stubObserverRegistration()
+        emulationModeFlow.value = DebugSimEmulationMode.DUAL
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            val items = awaitItem()
+            assertEquals(
+                listOf("real-a", "real-b"),
+                items.map { it.selfParticipantId },
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_reemitsWhenEmulationModeChanges() = runTest {
+        stubQuery(cursor = createParticipantsCursor())
+        stubObserverRegistration()
+        emulationModeFlow.value = DebugSimEmulationMode.DEFAULT
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            assertEquals(0, awaitItem().size)
+
+            emulationModeFlow.value = DebugSimEmulationMode.SINGLE
+            assertEquals(1, awaitItem().size)
+
+            emulationModeFlow.value = DebugSimEmulationMode.DUAL
+            assertEquals(2, awaitItem().size)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun observeActiveSubscriptions_registersAndUnregistersObserver() = runTest {
+        val registeredObserver = slot<ContentObserver>()
+        val expectedUri = MessagingContentProvider.PARTICIPANTS_URI
+
+        every {
+            contentResolver.registerContentObserver(
+                expectedUri,
+                true,
+                capture(registeredObserver),
+            )
+        } just runs
+        every { contentResolver.unregisterContentObserver(any()) } just runs
+        stubQuery(cursor = createParticipantsCursor())
+
+        val repository = createRepository()
+
+        repository.observeActiveSubscriptions().test {
+            awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(exactly = 1) {
+            contentResolver.registerContentObserver(
+                expectedUri,
+                true,
+                registeredObserver.captured,
+            )
+        }
+        verify(exactly = 1) {
+            contentResolver.unregisterContentObserver(registeredObserver.captured)
+        }
+    }
+
+    private fun createRepository(): ConversationSubscriptionsRepositoryImpl {
+        return ConversationSubscriptionsRepositoryImpl(
+            contentResolver = contentResolver,
+            debugSimEmulationSource = emulationSource,
+            ioDispatcher = UnconfinedTestDispatcher(),
+        )
+    }
+
+    private fun stubQuery(cursor: MatrixCursor) {
+        every {
+            contentResolver.query(
+                MessagingContentProvider.PARTICIPANTS_URI,
+                ParticipantData.ParticipantsQuery.PROJECTION,
+                "${ParticipantColumns.SUB_ID} <> ?",
+                arrayOf(ParticipantData.OTHER_THAN_SELF_SUB_ID.toString()),
+                null,
+            )
+        } returns cursor
+    }
+
+    private fun stubObserverRegistration() {
+        every {
+            contentResolver.registerContentObserver(
+                any<Uri>(),
+                any(),
+                any(),
+            )
+        } just runs
+        every { contentResolver.unregisterContentObserver(any()) } just runs
+    }
+
+    private fun createParticipantsCursor(vararg rows: Array<Any?>): MatrixCursor {
+        return MatrixCursor(
+            ParticipantData.ParticipantsQuery.PROJECTION,
+        ).apply {
+            rows.forEach { row ->
+                addRow(row)
+            }
+        }
+    }
+
+    private fun participantRow(
+        id: String,
+        subId: Int,
+        slotId: Int,
+        subscriptionName: String?,
+        displayDestination: String?,
+        subscriptionColor: Int = 0,
+    ): Array<Any?> {
+        return arrayOf(
+            id,
+            subId,
+            slotId,
+            displayDestination,
+            displayDestination,
+            displayDestination,
+            null,
+            null,
+            null,
+            1L,
+            "lookup-$id",
+            0,
+            subscriptionColor,
+            subscriptionName,
+            displayDestination,
+        )
+    }
+}
