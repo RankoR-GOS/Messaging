@@ -3,6 +3,7 @@ package com.android.messaging.ui.conversation.v2.screen
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.graphics.Point
 import android.graphics.Rect
 import android.net.Uri
 import androidx.compose.runtime.Composable
@@ -57,6 +58,13 @@ internal fun ConversationScreenEffects(
                     )
                 }
 
+                is ConversationScreenEffect.PlacePhoneCall -> {
+                    placePhoneCall(
+                        context = context,
+                        phoneNumber = effect.phoneNumber,
+                    )
+                }
+
                 is ConversationScreenEffect.LaunchForwardMessage -> {
                     UIIntents.get().launchForwardMessageActivity(
                         context,
@@ -95,6 +103,17 @@ private fun openExternalUri(
     uri: String,
 ) {
     UIIntents.get().launchBrowserForUrl(context, uri)
+}
+
+private fun placePhoneCall(
+    context: Context,
+    phoneNumber: String,
+) {
+    UIIntents.get().launchPhoneCallActivity(
+        context,
+        phoneNumber,
+        Point(0, 0),
+    )
 }
 
 private suspend fun openShareSheet(

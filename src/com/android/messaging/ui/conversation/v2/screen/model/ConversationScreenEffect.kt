@@ -20,6 +20,10 @@ internal sealed interface ConversationScreenEffect {
         val uri: String,
     ) : ConversationScreenEffect
 
+    data class PlacePhoneCall(
+        val phoneNumber: String,
+    ) : ConversationScreenEffect
+
     data class ShareMessage(
         val attachmentContentType: String?,
         val attachmentContentUri: String?,

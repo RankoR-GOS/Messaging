@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.GroupAdd
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,7 +29,10 @@ import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -38,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_CALL_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_OVERFLOW_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 import com.android.messaging.ui.core.AppTheme
 
@@ -51,7 +60,9 @@ internal fun ConversationTopAppBar(
     modifier: Modifier = Modifier,
     metadata: ConversationMetadataUiState,
     isAddPeopleVisible: Boolean = false,
+    isCallVisible: Boolean = false,
     onAddPeopleClick: () -> Unit,
+    onCallClick: () -> Unit = {},
     onTitleClick: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
@@ -76,8 +87,13 @@ internal fun ConversationTopAppBar(
             )
         },
         actions = {
+            if (isCallVisible) {
+                ConversationTopAppBarCallAction(
+                    onCallClick = onCallClick,
+                )
+            }
             if (isAddPeopleVisible) {
-                ConversationTopAppBarAddPeopleAction(
+                ConversationTopAppBarOverflowMenu(
                     onAddPeopleClick = onAddPeopleClick,
                 )
             }
@@ -192,16 +208,59 @@ private fun ConversationTopAppBarNavigationIcon(
 }
 
 @Composable
-private fun ConversationTopAppBarAddPeopleAction(
-    onAddPeopleClick: () -> Unit,
+private fun ConversationTopAppBarCallAction(
+    onCallClick: () -> Unit,
 ) {
     IconButton(
-        modifier = Modifier.testTag(CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG),
-        onClick = onAddPeopleClick,
+        modifier = Modifier.testTag(CONVERSATION_CALL_BUTTON_TEST_TAG),
+        onClick = onCallClick,
     ) {
         Icon(
-            imageVector = Icons.Rounded.GroupAdd,
-            contentDescription = stringResource(id = R.string.conversation_add_people),
+            imageVector = Icons.Rounded.Call,
+            contentDescription = stringResource(id = R.string.action_call),
+        )
+    }
+}
+
+@Composable
+private fun ConversationTopAppBarOverflowMenu(
+    onAddPeopleClick: () -> Unit,
+) {
+    var isExpanded by remember { mutableStateOf(value = false) }
+
+    IconButton(
+        modifier = Modifier.testTag(CONVERSATION_OVERFLOW_BUTTON_TEST_TAG),
+        onClick = { isExpanded = true },
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.MoreVert,
+            contentDescription = stringResource(id = R.string.action_more_options),
+        )
+    }
+
+    DropdownMenu(
+        expanded = isExpanded,
+        onDismissRequest = {
+            @Suppress("AssignedValueIsNeverRead")
+            isExpanded = false
+        },
+    ) {
+        DropdownMenuItem(
+            modifier = Modifier.testTag(CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG),
+            text = {
+                Text(text = stringResource(id = R.string.conversation_add_people))
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Rounded.GroupAdd,
+                    contentDescription = null,
+                )
+            },
+            onClick = {
+                @Suppress("AssignedValueIsNeverRead")
+                isExpanded = false
+                onAddPeopleClick()
+            },
         )
     }
 }
@@ -315,10 +374,34 @@ private fun ConversationTopAppBarLoadedPreview() {
                 selfParticipantId = "self",
                 isGroupConversation = true,
                 participantCount = 3,
+                otherParticipantPhoneNumber = null,
                 composerAvailability = ConversationComposerAvailability.editable(),
             ),
             isAddPeopleVisible = true,
             onAddPeopleClick = {},
+            onTitleClick = {},
+            onNavigateBack = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ConversationTopAppBarOneOnOnePreview() {
+    AppTheme {
+        ConversationTopAppBar(
+            metadata = ConversationMetadataUiState.Present(
+                title = "Carol",
+                selfParticipantId = "self",
+                isGroupConversation = false,
+                participantCount = 1,
+                otherParticipantPhoneNumber = "+15551234567",
+                composerAvailability = ConversationComposerAvailability.editable(),
+            ),
+            isAddPeopleVisible = true,
+            isCallVisible = true,
+            onAddPeopleClick = {},
+            onCallClick = {},
             onTitleClick = {},
             onNavigateBack = {},
         )

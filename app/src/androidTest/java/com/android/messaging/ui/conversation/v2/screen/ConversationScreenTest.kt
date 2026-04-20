@@ -25,10 +25,12 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_CALL_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_COMPOSE_BAR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_MEDIA_PICKER_OVERLAY_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_MESSAGES_LIST_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_OVERFLOW_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.conversationMessageItemTestTag
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
@@ -99,7 +101,7 @@ class ConversationScreenTest {
     }
 
     @Test
-    fun addPeopleAction_isShownWhenEnabled_andForwardsClicks() {
+    fun addPeopleAction_isShownInOverflowWhenEnabled_andForwardsClicks() {
         val screenModel = createScreenModel()
         var addPeopleClicks = 0
         screenModel.scaffoldUiStateFlow.value = createPresentUiState(
@@ -120,10 +122,63 @@ class ConversationScreenTest {
 
         composeTestRule
             .onNodeWithTag(CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG)
+            .assertDoesNotExist()
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_OVERFLOW_BUTTON_TEST_TAG)
+            .assertIsDisplayed()
+            .performClick()
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG)
             .assertIsDisplayed()
             .performClick()
 
         org.junit.Assert.assertEquals(1, addPeopleClicks)
+    }
+
+    @Test
+    fun callAction_isShownWhenEnabled_andForwardsClicks() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 3,
+                latestMessageId = "message-3",
+                latestMessageIncoming = false,
+            ),
+            canCall = true,
+            otherParticipantPhoneNumber = "+15551234567",
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_CALL_BUTTON_TEST_TAG)
+            .assertIsDisplayed()
+            .performClick()
+
+        verify(exactly = 1) {
+            screenModel.model.onCallClick()
+        }
+    }
+
+    @Test
+    fun callAction_isHiddenWhenDisabled() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 3,
+                latestMessageId = "message-3",
+                latestMessageIncoming = false,
+            ),
+            canCall = false,
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_CALL_BUTTON_TEST_TAG)
+            .assertDoesNotExist()
     }
 
     @Test
@@ -584,15 +639,19 @@ class ConversationScreenTest {
     private fun createPresentUiState(
         messages: List<ConversationMessageUiModel>,
         canAddPeople: Boolean = false,
+        canCall: Boolean = false,
+        otherParticipantPhoneNumber: String? = null,
         selection: ConversationMessageSelectionUiState = ConversationMessageSelectionUiState(),
     ): ConversationScreenScaffoldUiState {
         return ConversationScreenScaffoldUiState(
             canAddPeople = canAddPeople,
+            canCall = canCall,
             metadata = ConversationMetadataUiState.Present(
                 title = "Weekend plan",
                 selfParticipantId = "self-1",
                 isGroupConversation = false,
                 participantCount = 2,
+                otherParticipantPhoneNumber = otherParticipantPhoneNumber,
                 composerAvailability = ConversationComposerAvailability.editable(),
             ),
             messages = ConversationMessagesUiState.Present(

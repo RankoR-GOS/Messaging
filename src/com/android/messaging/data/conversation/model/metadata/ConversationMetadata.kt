@@ -5,5 +5,6 @@ internal data class ConversationMetadata(
     val selfParticipantId: String,
     val isGroupConversation: Boolean,
     val participantCount: Int,
+    val otherParticipantNormalizedDestination: String?,
     val composerAvailability: ConversationComposerAvailability,
 )

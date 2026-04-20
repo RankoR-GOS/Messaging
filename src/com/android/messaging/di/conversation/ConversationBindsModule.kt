@@ -28,6 +28,8 @@ import com.android.messaging.domain.conversation.usecase.ForwardedMessageSubject
 import com.android.messaging.domain.conversation.usecase.ForwardedMessageSubjectFormatterImpl
 import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceeded
 import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceededImpl
+import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
+import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapableImpl
 import com.android.messaging.domain.conversation.usecase.ResolveConversationId
 import com.android.messaging.domain.conversation.usecase.ResolveConversationIdImpl
 import com.android.messaging.domain.conversation.usecase.SendConversationDraft
@@ -97,6 +99,12 @@ internal abstract class ConversationBindsModule {
     abstract fun bindCanAddMoreConversationParticipants(
         impl: CanAddMoreConversationParticipantsImpl,
     ): CanAddMoreConversationParticipants
+
+    @Binds
+    @Reusable
+    abstract fun bindIsDeviceVoiceCapable(
+        impl: IsDeviceVoiceCapableImpl,
+    ): IsDeviceVoiceCapable
 
     @Binds
     @Reusable

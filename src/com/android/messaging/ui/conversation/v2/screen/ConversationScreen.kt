@@ -144,6 +144,7 @@ internal fun ConversationScreen(
             isMediaPickerOpen = mediaPickerState.isOpen,
             messageFieldFocusRequester = messageFieldFocusRequester,
             onAddPeopleClick = onAddPeopleClick,
+            onCallClick = screenModel::onCallClick,
             onConversationDetailsClick = onConversationDetailsClick,
             onNavigateBack = onNavigateBack,
             onDeleteSelectedMessagesConfirmed = screenModel::confirmDeleteSelectedMessages,
@@ -190,6 +191,7 @@ private fun ConversationScreenScaffold(
     isMediaPickerOpen: Boolean,
     messageFieldFocusRequester: FocusRequester,
     onAddPeopleClick: () -> Unit,
+    onCallClick: () -> Unit,
     onConversationDetailsClick: () -> Unit,
     onDeleteSelectedMessagesConfirmed: () -> Unit,
     onDeleteSelectedMessagesDismissed: () -> Unit,
@@ -223,7 +225,9 @@ private fun ConversationScreenScaffold(
                     ConversationTopAppBar(
                         metadata = uiState.metadata,
                         isAddPeopleVisible = uiState.canAddPeople,
+                        isCallVisible = uiState.canCall,
                         onAddPeopleClick = onAddPeopleClick,
+                        onCallClick = onCallClick,
                         onTitleClick = onConversationDetailsClick,
                         onNavigateBack = onNavigateBack,
                     )

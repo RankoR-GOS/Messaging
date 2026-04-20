@@ -21,6 +21,7 @@ internal sealed interface ConversationMetadataUiState {
         val selfParticipantId: String,
         val isGroupConversation: Boolean,
         val participantCount: Int,
+        val otherParticipantPhoneNumber: String?,
         override val composerAvailability: ConversationComposerAvailability,
     ) : ConversationMetadataUiState
 

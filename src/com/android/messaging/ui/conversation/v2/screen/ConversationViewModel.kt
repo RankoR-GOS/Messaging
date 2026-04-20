@@ -8,6 +8,7 @@ import com.android.messaging.data.media.model.ConversationMediaItem
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
+import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
@@ -63,6 +64,8 @@ internal interface ConversationScreenModel {
     fun onMessageLongClick(messageId: String)
     fun onMessageSelectionActionClick(action: ConversationMessageSelectionAction)
 
+    fun onCallClick()
+
     fun onExternalUriClicked(uri: String)
 
     fun onGalleryMediaConfirmed(mediaItems: List<ConversationMediaItem>)
@@ -92,6 +95,7 @@ internal class ConversationViewModel @Inject constructor(
     private val conversationMetadataDelegate: ConversationMetadataDelegate,
     private val conversationComposerUiStateMapper: ConversationComposerUiStateMapper,
     private val canAddMoreConversationParticipants: CanAddMoreConversationParticipants,
+    private val isDeviceVoiceCapable: IsDeviceVoiceCapable,
     @param:DefaultDispatcher
     private val defaultDispatcher: CoroutineDispatcher,
     private val savedStateHandle: SavedStateHandle,
@@ -135,6 +139,7 @@ internal class ConversationViewModel @Inject constructor(
     ) { metadataState, messagesUiState, composerUiState, selectionUiState ->
         ConversationScreenScaffoldUiState(
             canAddPeople = canAddPeople(metadataState = metadataState),
+            canCall = canCall(metadataState = metadataState),
             metadata = metadataState,
             messages = messagesUiState,
             composer = composerUiState,
@@ -147,6 +152,9 @@ internal class ConversationViewModel @Inject constructor(
         ),
         initialValue = ConversationScreenScaffoldUiState(
             canAddPeople = canAddPeople(
+                metadataState = conversationMetadataDelegate.state.value,
+            ),
+            canCall = canCall(
                 metadataState = conversationMetadataDelegate.state.value,
             ),
             metadata = conversationMetadataDelegate.state.value,
@@ -247,6 +255,15 @@ internal class ConversationViewModel @Inject constructor(
         }
     }
 
+    private fun canCall(
+        metadataState: ConversationMetadataUiState,
+    ): Boolean {
+        val isOneOnOne = metadataState is ConversationMetadataUiState.Present &&
+            !metadataState.isGroupConversation &&
+            metadataState.otherParticipantPhoneNumber != null
+        return isOneOnOne && isDeviceVoiceCapable()
+    }
+
     override fun onSeedDraft(
         conversationId: String,
         draft: ConversationDraft,
@@ -327,6 +344,23 @@ internal class ConversationViewModel @Inject constructor(
 
     override fun onMessageSelectionActionClick(action: ConversationMessageSelectionAction) {
         conversationMessageSelectionDelegate.onMessageSelectionActionClick(action = action)
+    }
+
+    override fun onCallClick() {
+        val phoneNumber = (
+            conversationMetadataDelegate.state.value as?
+                ConversationMetadataUiState.Present
+            )
+            ?.otherParticipantPhoneNumber
+            ?: return
+
+        viewModelScope.launch(defaultDispatcher) {
+            _effects.emit(
+                ConversationScreenEffect.PlacePhoneCall(
+                    phoneNumber = phoneNumber,
+                ),
+            )
+        }
     }
 
     override fun onExternalUriClicked(uri: String) {

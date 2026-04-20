@@ -8,6 +8,7 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
+import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
@@ -133,6 +134,7 @@ class ConversationViewModelTest {
                 selfParticipantId = "self-1",
                 isGroupConversation = false,
                 participantCount = 2,
+                otherParticipantPhoneNumber = null,
                 composerAvailability = ConversationComposerAvailability.editable(),
             )
             val messagesState = ConversationMessagesUiState.Present(
@@ -189,6 +191,7 @@ class ConversationViewModelTest {
                 selfParticipantId = "self-1",
                 isGroupConversation = true,
                 participantCount = 2,
+                otherParticipantPhoneNumber = null,
                 composerAvailability = ConversationComposerAvailability.editable(),
             )
             viewModel.scaffoldUiState.test {
@@ -218,6 +221,7 @@ class ConversationViewModelTest {
                 selfParticipantId = "self-1",
                 isGroupConversation = true,
                 participantCount = 10,
+                otherParticipantPhoneNumber = null,
                 composerAvailability = ConversationComposerAvailability.editable(),
             )
             viewModel.scaffoldUiState.test {
@@ -481,6 +485,7 @@ class ConversationViewModelTest {
         canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
             every { invoke(participantCount = any()) } returns false
         },
+        isDeviceVoiceCapable: IsDeviceVoiceCapable = IsDeviceVoiceCapable { false },
         composerUiStateMapper: ConversationComposerUiStateMapper =
             createComposerUiStateMapperMock(mappedUiState = ConversationComposerUiState()),
     ): ConversationViewModel {
@@ -492,6 +497,7 @@ class ConversationViewModelTest {
             conversationMetadataDelegate = metadataDelegate,
             conversationComposerUiStateMapper = composerUiStateMapper,
             canAddMoreConversationParticipants = canAddMoreConversationParticipants,
+            isDeviceVoiceCapable = isDeviceVoiceCapable,
             defaultDispatcher = mainDispatcherRule.testDispatcher,
             savedStateHandle = SavedStateHandle(),
         )
@@ -508,6 +514,7 @@ class ConversationViewModelTest {
         canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
             every { invoke(participantCount = any()) } returns false
         },
+        isDeviceVoiceCapable: IsDeviceVoiceCapable = IsDeviceVoiceCapable { false },
         composerUiStateMapper: ConversationComposerUiStateMapper =
             createComposerUiStateMapperMock(mappedUiState = ConversationComposerUiState()),
     ): ConversationViewModel {
@@ -523,6 +530,7 @@ class ConversationViewModelTest {
                         mediaPickerDelegate = mediaPickerDelegate,
                         metadataDelegate = metadataDelegate,
                         canAddMoreConversationParticipants = canAddMoreConversationParticipants,
+                        isDeviceVoiceCapable = isDeviceVoiceCapable,
                         composerUiStateMapper = composerUiStateMapper,
                     ) as T
                 }

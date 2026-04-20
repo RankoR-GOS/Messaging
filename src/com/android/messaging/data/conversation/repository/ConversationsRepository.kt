@@ -193,6 +193,11 @@ internal class ConversationsRepositoryImpl @Inject constructor(
                     ),
                     isGroupConversation = cursor.getInt(ConversationColumns.PARTICIPANT_COUNT) > 1,
                     participantCount = cursor.getInt(ConversationColumns.PARTICIPANT_COUNT),
+                    otherParticipantNormalizedDestination = cursor
+                        .getStringOrEmpty(
+                            ConversationColumns.OTHER_PARTICIPANT_NORMALIZED_DESTINATION,
+                        )
+                        .takeIf { it.isNotBlank() },
                     composerAvailability = ConversationComposerAvailability.editable(),
                 )
             }
