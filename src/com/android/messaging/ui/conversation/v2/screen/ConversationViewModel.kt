@@ -12,15 +12,18 @@ import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegate
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.metadata.delegate.ConversationMetadataDelegate
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMediaPickerOverlayUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionAction
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -84,6 +87,13 @@ internal interface ConversationScreenModel {
     fun confirmDeleteSelectedMessages()
     fun onSendClick()
     fun persistDraft()
+
+    fun onArchiveConversationClick()
+    fun onUnarchiveConversationClick()
+    fun onAddContactClick()
+    fun onDeleteConversationClick()
+    fun confirmDeleteConversation()
+    fun dismissDeleteConversationConfirmation()
 }
 
 @HiltViewModel
@@ -136,33 +146,54 @@ internal class ConversationViewModel @Inject constructor(
         conversationMessagesDelegate.state,
         composerUiState,
         conversationMessageSelectionDelegate.state,
-    ) { metadataState, messagesUiState, composerUiState, selectionUiState ->
-        ConversationScreenScaffoldUiState(
-            canAddPeople = canAddPeople(metadataState = metadataState),
-            canCall = canCall(metadataState = metadataState),
-            metadata = metadataState,
-            messages = messagesUiState,
-            composer = composerUiState,
-            selection = selectionUiState,
+        conversationMetadataDelegate.isDeleteConversationConfirmationVisible,
+    ) { metadataState, messagesUiState, composerUiState, selectionUiState, isDeleteConfirmVisible ->
+        buildScaffoldUiState(
+            metadataState = metadataState,
+            messagesUiState = messagesUiState,
+            composerUiState = composerUiState,
+            selectionUiState = selectionUiState,
+            isDeleteConversationConfirmationVisible = isDeleteConfirmVisible,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(
             stopTimeoutMillis = STATEFLOW_STOP_TIMEOUT_MILLIS,
         ),
-        initialValue = ConversationScreenScaffoldUiState(
-            canAddPeople = canAddPeople(
-                metadataState = conversationMetadataDelegate.state.value,
-            ),
-            canCall = canCall(
-                metadataState = conversationMetadataDelegate.state.value,
-            ),
-            metadata = conversationMetadataDelegate.state.value,
-            messages = conversationMessagesDelegate.state.value,
-            composer = composerUiState.value,
-            selection = conversationMessageSelectionDelegate.state.value,
+        initialValue = buildScaffoldUiState(
+            metadataState = conversationMetadataDelegate.state.value,
+            messagesUiState = conversationMessagesDelegate.state.value,
+            composerUiState = composerUiState.value,
+            selectionUiState = conversationMessageSelectionDelegate.state.value,
+            isDeleteConversationConfirmationVisible =
+                conversationMetadataDelegate.isDeleteConversationConfirmationVisible.value,
         ),
     )
+
+    private fun buildScaffoldUiState(
+        metadataState: ConversationMetadataUiState,
+        messagesUiState: ConversationMessagesUiState,
+        composerUiState: ConversationComposerUiState,
+        selectionUiState: ConversationMessageSelectionUiState,
+        isDeleteConversationConfirmationVisible: Boolean,
+    ): ConversationScreenScaffoldUiState {
+        val isPresent = metadataState is ConversationMetadataUiState.Present
+        val presentMetadata = metadataState as? ConversationMetadataUiState.Present
+
+        return ConversationScreenScaffoldUiState(
+            canAddPeople = canAddPeople(metadataState = metadataState),
+            canCall = canCall(metadataState = metadataState),
+            canArchive = isPresent && presentMetadata?.isArchived == false,
+            canUnarchive = isPresent && presentMetadata?.isArchived == true,
+            canAddContact = canAddContact(metadataState = metadataState),
+            canDeleteConversation = isPresent,
+            isDeleteConversationConfirmationVisible = isDeleteConversationConfirmationVisible,
+            metadata = metadataState,
+            messages = messagesUiState,
+            composer = composerUiState,
+            selection = selectionUiState,
+        )
+    }
 
     override val mediaPickerOverlayUiState: StateFlow<ConversationMediaPickerOverlayUiState> =
         combine(
@@ -229,6 +260,9 @@ internal class ConversationViewModel @Inject constructor(
         viewModelScope.launch(defaultDispatcher) {
             conversationMessageSelectionDelegate.effects.collect(_effects::emit)
         }
+        viewModelScope.launch(defaultDispatcher) {
+            conversationMetadataDelegate.effects.collect(_effects::emit)
+        }
     }
 
     override fun onConversationIdChanged(conversationId: String?) {
@@ -262,6 +296,15 @@ internal class ConversationViewModel @Inject constructor(
             !metadataState.isGroupConversation &&
             metadataState.otherParticipantPhoneNumber != null
         return isOneOnOne && isDeviceVoiceCapable()
+    }
+
+    private fun canAddContact(
+        metadataState: ConversationMetadataUiState,
+    ): Boolean {
+        val present = metadataState as? ConversationMetadataUiState.Present ?: return false
+        val hasDestination = !present.otherParticipantPhoneNumber.isNullOrBlank()
+        val hasContactLink = !present.otherParticipantContactLookupKey.isNullOrBlank()
+        return !present.isGroupConversation && hasDestination && !hasContactLink
     }
 
     override fun onSeedDraft(
@@ -425,6 +468,30 @@ internal class ConversationViewModel @Inject constructor(
 
     override fun persistDraft() {
         conversationDraftDelegate.persistDraft()
+    }
+
+    override fun onArchiveConversationClick() {
+        conversationMetadataDelegate.onArchiveConversationClick()
+    }
+
+    override fun onUnarchiveConversationClick() {
+        conversationMetadataDelegate.onUnarchiveConversationClick()
+    }
+
+    override fun onAddContactClick() {
+        conversationMetadataDelegate.onAddContactClick()
+    }
+
+    override fun onDeleteConversationClick() {
+        conversationMetadataDelegate.onDeleteConversationClick()
+    }
+
+    override fun confirmDeleteConversation() {
+        conversationMetadataDelegate.confirmDeleteConversation()
+    }
+
+    override fun dismissDeleteConversationConfirmation() {
+        conversationMetadataDelegate.dismissDeleteConversationConfirmation()
     }
 
     override fun onCleared() {

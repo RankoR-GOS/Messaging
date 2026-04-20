@@ -9,6 +9,11 @@ import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetad
 internal data class ConversationScreenScaffoldUiState(
     val canAddPeople: Boolean = false,
     val canCall: Boolean = false,
+    val canArchive: Boolean = false,
+    val canUnarchive: Boolean = false,
+    val canAddContact: Boolean = false,
+    val canDeleteConversation: Boolean = false,
+    val isDeleteConversationConfirmationVisible: Boolean = false,
     val metadata: ConversationMetadataUiState = ConversationMetadataUiState.Loading,
     val messages: ConversationMessagesUiState = ConversationMessagesUiState.Loading,
     val composer: ConversationComposerUiState = ConversationComposerUiState(),

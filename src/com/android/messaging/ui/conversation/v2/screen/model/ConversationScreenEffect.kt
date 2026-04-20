@@ -6,6 +6,12 @@ import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.ParticipantData
 
 internal sealed interface ConversationScreenEffect {
+    data object CloseConversation : ConversationScreenEffect
+
+    data class LaunchAddContactFlow(
+        val destination: String,
+    ) : ConversationScreenEffect
+
     data class LaunchForwardMessage(
         val message: MessageData,
     ) : ConversationScreenEffect

@@ -8,9 +8,11 @@ import com.android.messaging.data.conversation.model.metadata.ConversationMetada
 import com.android.messaging.datamodel.DatabaseHelper.ConversationColumns
 import com.android.messaging.datamodel.DatabaseHelper.ParticipantColumns
 import com.android.messaging.datamodel.MessagingContentProvider
+import com.android.messaging.datamodel.action.DeleteConversationAction
 import com.android.messaging.datamodel.action.DeleteMessageAction
 import com.android.messaging.datamodel.action.RedownloadMmsAction
 import com.android.messaging.datamodel.action.ResendMessageAction
+import com.android.messaging.datamodel.action.UpdateConversationArchiveStatusAction
 import com.android.messaging.datamodel.data.ConversationListItemData
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.ConversationParticipantsData
@@ -46,6 +48,12 @@ internal interface ConversationsRepository {
     ): ConversationMessageDetailsData?
 
     fun resendMessage(messageId: String)
+
+    fun archiveConversation(conversationId: String)
+
+    fun unarchiveConversation(conversationId: String)
+
+    fun deleteConversation(conversationId: String)
 }
 
 internal data class ConversationMessageDetailsData(
@@ -135,6 +143,29 @@ internal class ConversationsRepositoryImpl @Inject constructor(
             ?.let(ResendMessageAction::resendMessage)
     }
 
+    override fun archiveConversation(conversationId: String) {
+        conversationId
+            .takeIf { it.isNotBlank() }
+            ?.let(UpdateConversationArchiveStatusAction::archiveConversation)
+    }
+
+    override fun unarchiveConversation(conversationId: String) {
+        conversationId
+            .takeIf { it.isNotBlank() }
+            ?.let(UpdateConversationArchiveStatusAction::unarchiveConversation)
+    }
+
+    override fun deleteConversation(conversationId: String) {
+        if (conversationId.isBlank()) {
+            return
+        }
+
+        DeleteConversationAction.deleteConversation(
+            conversationId,
+            System.currentTimeMillis(),
+        )
+    }
+
     private fun observeUri(uri: Uri): Flow<Unit> {
         return callbackFlow {
             val observer = object : ContentObserver(null) {
@@ -198,6 +229,10 @@ internal class ConversationsRepositoryImpl @Inject constructor(
                             ConversationColumns.OTHER_PARTICIPANT_NORMALIZED_DESTINATION,
                         )
                         .takeIf { it.isNotBlank() },
+                    otherParticipantContactLookupKey = cursor
+                        .getStringOrEmpty(ConversationColumns.PARTICIPANT_LOOKUP_KEY)
+                        .takeIf { it.isNotBlank() },
+                    isArchived = cursor.getInt(ConversationColumns.ARCHIVE_STATUS) == 1,
                     composerAvailability = ConversationComposerAvailability.editable(),
                 )
             }

@@ -10,6 +10,11 @@ internal const val CONVERSATION_ATTACHMENT_PREVIEW_LIST_TEST_TAG =
 internal const val CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG = "conversation_add_people_button"
 internal const val CONVERSATION_CALL_BUTTON_TEST_TAG = "conversation_call_button"
 internal const val CONVERSATION_OVERFLOW_BUTTON_TEST_TAG = "conversation_overflow_button"
+internal const val CONVERSATION_ARCHIVE_BUTTON_TEST_TAG = "conversation_archive_button"
+internal const val CONVERSATION_UNARCHIVE_BUTTON_TEST_TAG = "conversation_unarchive_button"
+internal const val CONVERSATION_ADD_CONTACT_BUTTON_TEST_TAG = "conversation_add_contact_button"
+internal const val CONVERSATION_DELETE_CONVERSATION_BUTTON_TEST_TAG =
+    "conversation_delete_conversation_button"
 internal const val CONVERSATION_LOADING_INDICATOR_TEST_TAG = "conversation_loading_indicator"
 internal const val CONVERSATION_MESSAGES_LIST_TEST_TAG = "conversation_messages_list"
 internal const val CONVERSATION_MEDIA_PICKER_OVERLAY_TEST_TAG = "conversation_media_picker_overlay"

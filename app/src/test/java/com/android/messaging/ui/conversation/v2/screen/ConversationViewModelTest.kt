@@ -135,6 +135,8 @@ class ConversationViewModelTest {
                 isGroupConversation = false,
                 participantCount = 2,
                 otherParticipantPhoneNumber = null,
+                otherParticipantContactLookupKey = null,
+                isArchived = false,
                 composerAvailability = ConversationComposerAvailability.editable(),
             )
             val messagesState = ConversationMessagesUiState.Present(
@@ -192,6 +194,8 @@ class ConversationViewModelTest {
                 isGroupConversation = true,
                 participantCount = 2,
                 otherParticipantPhoneNumber = null,
+                otherParticipantContactLookupKey = null,
+                isArchived = false,
                 composerAvailability = ConversationComposerAvailability.editable(),
             )
             viewModel.scaffoldUiState.test {
@@ -222,6 +226,8 @@ class ConversationViewModelTest {
                 isGroupConversation = true,
                 participantCount = 10,
                 otherParticipantPhoneNumber = null,
+                otherParticipantContactLookupKey = null,
+                isArchived = false,
                 composerAvailability = ConversationComposerAvailability.editable(),
             )
             viewModel.scaffoldUiState.test {
@@ -453,6 +459,63 @@ class ConversationViewModelTest {
     }
 
     @Test
+    fun metadataEffects_areExposedAsScreenEffects() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val metadataDelegate = createMetadataDelegateMock()
+            val viewModel = createViewModel(
+                metadataDelegate = metadataDelegate.mock,
+            )
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                metadataDelegate.effectsFlow.emit(ConversationScreenEffect.CloseConversation)
+
+                assertEquals(ConversationScreenEffect.CloseConversation, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun scaffoldUiState_reflectsMetadataDeleteConfirmationVisibility() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val metadataDelegate = createMetadataDelegateMock()
+            val viewModel = createViewModel(metadataDelegate = metadataDelegate.mock)
+
+            viewModel.scaffoldUiState.test {
+                assertEquals(false, awaitItem().isDeleteConversationConfirmationVisible)
+
+                metadataDelegate.deleteConfirmationVisibleFlow.value = true
+                advanceUntilIdle()
+                assertEquals(true, awaitItem().isDeleteConversationConfirmationVisible)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun conversationActionMethods_forwardToMetadataDelegate() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val metadataDelegate = createMetadataDelegateMock()
+            val viewModel = createViewModel(metadataDelegate = metadataDelegate.mock)
+
+            viewModel.onArchiveConversationClick()
+            viewModel.onUnarchiveConversationClick()
+            viewModel.onAddContactClick()
+            viewModel.onDeleteConversationClick()
+            viewModel.confirmDeleteConversation()
+            viewModel.dismissDeleteConversationConfirmation()
+
+            verify(exactly = 1) { metadataDelegate.mock.onArchiveConversationClick() }
+            verify(exactly = 1) { metadataDelegate.mock.onUnarchiveConversationClick() }
+            verify(exactly = 1) { metadataDelegate.mock.onAddContactClick() }
+            verify(exactly = 1) { metadataDelegate.mock.onDeleteConversationClick() }
+            verify(exactly = 1) { metadataDelegate.mock.confirmDeleteConversation() }
+            verify(exactly = 1) { metadataDelegate.mock.dismissDeleteConversationConfirmation() }
+        }
+    }
+
+    @Test
     fun onCleared_flushesDraftDelegateAndMediaPickerDelegate() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
@@ -631,8 +694,14 @@ class ConversationViewModelTest {
         val stateFlow = MutableStateFlow<ConversationMetadataUiState>(
             ConversationMetadataUiState.Loading,
         )
-        val mock = mockk<ConversationMetadataDelegate>()
+        val effectsFlow = MutableSharedFlow<ConversationScreenEffect>()
+        val deleteConfirmationVisibleFlow = MutableStateFlow(value = false)
+        val mock = mockk<ConversationMetadataDelegate>(relaxed = true)
         every { mock.state } returns stateFlow
+        every { mock.effects } returns effectsFlow
+        every {
+            mock.isDeleteConversationConfirmationVisible
+        } returns deleteConfirmationVisibleFlow
         every {
             mock.bind(any(), any())
         } answers {
@@ -644,6 +713,8 @@ class ConversationViewModelTest {
         return MetadataDelegateMock(
             mock = mock,
             stateFlow = stateFlow,
+            effectsFlow = effectsFlow,
+            deleteConfirmationVisibleFlow = deleteConfirmationVisibleFlow,
             bindCalls = bindCalls,
         )
     }
@@ -692,6 +763,8 @@ class ConversationViewModelTest {
     private data class MetadataDelegateMock(
         val mock: ConversationMetadataDelegate,
         val stateFlow: MutableStateFlow<ConversationMetadataUiState>,
+        val effectsFlow: MutableSharedFlow<ConversationScreenEffect>,
+        val deleteConfirmationVisibleFlow: MutableStateFlow<Boolean>,
         val bindCalls: List<BindCall<ConversationMetadataUiState>>,
     )
 

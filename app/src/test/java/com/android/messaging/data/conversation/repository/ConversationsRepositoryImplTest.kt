@@ -150,6 +150,8 @@ class ConversationsRepositoryImplTest {
             assertEquals("self-2", metadata?.selfParticipantId)
             assertEquals(true, metadata?.isGroupConversation)
             assertEquals(3, metadata?.participantCount)
+            assertEquals(false, metadata?.isArchived)
+            assertEquals(null, metadata?.otherParticipantContactLookupKey)
 
             cancelAndIgnoreRemainingEvents()
         }
@@ -158,6 +160,43 @@ class ConversationsRepositoryImplTest {
             ConversationListItemData.PROJECTION.toList(),
             capturedProjections.single()?.toList(),
         )
+    }
+
+    @Test
+    fun getConversationMetadata_exposesArchiveStatusAndLookupKey() = runTest {
+        val registeredObservers = mutableListOf<ContentObserver>()
+        val capturedProjections = mutableListOf<Array<String>?>()
+        val repository = createRepository(
+            testDispatcher = UnconfinedTestDispatcher(scheduler = testScheduler),
+        )
+        val expectedUri = MessagingContentProvider.buildConversationMetadataUri(CONVERSATION_ID)
+
+        stubObserverRegistration(
+            registeredObservers = registeredObservers,
+            expectedUri = expectedUri,
+        )
+        stubQuery(
+            expectedUri = expectedUri,
+            capturedProjections = capturedProjections,
+            result = createConversationMetadataCursor(
+                row = conversationMetadataRow(
+                    conversationName = "Carol",
+                    selfParticipantId = "self-2",
+                    participantCount = 2,
+                    isArchived = true,
+                    otherParticipantLookupKey = "lookup-key-carol",
+                ),
+            ),
+        )
+
+        repository.getConversationMetadata(conversationId = CONVERSATION_ID).test {
+            val metadata = awaitItem()
+
+            assertEquals(true, metadata?.isArchived)
+            assertEquals("lookup-key-carol", metadata?.otherParticipantContactLookupKey)
+
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
@@ -722,11 +761,15 @@ class ConversationsRepositoryImplTest {
         conversationName: String,
         selfParticipantId: String,
         participantCount: Int,
+        isArchived: Boolean = false,
+        otherParticipantLookupKey: String = "",
     ): TestConversationMetadataRow {
         return TestConversationMetadataRow(
             conversationName = conversationName,
             selfParticipantId = selfParticipantId,
             participantCount = participantCount,
+            isArchived = isArchived,
+            otherParticipantLookupKey = otherParticipantLookupKey,
         )
     }
 
@@ -779,6 +822,8 @@ class ConversationsRepositoryImplTest {
         val conversationName: String,
         val selfParticipantId: String,
         val participantCount: Int,
+        val isArchived: Boolean = false,
+        val otherParticipantLookupKey: String = "",
     ) {
         fun toColumnValues(): Map<String, Any?> {
             return mapOf(
@@ -791,7 +836,7 @@ class ConversationsRepositoryImplTest {
                 ConversationColumns.PREVIEW_URI to "",
                 ConversationColumns.PREVIEW_CONTENT_TYPE to "",
                 ConversationColumns.PARTICIPANT_CONTACT_ID to -1L,
-                ConversationColumns.PARTICIPANT_LOOKUP_KEY to "",
+                ConversationColumns.PARTICIPANT_LOOKUP_KEY to otherParticipantLookupKey,
                 ConversationColumns.OTHER_PARTICIPANT_NORMALIZED_DESTINATION to "",
                 ConversationColumns.PARTICIPANT_COUNT to participantCount,
                 ConversationColumns.CURRENT_SELF_ID to selfParticipantId,
@@ -804,7 +849,7 @@ class ConversationsRepositoryImplTest {
                 ConversationColumns.DRAFT_PREVIEW_URI to "",
                 ConversationColumns.DRAFT_PREVIEW_CONTENT_TYPE to "",
                 ConversationColumns.DRAFT_SNIPPET_TEXT to "",
-                ConversationColumns.ARCHIVE_STATUS to 0,
+                ConversationColumns.ARCHIVE_STATUS to if (isArchived) 1 else 0,
                 MessageColumns._ID to "message-1",
                 ConversationColumns.SUBJECT_TEXT to "",
                 ConversationColumns.DRAFT_SUBJECT_TEXT to "",

@@ -30,12 +30,24 @@ import kotlinx.coroutines.withContext
 internal fun ConversationScreenEffects(
     screenModel: ConversationScreenModel,
     hostBoundsState: State<ComposeRect?>,
+    onNavigateBack: () -> Unit,
 ) {
     val context = LocalContext.current
 
-    LaunchedEffect(screenModel, context, hostBoundsState) {
+    LaunchedEffect(screenModel, context, hostBoundsState, onNavigateBack) {
         screenModel.effects.collect { effect ->
             when (effect) {
+                ConversationScreenEffect.CloseConversation -> {
+                    onNavigateBack()
+                }
+
+                is ConversationScreenEffect.LaunchAddContactFlow -> {
+                    UIIntents.get().launchAddContactActivity(
+                        context,
+                        effect.destination,
+                    )
+                }
+
                 is ConversationScreenEffect.OpenAttachmentPreview -> {
                     openAttachmentPreview(
                         context = context,

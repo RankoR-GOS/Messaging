@@ -21,6 +21,8 @@ internal class ConversationMetadataUiStateMapperImpl @Inject constructor() :
             otherParticipantPhoneNumber = metadata
                 .otherParticipantNormalizedDestination
                 ?.takeIf(MmsSmsUtils::isPhoneNumber),
+            otherParticipantContactLookupKey = metadata.otherParticipantContactLookupKey,
+            isArchived = metadata.isArchived,
             composerAvailability = metadata.composerAvailability,
         )
     }

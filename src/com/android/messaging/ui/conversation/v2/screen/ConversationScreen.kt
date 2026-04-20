@@ -127,6 +127,7 @@ internal fun ConversationScreen(
     ConversationScreenEffects(
         screenModel = screenModel,
         hostBoundsState = hostBoundsState,
+        onNavigateBack = onNavigateBack,
     )
 
     Box(
@@ -147,6 +148,12 @@ internal fun ConversationScreen(
             onCallClick = screenModel::onCallClick,
             onConversationDetailsClick = onConversationDetailsClick,
             onNavigateBack = onNavigateBack,
+            onArchiveConversationClick = screenModel::onArchiveConversationClick,
+            onUnarchiveConversationClick = screenModel::onUnarchiveConversationClick,
+            onAddContactClick = screenModel::onAddContactClick,
+            onDeleteConversationClick = screenModel::onDeleteConversationClick,
+            onDeleteConversationConfirmed = screenModel::confirmDeleteConversation,
+            onDeleteConversationDismissed = screenModel::dismissDeleteConversationConfirmation,
             onDeleteSelectedMessagesConfirmed = screenModel::confirmDeleteSelectedMessages,
             onDeleteSelectedMessagesDismissed = screenModel::dismissDeleteMessageConfirmation,
             onDismissMessageSelection = screenModel::dismissMessageSelection,
@@ -193,6 +200,12 @@ private fun ConversationScreenScaffold(
     onAddPeopleClick: () -> Unit,
     onCallClick: () -> Unit,
     onConversationDetailsClick: () -> Unit,
+    onArchiveConversationClick: () -> Unit,
+    onUnarchiveConversationClick: () -> Unit,
+    onAddContactClick: () -> Unit,
+    onDeleteConversationClick: () -> Unit,
+    onDeleteConversationConfirmed: () -> Unit,
+    onDeleteConversationDismissed: () -> Unit,
     onDeleteSelectedMessagesConfirmed: () -> Unit,
     onDeleteSelectedMessagesDismissed: () -> Unit,
     onDismissMessageSelection: () -> Unit,
@@ -226,8 +239,16 @@ private fun ConversationScreenScaffold(
                         metadata = uiState.metadata,
                         isAddPeopleVisible = uiState.canAddPeople,
                         isCallVisible = uiState.canCall,
+                        isArchiveVisible = uiState.canArchive,
+                        isUnarchiveVisible = uiState.canUnarchive,
+                        isAddContactVisible = uiState.canAddContact,
+                        isDeleteConversationVisible = uiState.canDeleteConversation,
                         onAddPeopleClick = onAddPeopleClick,
                         onCallClick = onCallClick,
+                        onArchiveClick = onArchiveConversationClick,
+                        onUnarchiveClick = onUnarchiveConversationClick,
+                        onAddContactClick = onAddContactClick,
+                        onDeleteConversationClick = onDeleteConversationClick,
                         onTitleClick = onConversationDetailsClick,
                         onNavigateBack = onNavigateBack,
                     )
@@ -272,6 +293,42 @@ private fun ConversationScreenScaffold(
             onDismiss = onDeleteSelectedMessagesDismissed,
         )
     }
+
+    if (uiState.isDeleteConversationConfirmationVisible) {
+        ConversationDeleteConversationDialog(
+            onConfirm = onDeleteConversationConfirmed,
+            onDismiss = onDeleteConversationDismissed,
+        )
+    }
+}
+
+@Composable
+private fun ConversationDeleteConversationDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = pluralStringResource(
+                    id = R.plurals.delete_conversations_confirmation_dialog_title,
+                    count = 1,
+                    1,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(text = stringResource(R.string.delete_conversation_confirmation_button))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.delete_conversation_decline_button))
+            }
+        },
+    )
 }
 
 @Composable
