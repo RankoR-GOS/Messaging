@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModelStore
 import app.cash.turbine.test
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
+import com.android.messaging.data.conversation.repository.ConversationSubscriptionsRepository
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
@@ -31,6 +33,8 @@ import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenS
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CoroutineScope
@@ -551,6 +555,8 @@ class ConversationViewModelTest {
         isDeviceVoiceCapable: IsDeviceVoiceCapable = IsDeviceVoiceCapable { false },
         composerUiStateMapper: ConversationComposerUiStateMapper =
             createComposerUiStateMapperMock(mappedUiState = ConversationComposerUiState()),
+        subscriptionsRepository: ConversationSubscriptionsRepository =
+            createSubscriptionsRepositoryMock(subscriptions = persistentListOf()),
     ): ConversationViewModel {
         return ConversationViewModel(
             conversationDraftDelegate = draftDelegate,
@@ -559,6 +565,7 @@ class ConversationViewModelTest {
             conversationMediaPickerDelegate = mediaPickerDelegate,
             conversationMetadataDelegate = metadataDelegate,
             conversationComposerUiStateMapper = composerUiStateMapper,
+            conversationSubscriptionsRepository = subscriptionsRepository,
             canAddMoreConversationParticipants = canAddMoreConversationParticipants,
             isDeviceVoiceCapable = isDeviceVoiceCapable,
             defaultDispatcher = mainDispatcherRule.testDispatcher,
@@ -580,6 +587,8 @@ class ConversationViewModelTest {
         isDeviceVoiceCapable: IsDeviceVoiceCapable = IsDeviceVoiceCapable { false },
         composerUiStateMapper: ConversationComposerUiStateMapper =
             createComposerUiStateMapperMock(mappedUiState = ConversationComposerUiState()),
+        subscriptionsRepository: ConversationSubscriptionsRepository =
+            createSubscriptionsRepositoryMock(subscriptions = persistentListOf()),
     ): ConversationViewModel {
         return ViewModelProvider(
             store = viewModelStore,
@@ -595,10 +604,21 @@ class ConversationViewModelTest {
                         canAddMoreConversationParticipants = canAddMoreConversationParticipants,
                         isDeviceVoiceCapable = isDeviceVoiceCapable,
                         composerUiStateMapper = composerUiStateMapper,
+                        subscriptionsRepository = subscriptionsRepository,
                     ) as T
                 }
             },
         )[ConversationViewModel::class.java]
+    }
+
+    private fun createSubscriptionsRepositoryMock(
+        subscriptions: ImmutableList<ConversationSubscription>,
+    ): ConversationSubscriptionsRepository {
+        val repository = mockk<ConversationSubscriptionsRepository>()
+        every {
+            repository.observeActiveSubscriptions()
+        } returns MutableStateFlow(subscriptions)
+        return repository
     }
 
     private fun createDraftDelegateMock(): DraftDelegateMock {
@@ -724,7 +744,7 @@ class ConversationViewModelTest {
     ): ConversationComposerUiStateMapper {
         val mapper = mockk<ConversationComposerUiStateMapper>()
         every {
-            mapper.map(any(), any())
+            mapper.map(any(), any(), any())
         } returns mappedUiState
         return mapper
     }

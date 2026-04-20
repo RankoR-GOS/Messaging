@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Unarchive
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -48,15 +50,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
+import com.android.messaging.data.conversation.model.metadata.ConversationSubscriptionLabel
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ADD_CONTACT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ARCHIVE_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_CALL_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_DELETE_CONVERSATION_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_OVERFLOW_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_SIM_SELECTOR_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_UNARCHIVE_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationSimSelectorUiState
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
+import com.android.messaging.ui.conversation.v2.resolveDisplayName
 import com.android.messaging.ui.core.AppTheme
+import kotlinx.collections.immutable.persistentListOf
 
 private val CONVERSATION_TOP_APP_BAR_TITLE_SPACING = 12.dp
 private val CONVERSATION_TOP_APP_BAR_AVATAR_SIZE = 36.dp
@@ -73,12 +81,14 @@ internal fun ConversationTopAppBar(
     isUnarchiveVisible: Boolean = false,
     isAddContactVisible: Boolean = false,
     isDeleteConversationVisible: Boolean = false,
+    simSelector: ConversationSimSelectorUiState = ConversationSimSelectorUiState(),
     onAddPeopleClick: () -> Unit,
     onCallClick: () -> Unit = {},
     onArchiveClick: () -> Unit = {},
     onUnarchiveClick: () -> Unit = {},
     onAddContactClick: () -> Unit = {},
     onDeleteConversationClick: () -> Unit = {},
+    onSimSelectorClick: () -> Unit = {},
     onTitleClick: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
@@ -108,11 +118,15 @@ internal fun ConversationTopAppBar(
                     onCallClick = onCallClick,
                 )
             }
+            val isSimSelectorVisible = simSelector.isAvailable
+
             val isOverflowVisible = isAddPeopleVisible ||
                 isArchiveVisible ||
                 isUnarchiveVisible ||
                 isAddContactVisible ||
-                isDeleteConversationVisible
+                isDeleteConversationVisible ||
+                isSimSelectorVisible
+
             if (isOverflowVisible) {
                 ConversationTopAppBarOverflowMenu(
                     isAddPeopleVisible = isAddPeopleVisible,
@@ -120,11 +134,17 @@ internal fun ConversationTopAppBar(
                     isUnarchiveVisible = isUnarchiveVisible,
                     isAddContactVisible = isAddContactVisible,
                     isDeleteConversationVisible = isDeleteConversationVisible,
+                    isSimSelectorVisible = isSimSelectorVisible,
+                    simSelectorLabel = simSelector.selectedSubscription
+                        ?.label
+                        ?.resolveDisplayName()
+                        .orEmpty(),
                     onAddPeopleClick = onAddPeopleClick,
                     onArchiveClick = onArchiveClick,
                     onUnarchiveClick = onUnarchiveClick,
                     onAddContactClick = onAddContactClick,
                     onDeleteConversationClick = onDeleteConversationClick,
+                    onSimSelectorClick = onSimSelectorClick,
                 )
             }
         },
@@ -259,11 +279,14 @@ private fun ConversationTopAppBarOverflowMenu(
     isUnarchiveVisible: Boolean,
     isAddContactVisible: Boolean,
     isDeleteConversationVisible: Boolean,
+    isSimSelectorVisible: Boolean,
+    simSelectorLabel: String,
     onAddPeopleClick: () -> Unit,
     onArchiveClick: () -> Unit,
     onUnarchiveClick: () -> Unit,
     onAddContactClick: () -> Unit,
     onDeleteConversationClick: () -> Unit,
+    onSimSelectorClick: () -> Unit,
 ) {
     var isExpanded by remember { mutableStateOf(value = false) }
 
@@ -290,86 +313,81 @@ private fun ConversationTopAppBarOverflowMenu(
             action()
         }
 
-        if (isAddPeopleVisible) {
-            DropdownMenuItem(
-                modifier = Modifier.testTag(CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG),
-                text = {
-                    Text(text = stringResource(id = R.string.conversation_add_people))
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.GroupAdd,
-                        contentDescription = null,
-                    )
-                },
-                onClick = { dismissAndInvoke(onAddPeopleClick) },
-            )
-        }
+        ConversationTopAppBarOverflowMenuItem(
+            isVisible = isSimSelectorVisible,
+            testTag = CONVERSATION_SIM_SELECTOR_MENU_ITEM_TEST_TAG,
+            label = simSelectorLabel,
+            icon = Icons.Rounded.SimCard,
+            onClick = { dismissAndInvoke(onSimSelectorClick) },
+        )
 
-        if (isAddContactVisible) {
-            DropdownMenuItem(
-                modifier = Modifier.testTag(CONVERSATION_ADD_CONTACT_BUTTON_TEST_TAG),
-                text = {
-                    Text(text = stringResource(id = R.string.action_add_contact))
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.PersonAdd,
-                        contentDescription = null,
-                    )
-                },
-                onClick = { dismissAndInvoke(onAddContactClick) },
-            )
-        }
+        ConversationTopAppBarOverflowMenuItem(
+            isVisible = isAddPeopleVisible,
+            testTag = CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG,
+            label = stringResource(id = R.string.conversation_add_people),
+            icon = Icons.Rounded.GroupAdd,
+            onClick = { dismissAndInvoke(onAddPeopleClick) },
+        )
 
-        if (isArchiveVisible) {
-            DropdownMenuItem(
-                modifier = Modifier.testTag(CONVERSATION_ARCHIVE_BUTTON_TEST_TAG),
-                text = {
-                    Text(text = stringResource(id = R.string.action_archive))
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Archive,
-                        contentDescription = null,
-                    )
-                },
-                onClick = { dismissAndInvoke(onArchiveClick) },
-            )
-        }
+        ConversationTopAppBarOverflowMenuItem(
+            isVisible = isAddContactVisible,
+            testTag = CONVERSATION_ADD_CONTACT_BUTTON_TEST_TAG,
+            label = stringResource(id = R.string.action_add_contact),
+            icon = Icons.Rounded.PersonAdd,
+            onClick = { dismissAndInvoke(onAddContactClick) },
+        )
 
-        if (isUnarchiveVisible) {
-            DropdownMenuItem(
-                modifier = Modifier.testTag(CONVERSATION_UNARCHIVE_BUTTON_TEST_TAG),
-                text = {
-                    Text(text = stringResource(id = R.string.action_unarchive))
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Unarchive,
-                        contentDescription = null,
-                    )
-                },
-                onClick = { dismissAndInvoke(onUnarchiveClick) },
-            )
-        }
+        ConversationTopAppBarOverflowMenuItem(
+            isVisible = isArchiveVisible,
+            testTag = CONVERSATION_ARCHIVE_BUTTON_TEST_TAG,
+            label = stringResource(id = R.string.action_archive),
+            icon = Icons.Rounded.Archive,
+            onClick = { dismissAndInvoke(onArchiveClick) },
+        )
 
-        if (isDeleteConversationVisible) {
-            DropdownMenuItem(
-                modifier = Modifier.testTag(CONVERSATION_DELETE_CONVERSATION_BUTTON_TEST_TAG),
-                text = {
-                    Text(text = stringResource(id = R.string.action_delete))
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Delete,
-                        contentDescription = null,
-                    )
-                },
-                onClick = { dismissAndInvoke(onDeleteConversationClick) },
-            )
-        }
+        ConversationTopAppBarOverflowMenuItem(
+            isVisible = isUnarchiveVisible,
+            testTag = CONVERSATION_UNARCHIVE_BUTTON_TEST_TAG,
+            label = stringResource(id = R.string.action_unarchive),
+            icon = Icons.Rounded.Unarchive,
+            onClick = { dismissAndInvoke(onUnarchiveClick) },
+        )
+
+        ConversationTopAppBarOverflowMenuItem(
+            isVisible = isDeleteConversationVisible,
+            testTag = CONVERSATION_DELETE_CONVERSATION_BUTTON_TEST_TAG,
+            label = stringResource(id = R.string.action_delete),
+            icon = Icons.Rounded.Delete,
+            onClick = { dismissAndInvoke(onDeleteConversationClick) },
+        )
     }
+}
+
+@Composable
+private fun ConversationTopAppBarOverflowMenuItem(
+    isVisible: Boolean,
+    testTag: String,
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
+    if (!isVisible) {
+        return
+    }
+
+    DropdownMenuItem(
+        modifier = Modifier.testTag(tag = testTag),
+        text = {
+            Text(text = label)
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+            )
+        },
+        onClick = onClick,
+    )
 }
 
 @Composable
@@ -488,6 +506,52 @@ private fun ConversationTopAppBarLoadedPreview() {
             ),
             isAddPeopleVisible = true,
             onAddPeopleClick = {},
+            onTitleClick = {},
+            onNavigateBack = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ConversationTopAppBarWithSimSelectorPreview() {
+    val subscriptions = persistentListOf(
+        ConversationSubscription(
+            selfParticipantId = "1",
+            label = ConversationSubscriptionLabel.Named(name = "Verizon"),
+            displayDestination = "+1 555-867-5309",
+            displaySlotId = 1,
+            color = 0xFF5E9BE8.toInt(),
+        ),
+        ConversationSubscription(
+            selfParticipantId = "2",
+            label = ConversationSubscriptionLabel.Named(name = "AT&T Business"),
+            displayDestination = "+1 555-111-2222",
+            displaySlotId = 2,
+            color = 0xFFE97E6A.toInt(),
+        ),
+    )
+
+    AppTheme {
+        ConversationTopAppBar(
+            metadata = ConversationMetadataUiState.Present(
+                title = "Carol",
+                selfParticipantId = "self",
+                isGroupConversation = false,
+                participantCount = 1,
+                otherParticipantPhoneNumber = "+15551234567",
+                otherParticipantContactLookupKey = null,
+                isArchived = false,
+                composerAvailability = ConversationComposerAvailability.editable(),
+            ),
+            isCallVisible = true,
+            simSelector = ConversationSimSelectorUiState(
+                subscriptions = subscriptions,
+                selectedSubscription = subscriptions.first(),
+            ),
+            onAddPeopleClick = {},
+            onCallClick = {},
+            onSimSelectorClick = {},
             onTitleClick = {},
             onNavigateBack = {},
         )

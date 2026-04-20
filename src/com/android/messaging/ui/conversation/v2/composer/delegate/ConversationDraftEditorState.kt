@@ -68,6 +68,20 @@ internal data class DraftEditorState(
         }
     }
 
+    fun withSelfParticipantId(selfParticipantId: String): DraftEditorState {
+        return when {
+            conversationId == null -> this
+            selfParticipantId.isBlank() -> this
+            effectiveDraft.selfParticipantId == selfParticipantId -> this
+
+            else -> {
+                copyWithNormalizedLocalEdits(
+                    updatedLocalEdits = localEdits.copy(selfParticipantId = selfParticipantId),
+                )
+            }
+        }
+    }
+
     fun withSeededDraft(draft: ConversationDraft): DraftEditorState {
         if (conversationId == null) {
             return this

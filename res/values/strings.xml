@@ -939,6 +939,12 @@
     <string name="sim_selector_button_content_description">SIM selector</string>
     <!-- Content description for the SIM selector button with selected sim name -->
     <string name="sim_selector_button_content_description_with_selection"><xliff:g id="sim">%1$s</xliff:g> selected, SIM selector</string>
+    <!-- Title for the modal bottom sheet that lets the user pick which SIM sends a message -->
+    <string name="sim_selector_sheet_title">Send from</string>
+    <!-- Accessibility label for an item in the SIM picker that is currently selected -->
+    <string name="sim_selector_item_selected">Selected</string>
+    <!-- Display name for an emulated SIM in the debug SIM emulation mode -->
+    <string name="debug_emulated_sim_display_name">Debug SIM <xliff:g id="sim_slot_number">%s</xliff:g></string>
 
     <!-- Custom TalkBack description for send button long click event when there's no SIM selector, i.e. edit subject -->
     <string name="send_button_long_click_description_no_sim_selector">Edit subject</string>

@@ -37,6 +37,7 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
 import com.android.messaging.ui.conversation.v2.composer.ui.ConversationComposerSection
+import com.android.messaging.ui.conversation.v2.composer.ui.ConversationSimSelectorSheet
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerOverlay
 import com.android.messaging.ui.conversation.v2.mediapicker.rememberConversationMediaPickerState
@@ -166,6 +167,7 @@ internal fun ConversationScreen(
             onResolvedAttachmentClick = screenModel::onAttachmentClicked,
             onResolvedAttachmentRemove = screenModel::onRemoveResolvedAttachment,
             onSendClick = screenModel::onSendClick,
+            onSimSelected = screenModel::onSimSelected,
             onAttachmentClick = screenModel::onMessageAttachmentClicked,
             onExternalUriClick = screenModel::onExternalUriClicked,
         )
@@ -219,9 +221,19 @@ private fun ConversationScreenScaffold(
     onResolvedAttachmentClick: (ConversationComposerAttachmentUiState.Resolved) -> Unit,
     onResolvedAttachmentRemove: (String) -> Unit,
     onSendClick: () -> Unit,
+    onSimSelected: (String) -> Unit,
     onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
     onExternalUriClick: (String) -> Unit,
 ) {
+    var isSimSheetVisible by rememberSaveable { mutableStateOf(value = false) }
+
+    val hasSimSelector = uiState.composer.simSelector.isAvailable
+    LaunchedEffect(hasSimSelector) {
+        if (!hasSimSelector) {
+            isSimSheetVisible = false
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -243,12 +255,14 @@ private fun ConversationScreenScaffold(
                         isUnarchiveVisible = uiState.canUnarchive,
                         isAddContactVisible = uiState.canAddContact,
                         isDeleteConversationVisible = uiState.canDeleteConversation,
+                        simSelector = uiState.composer.simSelector,
                         onAddPeopleClick = onAddPeopleClick,
                         onCallClick = onCallClick,
                         onArchiveClick = onArchiveConversationClick,
                         onUnarchiveClick = onUnarchiveConversationClick,
                         onAddContactClick = onAddContactClick,
                         onDeleteConversationClick = onDeleteConversationClick,
+                        onSimSelectorClick = { isSimSheetVisible = true },
                         onTitleClick = onConversationDetailsClick,
                         onNavigateBack = onNavigateBack,
                     )
@@ -298,6 +312,21 @@ private fun ConversationScreenScaffold(
         ConversationDeleteConversationDialog(
             onConfirm = onDeleteConversationConfirmed,
             onDismiss = onDeleteConversationDismissed,
+        )
+    }
+
+    if (isSimSheetVisible && hasSimSelector) {
+        ConversationSimSelectorSheet(
+            uiState = uiState.composer.simSelector,
+            onSimSelected = { selfParticipantId ->
+                onSimSelected(selfParticipantId)
+                @Suppress("AssignedValueIsNeverRead")
+                isSimSheetVisible = false
+            },
+            onDismissRequest = {
+                @Suppress("AssignedValueIsNeverRead")
+                isSimSheetVisible = false
+            },
         )
     }
 }

@@ -1,9 +1,11 @@
 package com.android.messaging.ui.conversation.v2.composer.mapper
 
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationSimSelectorUiState
 import javax.inject.Inject
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -12,6 +14,7 @@ internal interface ConversationComposerUiStateMapper {
     fun map(
         draftState: ConversationDraftState,
         composerAvailability: ConversationComposerAvailability,
+        subscriptions: ImmutableList<ConversationSubscription>,
     ): ConversationComposerUiState
 }
 
@@ -21,6 +24,7 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
     override fun map(
         draftState: ConversationDraftState,
         composerAvailability: ConversationComposerAvailability,
+        subscriptions: ImmutableList<ConversationSubscription>,
     ): ConversationComposerUiState {
         val draft = draftState.draft
         val hasWorkingDraft = draft.hasContent
@@ -42,6 +46,10 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
             messageText = draft.messageText,
             subjectText = draft.subjectText,
             selfParticipantId = draft.selfParticipantId,
+            simSelector = buildSimSelectorUiState(
+                subscriptions = subscriptions,
+                selfParticipantId = draft.selfParticipantId,
+            ),
             isMessageFieldEnabled = isMessageFieldEnabled,
             isAttachmentActionEnabled = isAttachmentActionEnabled,
             isSendEnabled = isSendEnabled,
@@ -54,6 +62,20 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
             isCheckingDraft = draft.isCheckingDraft,
             isSending = draft.isSending,
             disabledReason = composerAvailability.disabledReason,
+        )
+    }
+
+    private fun buildSimSelectorUiState(
+        subscriptions: ImmutableList<ConversationSubscription>,
+        selfParticipantId: String,
+    ): ConversationSimSelectorUiState {
+        val selected = subscriptions
+            .firstOrNull { it.selfParticipantId == selfParticipantId }
+            ?: subscriptions.firstOrNull()
+
+        return ConversationSimSelectorUiState(
+            subscriptions = subscriptions,
+            selectedSubscription = selected,
         )
     }
 

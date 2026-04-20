@@ -95,15 +95,19 @@ internal class ConversationMetadataDelegateImpl @Inject constructor(
     }
 
     override fun onArchiveConversationClick() {
+        val conversationId = currentConversationId ?: return
+
         boundScope?.launch(defaultDispatcher) {
-            currentConversationId?.let(conversationsRepository::archiveConversation)
+            conversationsRepository.archiveConversation(conversationId = conversationId)
             _effects.emit(ConversationScreenEffect.CloseConversation)
         }
     }
 
     override fun onUnarchiveConversationClick() {
+        val conversationId = currentConversationId ?: return
+
         boundScope?.launch(defaultDispatcher) {
-            currentConversationId?.let(conversationsRepository::unarchiveConversation)
+            conversationsRepository.unarchiveConversation(conversationId = conversationId)
         }
     }
 
@@ -127,10 +131,12 @@ internal class ConversationMetadataDelegateImpl @Inject constructor(
     }
 
     override fun confirmDeleteConversation() {
+        val conversationId = currentConversationId ?: return
+
         _isDeleteConversationConfirmationVisible.value = false
 
         boundScope?.launch(defaultDispatcher) {
-            currentConversationId?.let(conversationsRepository::deleteConversation)
+            conversationsRepository.deleteConversation(conversationId = conversationId)
             _effects.emit(ConversationScreenEffect.CloseConversation)
         }
     }

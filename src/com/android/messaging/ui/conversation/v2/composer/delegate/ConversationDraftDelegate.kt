@@ -41,6 +41,8 @@ import kotlinx.coroutines.withContext
 internal interface ConversationDraftDelegate : ConversationScreenDelegate<ConversationDraftState> {
     fun onMessageTextChanged(messageText: String)
 
+    fun onSelfParticipantIdChanged(selfParticipantId: String)
+
     fun seedDraft(
         conversationId: String,
         draft: ConversationDraft,
@@ -110,6 +112,12 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
     override fun onMessageTextChanged(messageText: String) {
         updateDraftEditorState { currentDraftEditorState ->
             currentDraftEditorState.withMessageText(messageText)
+        }
+    }
+
+    override fun onSelfParticipantIdChanged(selfParticipantId: String) {
+        updateDraftEditorState { currentDraftEditorState ->
+            currentDraftEditorState.withSelfParticipantId(selfParticipantId = selfParticipantId)
         }
     }
 

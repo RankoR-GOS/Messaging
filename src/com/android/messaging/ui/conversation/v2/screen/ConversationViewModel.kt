@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
+import com.android.messaging.data.conversation.repository.ConversationSubscriptionsRepository
 import com.android.messaging.data.media.model.ConversationMediaItem
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.di.core.DefaultDispatcher
@@ -28,6 +29,7 @@ import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenE
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -69,6 +71,8 @@ internal interface ConversationScreenModel {
 
     fun onCallClick()
 
+    fun onSimSelected(selfParticipantId: String)
+
     fun onExternalUriClicked(uri: String)
 
     fun onGalleryMediaConfirmed(mediaItems: List<ConversationMediaItem>)
@@ -104,6 +108,7 @@ internal class ConversationViewModel @Inject constructor(
     private val conversationMediaPickerDelegate: ConversationMediaPickerDelegate,
     private val conversationMetadataDelegate: ConversationMetadataDelegate,
     private val conversationComposerUiStateMapper: ConversationComposerUiStateMapper,
+    private val conversationSubscriptionsRepository: ConversationSubscriptionsRepository,
     private val canAddMoreConversationParticipants: CanAddMoreConversationParticipants,
     private val isDeviceVoiceCapable: IsDeviceVoiceCapable,
     @param:DefaultDispatcher
@@ -122,13 +127,25 @@ internal class ConversationViewModel @Inject constructor(
 
     override val effects = _effects.asSharedFlow()
 
+    private val subscriptionsFlow = conversationSubscriptionsRepository
+        .observeActiveSubscriptions()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(
+                stopTimeoutMillis = STATEFLOW_STOP_TIMEOUT_MILLIS,
+            ),
+            initialValue = persistentListOf(),
+        )
+
     private val composerUiState = combine(
         conversationMetadataDelegate.state,
         conversationDraftDelegate.state,
-    ) { metadataState, draftState ->
+        subscriptionsFlow,
+    ) { metadataState, draftState, subscriptions ->
         conversationComposerUiStateMapper.map(
             draftState = draftState,
             composerAvailability = metadataState.composerAvailability,
+            subscriptions = subscriptions,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -138,6 +155,7 @@ internal class ConversationViewModel @Inject constructor(
         initialValue = conversationComposerUiStateMapper.map(
             draftState = conversationDraftDelegate.state.value,
             composerAvailability = conversationMetadataDelegate.state.value.composerAvailability,
+            subscriptions = subscriptionsFlow.value,
         ),
     )
 
@@ -404,6 +422,12 @@ internal class ConversationViewModel @Inject constructor(
                 ),
             )
         }
+    }
+
+    override fun onSimSelected(selfParticipantId: String) {
+        conversationDraftDelegate.onSelfParticipantIdChanged(
+            selfParticipantId = selfParticipantId,
+        )
     }
 
     override fun onExternalUriClicked(uri: String) {

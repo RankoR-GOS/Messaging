@@ -27,6 +27,13 @@ internal const val NEW_CHAT_CONTACT_RESOLVING_INDICATOR_TEST_TAG =
 internal const val CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE = "circle"
 internal const val CONVERSATION_SEND_BUTTON_TEST_TAG = "conversation_send_button"
 internal const val CONVERSATION_TEXT_FIELD_TEST_TAG = "conversation_text_field"
+internal const val CONVERSATION_SIM_SELECTOR_MENU_ITEM_TEST_TAG =
+    "conversation_sim_selector_menu_item"
+internal const val CONVERSATION_SIM_SELECTOR_SHEET_TEST_TAG = "conversation_sim_selector_sheet"
+
+internal fun conversationSimSelectorItemTestTag(selfParticipantId: String): String {
+    return "conversation_sim_selector_item_$selfParticipantId"
+}
 
 internal fun conversationMessageItemTestTag(messageId: String): String {
     return "conversation_message_item_$messageId"
