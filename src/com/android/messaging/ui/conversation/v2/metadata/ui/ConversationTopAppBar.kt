@@ -43,13 +43,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.text.BidiFormatter
+import androidx.core.text.TextDirectionHeuristicsCompat
 import coil3.compose.AsyncImage
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
@@ -67,6 +72,7 @@ import com.android.messaging.ui.conversation.v2.composer.model.ConversationSimSe
 import com.android.messaging.ui.conversation.v2.metadata.model.ConversationMetadataUiState
 import com.android.messaging.ui.conversation.v2.resolveDisplayName
 import com.android.messaging.ui.core.AppTheme
+import com.android.messaging.util.AccessibilityUtil
 import kotlinx.collections.immutable.persistentListOf
 
 private val CONVERSATION_TOP_APP_BAR_TITLE_SPACING = 12.dp
@@ -168,25 +174,25 @@ private fun conversationTopAppBarColors(): TopAppBarColors {
 private fun rememberConversationTopAppBarPresentation(
     metadata: ConversationMetadataUiState,
 ): ConversationTopAppBarPresentation {
-    val title = conversationTitle(
+    val title = conversationTitle(metadata)
+    val subtitle = conversationSubtitle(metadata)
+    val subtitleContentDescription = conversationSubtitleContentDescription(
         metadata = metadata,
     )
-    val subtitle = conversationSubtitle(
-        metadata = metadata,
-    )
-    val avatar = conversationAvatar(
-        metadata = metadata,
-    )
+
+    val avatar = conversationAvatar(metadata)
 
     return remember(
         metadata,
         title,
         subtitle,
+        subtitleContentDescription,
         avatar,
     ) {
         ConversationTopAppBarPresentation(
             title = title,
             subtitle = subtitle,
+            subtitleContentDescription = subtitleContentDescription,
             avatar = avatar,
         )
     }
@@ -236,6 +242,11 @@ private fun ConversationTopAppBarText(
 
         if (presentation.subtitle != null) {
             Text(
+                modifier = Modifier.semantics {
+                    presentation.subtitleContentDescription?.let { subtitleContentDescription ->
+                        contentDescription = subtitleContentDescription
+                    }
+                },
                 text = presentation.subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -511,6 +522,15 @@ private fun conversationSubtitle(
 
         is ConversationMetadataUiState.Present -> {
             when {
+                shouldShowOneOnOneSubtitle(metadata = metadata) -> {
+                    BidiFormatter
+                        .getInstance()
+                        .unicodeWrap(
+                            metadata.otherParticipantDisplayDestination,
+                            TextDirectionHeuristicsCompat.LTR,
+                        )
+                }
+
                 metadata.participantCount > 1 -> {
                     pluralStringResource(
                         id = R.plurals.wearable_participant_count,
@@ -525,10 +545,45 @@ private fun conversationSubtitle(
     }
 }
 
+@Composable
+private fun conversationSubtitleContentDescription(
+    metadata: ConversationMetadataUiState,
+): String? {
+    return when (metadata) {
+        ConversationMetadataUiState.Loading -> null
+        ConversationMetadataUiState.Unavailable -> null
+        is ConversationMetadataUiState.Present -> {
+            metadata.otherParticipantDisplayDestination
+                ?.takeIf {
+                    shouldShowOneOnOneSubtitle(metadata = metadata) &&
+                        metadata.otherParticipantPhoneNumber != null
+                }
+                ?.let { displayDestination ->
+                    AccessibilityUtil.getVocalizedPhoneNumber(
+                        LocalResources.current,
+                        displayDestination,
+                    )
+                }
+                ?.takeIf { it.isNotBlank() }
+        }
+    }
+}
+
+private fun shouldShowOneOnOneSubtitle(
+    metadata: ConversationMetadataUiState.Present,
+): Boolean {
+    val displayDestination = metadata.otherParticipantDisplayDestination
+        ?.takeIf { it.isNotBlank() }
+        ?: return false
+
+    return !displayDestination.equals(other = metadata.title, ignoreCase = false)
+}
+
 @Immutable
 private data class ConversationTopAppBarPresentation(
     val title: String,
     val subtitle: String?,
+    val subtitleContentDescription: String?,
     val avatar: ConversationMetadataUiState.Avatar,
 )
 
@@ -557,6 +612,7 @@ private fun ConversationTopAppBarLoadedPreview() {
                     photoUri = null,
                 ),
                 participantCount = 1,
+                otherParticipantDisplayDestination = "(555) 123-4567",
                 otherParticipantPhoneNumber = "+15551234567",
                 otherParticipantContactLookupKey = null,
                 isArchived = false,
@@ -581,6 +637,7 @@ private fun ConversationTopAppBarGroupPreview() {
                 selfParticipantId = "self",
                 avatar = ConversationMetadataUiState.Avatar.Group,
                 participantCount = 3,
+                otherParticipantDisplayDestination = null,
                 otherParticipantPhoneNumber = null,
                 otherParticipantContactLookupKey = null,
                 isArchived = false,
@@ -623,6 +680,7 @@ private fun ConversationTopAppBarWithSimSelectorPreview() {
                     photoUri = null,
                 ),
                 participantCount = 1,
+                otherParticipantDisplayDestination = "(555) 123-4567",
                 otherParticipantPhoneNumber = "+15551234567",
                 otherParticipantContactLookupKey = null,
                 isArchived = false,
@@ -654,6 +712,7 @@ private fun ConversationTopAppBarOneOnOnePreview() {
                     photoUri = null,
                 ),
                 participantCount = 1,
+                otherParticipantDisplayDestination = "(555) 123-4567",
                 otherParticipantPhoneNumber = "+15551234567",
                 otherParticipantContactLookupKey = null,
                 isArchived = false,
