@@ -7,6 +7,7 @@ internal data class ConversationMetadata(
     val participantCount: Int,
     val otherParticipantNormalizedDestination: String?,
     val otherParticipantContactLookupKey: String?,
+    val otherParticipantPhotoUri: String?,
     val isArchived: Boolean,
     val composerAvailability: ConversationComposerAvailability,
 )

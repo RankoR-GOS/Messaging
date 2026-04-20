@@ -13,10 +13,20 @@ internal class ConversationMetadataUiStateMapperImpl @Inject constructor() :
     ConversationMetadataUiStateMapper {
 
     override fun map(metadata: ConversationMetadata): ConversationMetadataUiState {
+        val avatar = when {
+            metadata.isGroupConversation -> ConversationMetadataUiState.Avatar.Group
+
+            else -> {
+                ConversationMetadataUiState.Avatar.Single(
+                    photoUri = metadata.otherParticipantPhotoUri,
+                )
+            }
+        }
+
         return ConversationMetadataUiState.Present(
             title = metadata.conversationName,
             selfParticipantId = metadata.selfParticipantId,
-            isGroupConversation = metadata.isGroupConversation,
+            avatar = avatar,
             participantCount = metadata.participantCount,
             otherParticipantPhoneNumber = metadata
                 .otherParticipantNormalizedDestination

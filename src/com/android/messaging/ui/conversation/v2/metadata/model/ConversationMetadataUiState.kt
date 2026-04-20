@@ -9,6 +9,17 @@ internal sealed interface ConversationMetadataUiState {
     val composerAvailability: ConversationComposerAvailability
 
     @Immutable
+    sealed interface Avatar {
+        @Immutable
+        data object Group : Avatar
+
+        @Immutable
+        data class Single(
+            val photoUri: String?,
+        ) : Avatar
+    }
+
+    @Immutable
     data object Loading : ConversationMetadataUiState {
         override val composerAvailability = ConversationComposerAvailability.unavailable(
             reason = ConversationComposerDisabledReason.CONVERSATION_UNAVAILABLE,
@@ -19,7 +30,7 @@ internal sealed interface ConversationMetadataUiState {
     data class Present(
         val title: String,
         val selfParticipantId: String,
-        val isGroupConversation: Boolean,
+        val avatar: Avatar,
         val participantCount: Int,
         val otherParticipantPhoneNumber: String?,
         val otherParticipantContactLookupKey: String?,

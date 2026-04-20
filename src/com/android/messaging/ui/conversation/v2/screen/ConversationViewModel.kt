@@ -311,18 +311,25 @@ internal class ConversationViewModel @Inject constructor(
         metadataState: ConversationMetadataUiState,
     ): Boolean {
         val isOneOnOne = metadataState is ConversationMetadataUiState.Present &&
-            !metadataState.isGroupConversation &&
+            metadataState.participantCount == 1 &&
             metadataState.otherParticipantPhoneNumber != null
+
         return isOneOnOne && isDeviceVoiceCapable()
     }
 
     private fun canAddContact(
         metadataState: ConversationMetadataUiState,
     ): Boolean {
-        val present = metadataState as? ConversationMetadataUiState.Present ?: return false
-        val hasDestination = !present.otherParticipantPhoneNumber.isNullOrBlank()
-        val hasContactLink = !present.otherParticipantContactLookupKey.isNullOrBlank()
-        return !present.isGroupConversation && hasDestination && !hasContactLink
+        if (metadataState !is ConversationMetadataUiState.Present) {
+            return false
+        }
+
+        val hasDestination = !metadataState.otherParticipantPhoneNumber.isNullOrBlank()
+        val hasContactLink = !metadataState.otherParticipantContactLookupKey.isNullOrBlank()
+
+        return metadataState.participantCount == 1 &&
+            hasDestination &&
+            !hasContactLink
     }
 
     override fun onSeedDraft(
