@@ -41,21 +41,20 @@ import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.CONVERSATION_INLINE_AUDIO_ATTACHMENT_PLAY_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_INLINE_AUDIO_ATTACHMENT_PROGRESS_TEST_TAG
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachmentKind
 import com.android.messaging.ui.core.AppTheme
 
 private val AUDIO_ATTACHMENT_HEIGHT = 70.dp
 
 @Composable
 internal fun ConversationInlineAudioAttachmentRow(
-    attachment: ConversationInlineAttachment,
+    attachment: ConversationInlineAttachment.Audio,
     isIncoming: Boolean,
     isSelectionMode: Boolean,
     useStandaloneAudioAttachmentBackground: Boolean,
     onLongClick: () -> Unit,
 ) {
     val context = LocalContext.current
-    val contentUri = attachment.contentUri ?: return
+    val contentUri = attachment.contentUri
 
     val title = attachment.titleText
         ?: attachment.titleTextResId?.let { stringResource(it) }
@@ -330,12 +329,10 @@ private fun ConversationInlineAudioAttachmentStoppedPreview() {
 private fun ConversationInlineAttachmentRowPreview() {
     ConversationInlineAttachmentPreviewContainer {
         ConversationInlineAttachmentRow(
-            attachment = ConversationInlineAttachment(
+            attachment = ConversationInlineAttachment.Audio(
                 key = "audio-preview",
                 contentUri = "content://mms/part/1",
-                kind = ConversationInlineAttachmentKind.AUDIO,
                 openAction = null,
-                subtitleTextResId = null,
                 titleText = null,
                 titleTextResId = R.string.audio_attachment_content_description,
             ),

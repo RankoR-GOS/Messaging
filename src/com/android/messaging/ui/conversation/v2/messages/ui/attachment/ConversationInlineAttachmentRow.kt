@@ -2,7 +2,6 @@ package com.android.messaging.ui.conversation.v2.messages.ui.attachment
 
 import androidx.compose.runtime.Composable
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachmentKind
 
 @Composable
 internal fun ConversationInlineAttachmentRow(
@@ -14,11 +13,8 @@ internal fun ConversationInlineAttachmentRow(
     onExternalUriClick: (String) -> Unit,
     onLongClick: () -> Unit = {},
 ) {
-    val shouldUseEmbeddedAudioPlayer = attachment.kind == ConversationInlineAttachmentKind.AUDIO &&
-        !attachment.contentUri.isNullOrBlank()
-
-    when {
-        shouldUseEmbeddedAudioPlayer -> {
+    when (attachment) {
+        is ConversationInlineAttachment.Audio -> {
             ConversationInlineAudioAttachmentRow(
                 attachment = attachment,
                 isIncoming = isIncoming,
@@ -28,7 +24,17 @@ internal fun ConversationInlineAttachmentRow(
             )
         }
 
-        else -> {
+        is ConversationInlineAttachment.VCard -> {
+            ConversationVCardInlineAttachmentRow(
+                attachment = attachment,
+                isSelectionMode = isSelectionMode,
+                onAttachmentClick = onAttachmentClick,
+                onExternalUriClick = onExternalUriClick,
+                onLongClick = onLongClick,
+            )
+        }
+
+        is ConversationInlineAttachment.File -> {
             ConversationGenericInlineAttachmentRow(
                 attachment = attachment,
                 onAttachmentClick = onAttachmentClick,

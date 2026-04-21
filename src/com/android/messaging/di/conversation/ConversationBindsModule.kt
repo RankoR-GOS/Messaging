@@ -42,6 +42,10 @@ import com.android.messaging.ui.conversation.v2.mediapicker.ConversationAttachme
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationAttachmentBridgeImpl
 import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationMessageUiModelMapper
 import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationMessageUiModelMapperImpl
+import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataMapper
+import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataMapperImpl
+import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataRepository
+import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataRepositoryImpl
 import com.android.messaging.ui.conversation.v2.metadata.mapper.ConversationMetadataUiStateMapper
 import com.android.messaging.ui.conversation.v2.metadata.mapper.ConversationMetadataUiStateMapperImpl
 import dagger.Binds
@@ -164,6 +168,18 @@ internal abstract class ConversationBindsModule {
     abstract fun bindConversationMessageUiModelMapper(
         impl: ConversationMessageUiModelMapperImpl,
     ): ConversationMessageUiModelMapper
+
+    @Binds
+    @Reusable
+    abstract fun bindConversationVCardMetadataRepository(
+        impl: ConversationVCardMetadataRepositoryImpl,
+    ): ConversationVCardMetadataRepository
+
+    @Binds
+    @Reusable
+    abstract fun bindConversationVCardMetadataMapper(
+        impl: ConversationVCardMetadataMapperImpl,
+    ): ConversationVCardMetadataMapper
 
     @Binds
     @Reusable

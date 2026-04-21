@@ -46,7 +46,8 @@ private fun buildConversationMessageAttachments(
         .toImmutableList()
 
     val hasImageAttachment = attachmentItems.any { attachment ->
-        attachment is ConversationMessageAttachment.Media && attachment.part.isImageAttachment
+        attachment is ConversationMessageAttachment.Media &&
+            attachment.part is ConversationMessagePartUiModel.Attachment.Image
     }
 
     if (hasImageAttachment) {
@@ -65,28 +66,26 @@ private fun toConversationMessageAttachment(
     index: Int,
     part: ConversationMessagePartUiModel,
 ): ConversationMessageAttachment? {
-    if (!part.isMediaAttachment) {
-        return null
-    }
+    val attachmentPart = part as? ConversationMessagePartUiModel.Attachment ?: return null
 
     val key = buildConversationMessageAttachmentKey(
         index = index,
-        contentType = part.contentType,
-        contentUri = part.contentUri,
+        contentType = attachmentPart.contentType,
+        contentUri = attachmentPart.contentUri,
     )
 
     return when {
-        part.isSupportedAttachment && part.hasRenderableContentUri -> {
+        attachmentPart.isSupportedAttachment() && attachmentPart.contentUri != null -> {
             ConversationMessageAttachment.Media(
                 key = key,
-                part = part,
+                part = attachmentPart,
             )
         }
 
         else -> {
             ConversationMessageAttachment.Unsupported(
                 key = key,
-                part = part,
+                part = attachmentPart,
             )
         }
     }
@@ -119,7 +118,7 @@ private fun buildConversationMessageBodyText(
 
     val captionText = message.parts
         .asSequence()
-        .filter { part -> part.hasCaptionText }
+        .filter { it.hasCaptionText }
         .mapNotNull { part ->
             part.text?.trim()?.takeIf { text -> text.isNotEmpty() }
         }
@@ -130,6 +129,18 @@ private fun buildConversationMessageBodyText(
     return when {
         captionText != null -> captionText
         else -> null
+    }
+}
+
+private fun ConversationMessagePartUiModel.Attachment.isSupportedAttachment(): Boolean {
+    return when (this) {
+        is ConversationMessagePartUiModel.Attachment.Audio,
+        is ConversationMessagePartUiModel.Attachment.Image,
+        is ConversationMessagePartUiModel.Attachment.VCard,
+        is ConversationMessagePartUiModel.Attachment.Video,
+        -> true
+
+        is ConversationMessagePartUiModel.Attachment.File -> false
     }
 }
 

@@ -32,6 +32,7 @@ import com.android.messaging.ui.conversation.v2.messages.ui.message.conversation
 import com.android.messaging.ui.conversation.v2.messages.ui.message.formatDateSeparatorText
 import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationAudioPart
 import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationImagePart
+import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationLocationVCardPart
 import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationMessage
 import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationTimestamp
 import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationVCardPart
@@ -427,6 +428,9 @@ private fun ConversationMessagesPreview() {
                         ),
                         previewConversationVCardPart(
                             uniqueId = "triplet-bottom-vcard",
+                        ),
+                        previewConversationLocationVCardPart(
+                            uniqueId = "triplet-bottom-location-vcard",
                         ),
                     ),
                     protocol = ConversationMessageUiModel.Protocol.MMS,

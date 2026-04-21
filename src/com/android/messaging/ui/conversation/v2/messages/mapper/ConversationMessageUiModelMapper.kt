@@ -6,6 +6,7 @@ import com.android.messaging.datamodel.data.MessagePartData
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel.Status
+import com.android.messaging.util.ContentType
 import com.android.messaging.util.LogUtil
 import javax.inject.Inject
 
@@ -46,13 +47,65 @@ internal class ConversationMessageUiModelMapperImpl @Inject constructor() :
     }
 
     private fun mapPart(part: MessagePartData): ConversationMessagePartUiModel {
-        return ConversationMessagePartUiModel(
-            contentType = part.contentType ?: "",
-            text = part.text,
-            contentUri = part.contentUri,
-            width = part.width,
-            height = part.height,
-        )
+        val contentType = part.contentType ?: ""
+
+        return when {
+            ContentType.isTextType(contentType) -> {
+                ConversationMessagePartUiModel.Text(
+                    text = part.text.orEmpty(),
+                )
+            }
+
+            ContentType.isAudioType(contentType) -> {
+                ConversationMessagePartUiModel.Attachment.Audio(
+                    text = part.text,
+                    contentType = contentType,
+                    contentUri = part.contentUri,
+                    width = part.width,
+                    height = part.height,
+                )
+            }
+
+            ContentType.isImageType(contentType) -> {
+                ConversationMessagePartUiModel.Attachment.Image(
+                    text = part.text,
+                    contentType = contentType,
+                    contentUri = part.contentUri,
+                    width = part.width,
+                    height = part.height,
+                )
+            }
+
+            ContentType.isVCardType(contentType) -> {
+                ConversationMessagePartUiModel.Attachment.VCard(
+                    text = part.text,
+                    contentType = contentType,
+                    contentUri = part.contentUri,
+                    width = part.width,
+                    height = part.height,
+                )
+            }
+
+            ContentType.isVideoType(contentType) -> {
+                ConversationMessagePartUiModel.Attachment.Video(
+                    text = part.text,
+                    contentType = contentType,
+                    contentUri = part.contentUri,
+                    width = part.width,
+                    height = part.height,
+                )
+            }
+
+            else -> {
+                ConversationMessagePartUiModel.Attachment.File(
+                    text = part.text,
+                    contentType = contentType,
+                    contentUri = part.contentUri,
+                    width = part.width,
+                    height = part.height,
+                )
+            }
+        }
     }
 
     private fun mapStatus(javaStatus: Int): Status {

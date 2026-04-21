@@ -2,7 +2,9 @@ package com.android.messaging.ui.conversation.v2.messages.ui.message
 
 import android.net.Uri
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentItem
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachmentKind
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import org.junit.Assert.assertEquals
@@ -21,8 +23,7 @@ class ConversationMessageContentBuilderTest {
         val message = createMessage(
             text = null,
             parts = listOf(
-                createMediaPart(
-                    contentType = "audio/x-wav",
+                createAudioPart(
                     contentUri = "content://mms/part/audio-1",
                 ),
             ),
@@ -39,9 +40,42 @@ class ConversationMessageContentBuilderTest {
 
         val inlineAttachment =
             (content.attachmentSections.trailingItems.single() as ConversationAttachmentItem.Inline)
-                .attachment
-        assertEquals(ConversationInlineAttachmentKind.AUDIO, inlineAttachment.kind)
+                .attachment as ConversationInlineAttachment.Audio
         assertEquals("content://mms/part/audio-1", inlineAttachment.contentUri)
+    }
+
+    @Test
+    fun attachmentOnlyVCardMessage_buildsInlineVCardAttachment_withoutBodyText() {
+        val metadata = ConversationVCardAttachmentMetadata.Loaded(
+            type = ConversationVCardAttachmentType.CONTACT,
+            displayName = "Sam Rivera",
+            details = "sam@example.com",
+            locationAddress = null,
+        )
+        val message = createMessage(
+            text = null,
+            parts = listOf(
+                createVCardPart(
+                    contentUri = "content://mms/part/vcard-1",
+                    metadata = metadata,
+                ),
+            ),
+        )
+
+        val content = buildConversationMessageContent(
+            message = message,
+            subjectText = null,
+        )
+
+        assertNull(content.bodyText)
+        assertTrue(content.isAttachmentOnly)
+
+        val trailingAttachment = content.attachmentSections.trailingItems.single()
+
+        val inlineAttachment = (trailingAttachment as ConversationAttachmentItem.Inline)
+            .attachment as ConversationInlineAttachment.VCard
+        assertEquals("content://mms/part/vcard-1", inlineAttachment.contentUri)
+        assertEquals(metadata, inlineAttachment.metadata)
     }
 
     @Test
@@ -49,8 +83,7 @@ class ConversationMessageContentBuilderTest {
         val message = createMessage(
             text = null,
             parts = listOf(
-                createMediaPart(
-                    contentType = "audio/x-wav",
+                createAudioPart(
                     contentUri = "content://mms/part/audio-1",
                     text = "Ambient room tone",
                 ),
@@ -94,17 +127,30 @@ class ConversationMessageContentBuilderTest {
         )
     }
 
-    private fun createMediaPart(
-        contentType: String,
+    private fun createAudioPart(
         contentUri: String,
         text: String? = null,
-    ): ConversationMessagePartUiModel {
-        return ConversationMessagePartUiModel(
-            contentType = contentType,
+    ): ConversationMessagePartUiModel.Attachment.Audio {
+        return ConversationMessagePartUiModel.Attachment.Audio(
             text = text,
+            contentType = "audio/x-wav",
             contentUri = Uri.parse(contentUri),
             width = 0,
             height = 0,
+        )
+    }
+
+    private fun createVCardPart(
+        contentUri: String,
+        metadata: ConversationVCardAttachmentMetadata,
+    ): ConversationMessagePartUiModel.Attachment.VCard {
+        return ConversationMessagePartUiModel.Attachment.VCard(
+            text = null,
+            contentType = "text/x-vCard",
+            contentUri = Uri.parse(contentUri),
+            width = 0,
+            height = 0,
+            metadata = metadata,
         )
     }
 }

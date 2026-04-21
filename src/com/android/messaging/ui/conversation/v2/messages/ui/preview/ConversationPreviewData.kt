@@ -10,7 +10,6 @@ import java.time.ZoneId
 
 private const val PREVIEW_CONVERSATION_ID = "preview-conversation"
 private const val PREVIEW_MEDIA_URI_PREFIX = "content://com.android.messaging.preview"
-private const val PREVIEW_TEXT_CONTENT_TYPE = "text/plain"
 
 internal fun previewConversationMessage(
     messageId: String,
@@ -128,24 +127,66 @@ internal fun previewConversationMediaPart(
     width: Int = 0,
     height: Int = 0,
 ): ConversationMessagePartUiModel {
-    return ConversationMessagePartUiModel(
-        contentType = contentType,
-        text = caption,
-        contentUri = previewConversationMediaUri(uniqueId = uniqueId),
-        width = width,
-        height = height,
-    )
+    val contentUri = previewConversationMediaUri(uniqueId = uniqueId)
+
+    return when {
+        ContentType.isAudioType(contentType) -> {
+            ConversationMessagePartUiModel.Attachment.Audio(
+                text = caption,
+                contentType = contentType,
+                contentUri = contentUri,
+                width = width,
+                height = height,
+            )
+        }
+
+        ContentType.isImageType(contentType) -> {
+            ConversationMessagePartUiModel.Attachment.Image(
+                text = caption,
+                contentType = contentType,
+                contentUri = contentUri,
+                width = width,
+                height = height,
+            )
+        }
+
+        ContentType.isVCardType(contentType) -> {
+            ConversationMessagePartUiModel.Attachment.VCard(
+                text = caption,
+                contentType = contentType,
+                contentUri = contentUri,
+                width = width,
+                height = height,
+            )
+        }
+
+        ContentType.isVideoType(contentType) -> {
+            ConversationMessagePartUiModel.Attachment.Video(
+                text = caption,
+                contentType = contentType,
+                contentUri = contentUri,
+                width = width,
+                height = height,
+            )
+        }
+
+        else -> {
+            ConversationMessagePartUiModel.Attachment.File(
+                text = caption,
+                contentType = contentType,
+                contentUri = contentUri,
+                width = width,
+                height = height,
+            )
+        }
+    }
 }
 
 internal fun previewConversationTextPart(
     text: String,
 ): ConversationMessagePartUiModel {
-    return ConversationMessagePartUiModel(
-        contentType = PREVIEW_TEXT_CONTENT_TYPE,
+    return ConversationMessagePartUiModel.Text(
         text = text,
-        contentUri = null,
-        width = 0,
-        height = 0,
     )
 }
 
@@ -160,6 +201,19 @@ internal fun previewConversationUnsupportedPart(
 }
 
 internal fun previewConversationVCardPart(
+    uniqueId: String,
+    caption: String? = null,
+): ConversationMessagePartUiModel {
+    return previewConversationMediaPart(
+        uniqueId = uniqueId,
+        contentType = ContentType.TEXT_VCARD,
+        caption = caption,
+        width = 0,
+        height = 0,
+    )
+}
+
+internal fun previewConversationLocationVCardPart(
     uniqueId: String,
     caption: String? = null,
 ): ConversationMessagePartUiModel {
@@ -206,7 +260,8 @@ private fun previewConversationProtocol(
 ): ConversationMessageUiModel.Protocol {
     return when {
         !mmsSubject.isNullOrBlank() -> ConversationMessageUiModel.Protocol.MMS
-        parts.any { part -> part.contentUri != null } -> ConversationMessageUiModel.Protocol.MMS
+        parts.any { part -> part is ConversationMessagePartUiModel.Attachment } ->
+            ConversationMessageUiModel.Protocol.MMS
         else -> ConversationMessageUiModel.Protocol.SMS
     }
 }

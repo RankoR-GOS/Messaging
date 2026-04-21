@@ -5,8 +5,9 @@ import com.android.messaging.ui.conversation.v2.messages.model.attachment.Conver
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentOpenAction
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentSections
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachmentKind
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationMessageAttachment
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -34,7 +35,8 @@ private fun isGalleryVisualAttachment(
     attachment: ConversationMessageAttachment,
 ): Boolean {
     return when (attachment) {
-        is ConversationMessageAttachment.Media -> attachment.part.isImageAttachment
+        is ConversationMessageAttachment.Media ->
+            attachment.part is ConversationMessagePartUiModel.Attachment.Image
         is ConversationMessageAttachment.YouTubePreview -> true
         is ConversationMessageAttachment.Unsupported -> false
     }
@@ -44,7 +46,8 @@ private fun isStandaloneVisualAttachment(
     attachment: ConversationMessageAttachment,
 ): Boolean {
     return when (attachment) {
-        is ConversationMessageAttachment.Media -> attachment.part.isVideoAttachment
+        is ConversationMessageAttachment.Media ->
+            attachment.part is ConversationMessagePartUiModel.Attachment.Video
 
         is ConversationMessageAttachment.Unsupported,
         is ConversationMessageAttachment.YouTubePreview,
@@ -114,28 +117,32 @@ private fun toInlineAttachment(
 private fun toMediaInlineAttachment(
     attachment: ConversationMessageAttachment.Media,
 ): ConversationInlineAttachment? {
-    return when {
-        attachment.part.isAudioAttachment -> {
+    return when (val part = attachment.part) {
+        is ConversationMessagePartUiModel.Attachment.Audio -> {
             createAudioInlineAttachment(
                 key = attachment.key,
-                contentUri = attachment.part.contentUri.toString(),
+                contentUri = part.contentUri.toString(),
                 openAction = attachment.toConversationAttachmentOpenActionOrNull(),
             )
         }
 
-        attachment.part.isVCardAttachment -> {
+        is ConversationMessagePartUiModel.Attachment.VCard -> {
             createVCardInlineAttachment(
                 key = attachment.key,
+                contentUri = part.contentUri.toString(),
                 openAction = attachment.toConversationAttachmentOpenActionOrNull(),
+                vCardAttachmentMetadata = part.metadata,
             )
         }
 
-        attachment.part.isImageAttachment || attachment.part.isVideoAttachment -> null
+        is ConversationMessagePartUiModel.Attachment.Image,
+        is ConversationMessagePartUiModel.Attachment.Video,
+        -> null
 
-        else -> {
+        is ConversationMessagePartUiModel.Attachment.File -> {
             createFileInlineAttachment(
                 key = attachment.key,
-                titleText = attachment.part.contentType.ifBlank { null },
+                titleText = part.contentType.ifBlank { null },
                 openAction = attachment.toConversationAttachmentOpenActionOrNull(),
             )
         }
@@ -147,12 +154,10 @@ private fun createAudioInlineAttachment(
     contentUri: String,
     openAction: ConversationAttachmentOpenAction?,
 ): ConversationInlineAttachment {
-    return ConversationInlineAttachment(
+    return ConversationInlineAttachment.Audio(
         key = key,
         contentUri = contentUri,
-        kind = ConversationInlineAttachmentKind.AUDIO,
         openAction = openAction,
-        subtitleTextResId = null,
         titleText = null,
         titleTextResId = R.string.audio_attachment_content_description,
     )
@@ -160,16 +165,18 @@ private fun createAudioInlineAttachment(
 
 private fun createVCardInlineAttachment(
     key: String,
+    contentUri: String,
     openAction: ConversationAttachmentOpenAction?,
+    vCardAttachmentMetadata: ConversationVCardAttachmentMetadata?,
 ): ConversationInlineAttachment {
-    return ConversationInlineAttachment(
+    return ConversationInlineAttachment.VCard(
         key = key,
-        contentUri = null,
-        kind = ConversationInlineAttachmentKind.VCARD,
+        contentUri = contentUri,
         openAction = openAction,
         subtitleTextResId = R.string.vcard_tap_hint,
         titleText = null,
         titleTextResId = R.string.notification_vcard,
+        metadata = vCardAttachmentMetadata,
     )
 }
 
@@ -178,10 +185,8 @@ private fun createFileInlineAttachment(
     titleText: String?,
     openAction: ConversationAttachmentOpenAction?,
 ): ConversationInlineAttachment {
-    return ConversationInlineAttachment(
+    return ConversationInlineAttachment.File(
         key = key,
-        contentUri = null,
-        kind = ConversationInlineAttachmentKind.FILE,
         openAction = openAction,
         subtitleTextResId = null,
         titleText = titleText,

@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,12 +26,11 @@ import androidx.compose.ui.unit.dp
 import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentOpenAction
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachmentKind
 import com.android.messaging.ui.core.AppTheme
 
 @Composable
 internal fun ConversationGenericInlineAttachmentRow(
-    attachment: ConversationInlineAttachment,
+    attachment: ConversationInlineAttachment.File,
     onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
     onExternalUriClick: (String) -> Unit,
     onLongClick: () -> Unit,
@@ -81,9 +78,7 @@ internal fun ConversationGenericInlineAttachmentRow(
                 modifier = Modifier.size(size = 28.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                ConversationInlineAttachmentIcon(
-                    kind = attachment.kind,
-                )
+                ConversationFileInlineAttachmentIcon()
             }
 
             Column(
@@ -108,33 +103,11 @@ internal fun ConversationGenericInlineAttachmentRow(
 }
 
 @Composable
-private fun ConversationInlineAttachmentIcon(
-    kind: ConversationInlineAttachmentKind,
-) {
-    when (kind) {
-        ConversationInlineAttachmentKind.AUDIO -> {
-            Icon(
-                imageVector = Icons.Rounded.PlayArrow,
-                contentDescription = stringResource(
-                    id = R.string.audio_play_content_description,
-                ),
-            )
-        }
-
-        ConversationInlineAttachmentKind.FILE -> {
-            Icon(
-                imageVector = Icons.Rounded.Description,
-                contentDescription = null,
-            )
-        }
-
-        ConversationInlineAttachmentKind.VCARD -> {
-            Icon(
-                imageVector = Icons.Rounded.Person,
-                contentDescription = null,
-            )
-        }
-    }
+private fun ConversationFileInlineAttachmentIcon() {
+    Icon(
+        imageVector = Icons.Rounded.Description,
+        contentDescription = null,
+    )
 }
 
 @Composable
@@ -165,10 +138,8 @@ private fun ConversationGenericInlineAttachmentPreviewContainer(
 private fun ConversationGenericFileInlineAttachmentRowPreview() {
     ConversationGenericInlineAttachmentPreviewContainer {
         ConversationGenericInlineAttachmentRow(
-            attachment = ConversationInlineAttachment(
+            attachment = ConversationInlineAttachment.File(
                 key = "file-preview",
-                contentUri = null,
-                kind = ConversationInlineAttachmentKind.FILE,
                 openAction = ConversationAttachmentOpenAction.OpenContent(
                     contentType = "application/pdf",
                     contentUri = "content://mms/part/2",
@@ -176,29 +147,6 @@ private fun ConversationGenericFileInlineAttachmentRowPreview() {
                 subtitleTextResId = null,
                 titleText = "Quarterly-report.pdf",
                 titleTextResId = R.string.notification_file,
-            ),
-            onAttachmentClick = { _, _ -> },
-            onExternalUriClick = {},
-            onLongClick = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Generic VCard Attachment")
-@Composable
-private fun ConversationGenericVCardInlineAttachmentRowPreview() {
-    ConversationGenericInlineAttachmentPreviewContainer {
-        ConversationGenericInlineAttachmentRow(
-            attachment = ConversationInlineAttachment(
-                key = "vcard-preview",
-                contentUri = null,
-                kind = ConversationInlineAttachmentKind.VCARD,
-                openAction = ConversationAttachmentOpenAction.OpenExternal(
-                    uri = "content://mms/part/3",
-                ),
-                subtitleTextResId = R.string.vcard_tap_hint,
-                titleText = null,
-                titleTextResId = R.string.notification_vcard,
             ),
             onAttachmentClick = { _, _ -> },
             onExternalUriClick = {},

@@ -42,9 +42,10 @@ private const val MEDIA_SCRATCH_FILE_EXTENSION_QUERY_PARAMETER = "ext"
 private const val SEED_IMAGE_1_FILE_ID = "800001"
 private const val SEED_IMAGE_2_FILE_ID = "800002"
 private const val SEED_IMAGE_3_FILE_ID = "800003"
-private const val SEED_VCARD_FILE_ID = "800004"
+private const val SEED_CONTACT_VCARD_FILE_ID = "800004"
 private const val SEED_VIDEO_FILE_ID = "800005"
 private const val SEED_AUDIO_FILE_ID = "800006"
+private const val SEED_LOCATION_VCARD_FILE_ID = "800007"
 private const val SEED_AUDIO_DURATION_SECONDS = 2
 private const val SEED_AUDIO_SAMPLE_RATE_HZ = 16_000
 private const val SEED_AUDIO_FREQUENCY_HZ = 440.0
@@ -52,6 +53,11 @@ private const val SEED_AUDIO_FREQUENCY_HZ = 440.0
 private const val MINUTES = 60 * 1000L
 private const val HOURS = 60 * MINUTES
 private const val DAYS = 24 * HOURS
+
+private data class SeedVCards(
+    val contactUri: String,
+    val locationUri: String,
+)
 
 fun seedTestData(context: Context) {
     clearSeededTestData(context = context)
@@ -66,7 +72,7 @@ fun seedTestData(context: Context) {
     val testImages = buildTestImages(context)
     val testAudio = buildTestAudio()
     val testVideo = buildTestVideo(context)
-    val testVCard = buildTestVCard(context)
+    val testVCards = buildTestVCards()
     val now = System.currentTimeMillis()
 
     db.withTransaction {
@@ -88,7 +94,17 @@ fun seedTestData(context: Context) {
         seedScenarioE(db, selfId, grace, now)
         seedScenarioF(db, selfId, henry, now)
         seedScenarioG(db, selfId, iris, testImages, now)
-        seedScenarioH(db, selfId, jack, carol, testImages, testAudio, testVideo, testVCard, now)
+        seedScenarioH(
+            db = db,
+            selfId = selfId,
+            jackId = jack,
+            carolId = carol,
+            images = testImages,
+            audioUri = testAudio,
+            videoUri = testVideo,
+            vCards = testVCards,
+            now = now,
+        )
         seedScenarioI(db, selfId, carol, dave, eve, now)
     }
 
@@ -179,12 +195,14 @@ fun clearSeededTestData(context: Context) {
     deleteSeedScratchFile(fileId = SEED_IMAGE_1_FILE_ID, fileExtension = "jpg")
     deleteSeedScratchFile(fileId = SEED_IMAGE_2_FILE_ID, fileExtension = "jpg")
     deleteSeedScratchFile(fileId = SEED_IMAGE_3_FILE_ID, fileExtension = "jpg")
-    deleteSeedScratchFile(fileId = SEED_VCARD_FILE_ID, fileExtension = "vcf")
+    deleteSeedScratchFile(fileId = SEED_CONTACT_VCARD_FILE_ID, fileExtension = "vcf")
+    deleteSeedScratchFile(fileId = SEED_LOCATION_VCARD_FILE_ID, fileExtension = "vcf")
     deleteSeedScratchFile(fileId = SEED_VIDEO_FILE_ID, fileExtension = "mp4")
     deleteSeedScratchFile(fileId = SEED_IMAGE_1_FILE_ID)
     deleteSeedScratchFile(fileId = SEED_IMAGE_2_FILE_ID)
     deleteSeedScratchFile(fileId = SEED_IMAGE_3_FILE_ID)
-    deleteSeedScratchFile(fileId = SEED_VCARD_FILE_ID)
+    deleteSeedScratchFile(fileId = SEED_CONTACT_VCARD_FILE_ID)
+    deleteSeedScratchFile(fileId = SEED_LOCATION_VCARD_FILE_ID)
     deleteSeedScratchFile(fileId = SEED_VIDEO_FILE_ID)
     deleteSeedScratchFile(fileId = SEED_AUDIO_FILE_ID)
     deleteSeededAttachmentScratchFiles(attachmentUris = seededAttachmentUris)
@@ -240,14 +258,14 @@ private fun buildTestImages(context: Context): List<String> {
     }
 }
 
-private fun buildTestVCard(context: Context): String {
-    val vCardUri = buildSeedScratchUri(
-        fileId = SEED_VCARD_FILE_ID,
+private fun buildTestVCards(): SeedVCards {
+    val contactVCardUri = buildSeedScratchUri(
+        fileId = SEED_CONTACT_VCARD_FILE_ID,
         fileExtension = "vcf",
     )
-    val file = MediaScratchFileProvider.getFileFromUri(vCardUri)
-    file.parentFile?.mkdirs()
-    file.writeText(
+    val contactFile = MediaScratchFileProvider.getFileFromUri(contactVCardUri)
+    contactFile.parentFile?.mkdirs()
+    contactFile.writeText(
         """
         BEGIN:VCARD
         VERSION:3.0
@@ -258,9 +276,31 @@ private fun buildTestVCard(context: Context): String {
         END:VCARD
         """.trimIndent(),
     )
+    MediaScratchFileProvider.addUriToDisplayNameEntry(contactVCardUri, "Sam Rivera")
 
-    MediaScratchFileProvider.addUriToDisplayNameEntry(vCardUri, "Sam Rivera")
-    return vCardUri.toString()
+    val locationVCardUri = buildSeedScratchUri(
+        fileId = SEED_LOCATION_VCARD_FILE_ID,
+        fileExtension = "vcf",
+    )
+    val locationFile = MediaScratchFileProvider.getFileFromUri(locationVCardUri)
+    locationFile.parentFile?.mkdirs()
+    locationFile.writeText(
+        """
+        BEGIN:VCARD
+        VERSION:3.0
+        KIND:location
+        FN:Pier 57
+        ADR;TYPE=WORK:;;25 11th Ave;New York;NY;10011;United States
+        NOTE:Meet by the market entrance
+        END:VCARD
+        """.trimIndent(),
+    )
+    MediaScratchFileProvider.addUriToDisplayNameEntry(locationVCardUri, "Pier 57")
+
+    return SeedVCards(
+        contactUri = contactVCardUri.toString(),
+        locationUri = locationVCardUri.toString(),
+    )
 }
 
 private fun buildTestAudio(): String {
@@ -1157,7 +1197,7 @@ private fun seedScenarioH(
     images: List<String>,
     audioUri: String,
     videoUri: String,
-    vCardUri: String,
+    vCards: SeedVCards,
     now: Long,
 ) {
     val img1 = images[0]
@@ -1205,8 +1245,10 @@ private fun seedScenarioH(
         Msg("text", text = "And here's the ambient audio from the room", senderId = jackId),
         Msg("audio", attachmentUri = audioUri, senderId = jackId),
         Msg("text", text = "Send me the photographer contact too", senderId = selfId),
-        Msg("vcard", attachmentUri = vCardUri, senderId = carolId),
+        Msg("vcard", attachmentUri = vCards.contactUri, senderId = carolId),
         Msg("text", text = "One more", senderId = carolId),
+        Msg("text", text = "Pin the meetup spot too", senderId = selfId),
+        Msg("vcard", attachmentUri = vCards.locationUri, senderId = jackId),
         Msg("text", text = "We need to do this again soon", senderId = selfId),
         Msg("text", text = "+1", senderId = jackId),
         Msg("text", text = "Same time next week?", senderId = carolId),

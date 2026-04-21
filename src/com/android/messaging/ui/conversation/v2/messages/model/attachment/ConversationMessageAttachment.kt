@@ -10,13 +10,13 @@ internal sealed interface ConversationMessageAttachment {
     @Immutable
     data class Media(
         override val key: String,
-        val part: ConversationMessagePartUiModel,
+        val part: ConversationMessagePartUiModel.Attachment,
     ) : ConversationMessageAttachment
 
     @Immutable
     data class Unsupported(
         override val key: String,
-        val part: ConversationMessagePartUiModel,
+        val part: ConversationMessagePartUiModel.Attachment,
     ) : ConversationMessageAttachment
 
     @Immutable

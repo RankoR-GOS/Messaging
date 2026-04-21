@@ -2,52 +2,73 @@ package com.android.messaging.ui.conversation.v2.messages.model.message
 
 import android.net.Uri
 import androidx.compose.runtime.Immutable
-import com.android.messaging.util.ContentType
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
 
 @Immutable
-internal data class ConversationMessagePartUiModel(
-    val contentType: String,
-    val text: String?,
-    val contentUri: Uri?,
-    val width: Int,
-    val height: Int,
-) {
-    val hasCaptionText: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        !text.isNullOrBlank()
-    }
+internal sealed interface ConversationMessagePartUiModel {
+    val text: String?
 
-    val hasRenderableContentUri: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        contentUri != null
-    }
+    @Immutable
+    data class Text(
+        override val text: String,
+    ) : ConversationMessagePartUiModel
 
-    val isAudioAttachment: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        ContentType.isAudioType(contentType)
-    }
+    val hasCaptionText: Boolean
+        get() {
+            return !text.isNullOrBlank()
+        }
 
-    val isImageAttachment: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        ContentType.isImageType(contentType)
-    }
+    @Immutable
+    sealed interface Attachment : ConversationMessagePartUiModel {
+        val contentType: String
+        val contentUri: Uri?
+        val width: Int
+        val height: Int
 
-    val isMediaAttachment: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        ContentType.isMediaType(contentType)
-    }
+        @Immutable
+        data class Audio(
+            override val text: String?,
+            override val contentType: String,
+            override val contentUri: Uri?,
+            override val width: Int,
+            override val height: Int,
+        ) : Attachment
 
-    val isSupportedAttachment: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        isImageAttachment ||
-            isVideoAttachment ||
-            isAudioAttachment ||
-            isVCardAttachment
-    }
+        @Immutable
+        data class File(
+            override val text: String?,
+            override val contentType: String,
+            override val contentUri: Uri?,
+            override val width: Int,
+            override val height: Int,
+        ) : Attachment
 
-    val isTextPart: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        ContentType.isTextType(contentType)
-    }
+        @Immutable
+        data class Image(
+            override val text: String?,
+            override val contentType: String,
+            override val contentUri: Uri?,
+            override val width: Int,
+            override val height: Int,
+        ) : Attachment
 
-    val isVCardAttachment: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        ContentType.isVCardType(contentType)
-    }
+        @Immutable
+        data class VCard(
+            override val text: String?,
+            override val contentType: String,
+            override val contentUri: Uri?,
+            override val width: Int,
+            override val height: Int,
+            val metadata: ConversationVCardAttachmentMetadata? = null,
+        ) : Attachment
 
-    val isVideoAttachment: Boolean by lazy(mode = LazyThreadSafetyMode.NONE) {
-        ContentType.isVideoType(contentType)
+        @Immutable
+        data class Video(
+            override val text: String?,
+            override val contentType: String,
+            override val contentUri: Uri?,
+            override val width: Int,
+            override val height: Int,
+        ) : Attachment
     }
 }

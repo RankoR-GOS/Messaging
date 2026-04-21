@@ -592,14 +592,58 @@ class ConversationMessageSelectionDelegateImplTest {
     private fun createAttachmentPart(
         contentType: String,
         contentUri: String,
-    ): ConversationMessagePartUiModel {
-        return ConversationMessagePartUiModel(
-            contentType = contentType,
-            text = null,
-            contentUri = Uri.parse(contentUri),
-            width = 640,
-            height = 480,
-        )
+    ): ConversationMessagePartUiModel.Attachment {
+        return when {
+            contentType.startsWith(prefix = "image/") -> {
+                ConversationMessagePartUiModel.Attachment.Image(
+                    text = null,
+                    contentType = contentType,
+                    contentUri = Uri.parse(contentUri),
+                    width = 640,
+                    height = 480,
+                )
+            }
+
+            contentType.startsWith(prefix = "audio/") -> {
+                ConversationMessagePartUiModel.Attachment.Audio(
+                    text = null,
+                    contentType = contentType,
+                    contentUri = Uri.parse(contentUri),
+                    width = 640,
+                    height = 480,
+                )
+            }
+
+            contentType.equals(other = "text/x-vCard", ignoreCase = true) -> {
+                ConversationMessagePartUiModel.Attachment.VCard(
+                    text = null,
+                    contentType = contentType,
+                    contentUri = Uri.parse(contentUri),
+                    width = 640,
+                    height = 480,
+                )
+            }
+
+            contentType.startsWith(prefix = "video/") -> {
+                ConversationMessagePartUiModel.Attachment.Video(
+                    text = null,
+                    contentType = contentType,
+                    contentUri = Uri.parse(contentUri),
+                    width = 640,
+                    height = 480,
+                )
+            }
+
+            else -> {
+                ConversationMessagePartUiModel.Attachment.File(
+                    text = null,
+                    contentType = contentType,
+                    contentUri = Uri.parse(contentUri),
+                    width = 640,
+                    height = 480,
+                )
+            }
+        }
     }
 
     private fun createMessageUiModel(

@@ -6,6 +6,7 @@ import com.android.messaging.data.conversation.repository.ConversationsRepositor
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.domain.conversation.usecase.CreateForwardedMessage
 import com.android.messaging.ui.conversation.v2.common.ConversationScreenDelegate
+import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageDeleteConfirmationUiState
@@ -296,9 +297,14 @@ internal class ConversationMessageSelectionDelegateImpl @Inject constructor(
         val firstAttachment = when {
             messageText != null -> null
             else -> {
-                selectedMessage.parts.firstOrNull { part ->
-                    !part.contentType.isBlank() && part.contentUri != null
-                }
+                selectedMessage.parts
+                    .asSequence()
+                    .mapNotNull { part ->
+                        part as? ConversationMessagePartUiModel.Attachment
+                    }
+                    .firstOrNull { attachment ->
+                        attachment.contentType.isNotBlank() && attachment.contentUri != null
+                    }
             }
         }
 

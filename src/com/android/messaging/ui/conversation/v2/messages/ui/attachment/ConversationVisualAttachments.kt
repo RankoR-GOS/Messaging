@@ -348,7 +348,9 @@ private fun BoxScope.CenterPlayAffordance() {
 
 private fun ConversationMessageAttachment.requiresPlaybackAffordance(): Boolean {
     return when (this) {
-        is ConversationMessageAttachment.Media -> part.isVideoAttachment
+        is ConversationMessageAttachment.Media -> {
+            part is ConversationMessagePartUiModel.Attachment.Video
+        }
         is ConversationMessageAttachment.YouTubePreview -> true
         is ConversationMessageAttachment.Unsupported -> false
     }
@@ -378,13 +380,19 @@ private fun resolveAttachmentAspectRatio(
 }
 
 private fun resolvePartAspectRatio(
-    part: ConversationMessagePartUiModel,
+    part: ConversationMessagePartUiModel.Attachment,
 ): Float {
     val hasMeasuredSize = part.width > 0 && part.height > 0
 
     return when {
-        hasMeasuredSize -> part.width.toFloat() / part.height.toFloat()
-        part.isVideoAttachment -> MESSAGE_ATTACHMENT_DEFAULT_VIDEO_ASPECT_RATIO
+        hasMeasuredSize -> {
+            part.width.toFloat() / part.height.toFloat()
+        }
+
+        part is ConversationMessagePartUiModel.Attachment.Video -> {
+            MESSAGE_ATTACHMENT_DEFAULT_VIDEO_ASPECT_RATIO
+        }
+
         else -> MESSAGE_ATTACHMENT_DEFAULT_IMAGE_ASPECT_RATIO
     }
 }
