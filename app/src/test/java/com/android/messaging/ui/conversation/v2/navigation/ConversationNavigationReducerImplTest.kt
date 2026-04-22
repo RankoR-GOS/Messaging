@@ -11,7 +11,7 @@ class ConversationNavigationReducerImplTest {
     private val reducer: ConversationNavigationReducer = ConversationNavigationReducerImpl()
 
     @Test
-    fun navigateToConversation_appendsDestinationWhenItIsNotAlreadyOnTop() {
+    fun navigateToConversation_replacesNewChatEntryFlowWithConversation() {
         val backStack = mutableListOf<NavKey>(NewChatNavKey)
 
         reducer.navigateToConversation(
@@ -21,8 +21,47 @@ class ConversationNavigationReducerImplTest {
 
         assertEquals(
             listOf(
-                NewChatNavKey,
                 ConversationNavKey(conversationId = "conversation-1"),
+            ),
+            backStack,
+        )
+    }
+
+    @Test
+    fun navigateToConversation_removesRecipientPickerEntryFlowBeforeNavigating() {
+        val backStack = mutableListOf<NavKey>(
+            NewChatNavKey,
+            RecipientPickerNavKey(mode = RecipientPickerMode.CREATE_GROUP),
+        )
+
+        reducer.navigateToConversation(
+            backStack = backStack,
+            conversationId = "conversation-1",
+        )
+
+        assertEquals(
+            listOf(
+                ConversationNavKey(conversationId = "conversation-1"),
+            ),
+            backStack,
+        )
+    }
+
+    @Test
+    fun navigateToConversation_appendsWhenAlreadyInsideConversationFlow() {
+        val backStack = mutableListOf<NavKey>(
+            ConversationNavKey(conversationId = "conversation-1"),
+        )
+
+        reducer.navigateToConversation(
+            backStack = backStack,
+            conversationId = "conversation-2",
+        )
+
+        assertEquals(
+            listOf(
+                ConversationNavKey(conversationId = "conversation-1"),
+                ConversationNavKey(conversationId = "conversation-2"),
             ),
             backStack,
         )
