@@ -12,17 +12,21 @@ import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.datamodel.data.ParticipantData
 import com.android.messaging.debug.DebugSimEmulationMode
 import com.android.messaging.debug.DebugSimEmulationSource
+import com.android.messaging.sms.MmsConfig
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -45,6 +49,11 @@ class ConversationSubscriptionsRepositoryImplTest {
         emulationSource = object : DebugSimEmulationSource {
             override val mode = emulationModeFlow.asStateFlow()
         }
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(MmsConfig::class)
     }
 
     @Test
@@ -428,6 +437,62 @@ class ConversationSubscriptionsRepositoryImplTest {
         }
         verify(exactly = 1) {
             contentResolver.unregisterContentObserver(registeredObserver.captured)
+        }
+    }
+
+    @Test
+    fun resolveMaxMessageSize_returnsGlobalFallbackWhenSelfParticipantIdIsBlank() = runTest {
+        mockkStatic(MmsConfig::class)
+        every { MmsConfig.getMaxMaxMessageSize() } returns 456_000
+
+        val repository = createRepository()
+
+        repository.resolveMaxMessageSize(selfParticipantId = "").test {
+            assertEquals(456_000, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(exactly = 0) {
+            contentResolver.query(
+                any<Uri>(),
+                any(),
+                any(),
+                any(),
+                any(),
+            )
+        }
+    }
+
+    @Test
+    fun resolveMaxMessageSize_usesParticipantSubscriptionMmsConfig() = runTest {
+        mockkStatic(MmsConfig::class)
+        val mmsConfig = mockk<MmsConfig>()
+        every { MmsConfig.get(7) } returns mmsConfig
+        every { mmsConfig.maxMessageSize } returns 987_000
+        every { MmsConfig.getMaxMaxMessageSize() } returns 123_000
+        every {
+            contentResolver.query(
+                MessagingContentProvider.PARTICIPANTS_URI,
+                ParticipantData.ParticipantsQuery.PROJECTION,
+                "${ParticipantColumns._ID} = ?",
+                arrayOf("self-7"),
+                null,
+            )
+        } returns createParticipantsCursor(
+            participantRow(
+                id = "self-7",
+                subId = 7,
+                slotId = 0,
+                subscriptionName = "Carrier",
+                displayDestination = "+1 555 7000",
+            ),
+        )
+
+        val repository = createRepository()
+
+        repository.resolveMaxMessageSize(selfParticipantId = "self-7").test {
+            assertEquals(987_000, awaitItem())
+            cancelAndIgnoreRemainingEvents()
         }
     }
 

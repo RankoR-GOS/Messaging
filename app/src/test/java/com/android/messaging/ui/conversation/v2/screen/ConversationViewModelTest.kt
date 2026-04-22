@@ -12,6 +12,8 @@ import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
 import com.android.messaging.testutil.MainDispatcherRule
+import com.android.messaging.ui.conversation.v2.audio.delegate.ConversationAudioRecordingDelegate
+import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationComposerAttachmentsDelegate
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
@@ -64,12 +66,14 @@ class ConversationViewModelTest {
     fun init_bindsAllDelegates() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
+            val audioRecordingDelegate = createAudioRecordingDelegateMock()
             val composerAttachmentsDelegate = createComposerAttachmentsDelegateMock()
             val messagesDelegate = createMessagesDelegateMock()
             val messageSelectionDelegate = createMessageSelectionDelegateMock()
             val mediaPickerDelegate = createMediaPickerDelegateMock()
             val metadataDelegate = createMetadataDelegateMock()
             val viewModel = createViewModel(
+                audioRecordingDelegate = audioRecordingDelegate.mock,
                 composerAttachmentsDelegate = composerAttachmentsDelegate.mock,
                 draftDelegate = draftDelegate.mock,
                 messagesDelegate = messagesDelegate.mock,
@@ -81,6 +85,7 @@ class ConversationViewModelTest {
             advanceUntilIdle()
 
             assertEquals(1, draftDelegate.bindCalls.size)
+            assertEquals(1, audioRecordingDelegate.bindCalls.size)
             assertEquals(1, composerAttachmentsDelegate.bindCalls.size)
             assertEquals(1, messagesDelegate.bindCalls.size)
             assertEquals(1, messageSelectionDelegate.bindCalls.size)
@@ -89,6 +94,10 @@ class ConversationViewModelTest {
             assertSame(
                 draftDelegate.stateFlow,
                 composerAttachmentsDelegate.bindCalls.single().draftStateFlow,
+            )
+            assertSame(
+                draftDelegate.bindCalls.single().conversationIdFlow,
+                audioRecordingDelegate.bindCalls.single().conversationIdFlow,
             )
             assertSame(
                 draftDelegate.bindCalls.single().conversationIdFlow,
@@ -419,9 +428,11 @@ class ConversationViewModelTest {
     fun eventMethods_forwardToDelegates() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
+            val audioRecordingDelegate = createAudioRecordingDelegateMock()
             val messageSelectionDelegate = createMessageSelectionDelegateMock()
             val mediaPickerDelegate = createMediaPickerDelegateMock()
             val viewModel = createViewModel(
+                audioRecordingDelegate = audioRecordingDelegate.mock,
                 draftDelegate = draftDelegate.mock,
                 messageSelectionDelegate = messageSelectionDelegate.mock,
                 mediaPickerDelegate = mediaPickerDelegate.mock,
@@ -433,6 +444,9 @@ class ConversationViewModelTest {
                 action = ConversationMessageSelectionAction.Delete,
             )
             viewModel.onMessageTextChanged(text = "Hello")
+            viewModel.onAudioRecordingStart()
+            viewModel.onAudioRecordingFinish()
+            viewModel.onAudioRecordingCancel()
             viewModel.onGalleryVisibilityChanged(isVisible = true)
             viewModel.onSendClick()
             viewModel.dismissDeleteMessageConfirmation()
@@ -453,6 +467,15 @@ class ConversationViewModelTest {
             }
             verify(exactly = 1) {
                 draftDelegate.mock.onMessageTextChanged(messageText = "Hello")
+            }
+            verify(exactly = 1) {
+                audioRecordingDelegate.mock.startRecording(selfParticipantId = "")
+            }
+            verify(exactly = 1) {
+                audioRecordingDelegate.mock.finishRecording()
+            }
+            verify(exactly = 1) {
+                audioRecordingDelegate.mock.cancelRecording()
             }
             verify(exactly = 1) {
                 mediaPickerDelegate.mock.onGalleryVisibilityChanged(isVisible = true)
@@ -536,16 +559,21 @@ class ConversationViewModelTest {
     fun onCleared_flushesDraftDelegateAndMediaPickerDelegate() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
+            val audioRecordingDelegate = createAudioRecordingDelegateMock()
             val mediaPickerDelegate = createMediaPickerDelegateMock()
             val viewModelStore = ViewModelStore()
             createViewModelInStore(
                 viewModelStore = viewModelStore,
+                audioRecordingDelegate = audioRecordingDelegate.mock,
                 draftDelegate = draftDelegate.mock,
                 mediaPickerDelegate = mediaPickerDelegate.mock,
             )
 
             viewModelStore.clear()
 
+            verify(exactly = 1) {
+                audioRecordingDelegate.mock.onScreenCleared()
+            }
             verify(exactly = 1) {
                 draftDelegate.mock.flushDraft()
             }
@@ -556,6 +584,8 @@ class ConversationViewModelTest {
     }
 
     private fun createViewModel(
+        audioRecordingDelegate: ConversationAudioRecordingDelegate =
+            createAudioRecordingDelegateMock().mock,
         composerAttachmentsDelegate: ConversationComposerAttachmentsDelegate =
             createComposerAttachmentsDelegateMock().mock,
         draftDelegate: ConversationDraftDelegate = createDraftDelegateMock().mock,
@@ -574,6 +604,7 @@ class ConversationViewModelTest {
             createSubscriptionsRepositoryMock(subscriptions = persistentListOf()),
     ): ConversationViewModel {
         return ConversationViewModel(
+            conversationAudioRecordingDelegate = audioRecordingDelegate,
             conversationComposerAttachmentsDelegate = composerAttachmentsDelegate,
             conversationDraftDelegate = draftDelegate,
             conversationMessagesDelegate = messagesDelegate,
@@ -591,6 +622,8 @@ class ConversationViewModelTest {
 
     private fun createViewModelInStore(
         viewModelStore: ViewModelStore,
+        audioRecordingDelegate: ConversationAudioRecordingDelegate =
+            createAudioRecordingDelegateMock().mock,
         composerAttachmentsDelegate: ConversationComposerAttachmentsDelegate =
             createComposerAttachmentsDelegateMock().mock,
         draftDelegate: ConversationDraftDelegate = createDraftDelegateMock().mock,
@@ -614,6 +647,7 @@ class ConversationViewModelTest {
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                     @Suppress("UNCHECKED_CAST")
                     return createViewModel(
+                        audioRecordingDelegate = audioRecordingDelegate,
                         composerAttachmentsDelegate = composerAttachmentsDelegate,
                         draftDelegate = draftDelegate,
                         messagesDelegate = messagesDelegate,
@@ -646,6 +680,26 @@ class ConversationViewModelTest {
             )
         }
         return ComposerAttachmentsDelegateMock(
+            mock = mock,
+            stateFlow = stateFlow,
+            bindCalls = bindCalls,
+        )
+    }
+
+    private fun createAudioRecordingDelegateMock(): AudioRecordingDelegateMock {
+        val bindCalls = mutableListOf<BindCall<ConversationAudioRecordingUiState>>()
+        val stateFlow = MutableStateFlow(ConversationAudioRecordingUiState())
+        val mock = mockk<ConversationAudioRecordingDelegate>(relaxed = true)
+        every { mock.state } returns stateFlow
+        every {
+            mock.bind(any(), any())
+        } answers {
+            bindCalls += BindCall(
+                scope = firstArg(),
+                conversationIdFlow = secondArg(),
+            )
+        }
+        return AudioRecordingDelegateMock(
             mock = mock,
             stateFlow = stateFlow,
             bindCalls = bindCalls,
@@ -785,7 +839,7 @@ class ConversationViewModelTest {
     ): ConversationComposerUiStateMapper {
         val mapper = mockk<ConversationComposerUiStateMapper>()
         every {
-            mapper.map(any(), any(), any(), any())
+            mapper.map(any(), any(), any(), any(), any())
         } returns mappedUiState
         return mapper
     }
@@ -810,6 +864,12 @@ class ConversationViewModelTest {
         val mock: ConversationComposerAttachmentsDelegate,
         val stateFlow: MutableStateFlow<ImmutableList<ComposerAttachmentUiModel>>,
         val bindCalls: List<ComposerAttachmentsBindCall>,
+    )
+
+    private data class AudioRecordingDelegateMock(
+        val mock: ConversationAudioRecordingDelegate,
+        val stateFlow: MutableStateFlow<ConversationAudioRecordingUiState>,
+        val bindCalls: List<BindCall<ConversationAudioRecordingUiState>>,
     )
 
     private data class MediaPickerDelegateMock(

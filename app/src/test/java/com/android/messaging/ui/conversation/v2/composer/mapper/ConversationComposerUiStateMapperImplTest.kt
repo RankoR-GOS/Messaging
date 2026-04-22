@@ -6,6 +6,7 @@ import com.android.messaging.data.conversation.model.metadata.ConversationCompos
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerDisabledReason
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscriptionLabel
+import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import kotlinx.collections.immutable.persistentListOf
@@ -22,6 +23,7 @@ class ConversationComposerUiStateMapperImplTest {
     @Test
     fun map_enablesSendOnlyWhenContentIsAvailableAndDraftIsIdle() {
         val uiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(
                     messageText = "Hello",
@@ -38,6 +40,7 @@ class ConversationComposerUiStateMapperImplTest {
     @Test
     fun map_disablesSendWhenDraftIsEmpty() {
         val uiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(),
             ),
@@ -52,6 +55,7 @@ class ConversationComposerUiStateMapperImplTest {
     @Test
     fun map_disablesSendAndAttachmentWhenDraftIsBusy() {
         val uiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(
                     messageText = "Hello",
@@ -75,6 +79,7 @@ class ConversationComposerUiStateMapperImplTest {
         )
 
         val unavailableUiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(
                     messageText = "Hello",
@@ -87,6 +92,7 @@ class ConversationComposerUiStateMapperImplTest {
             subscriptions = persistentListOf(),
         )
         val availableUiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(
                     messageText = "Hello",
@@ -115,6 +121,7 @@ class ConversationComposerUiStateMapperImplTest {
         )
 
         val uiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(
                     selfParticipantId = "sub-b",
@@ -142,6 +149,7 @@ class ConversationComposerUiStateMapperImplTest {
         )
 
         val uiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(
                     selfParticipantId = "non-existent",
@@ -158,6 +166,7 @@ class ConversationComposerUiStateMapperImplTest {
     @Test
     fun map_leavesSimSelectorUnavailableForSingleOrEmptySubscriptionList() {
         val emptyUiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(),
             ),
@@ -166,6 +175,7 @@ class ConversationComposerUiStateMapperImplTest {
             subscriptions = persistentListOf(),
         )
         val singleUiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(),
             ),
@@ -192,6 +202,7 @@ class ConversationComposerUiStateMapperImplTest {
         )
 
         val uiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
             draftState = ConversationDraftState(
                 draft = ConversationDraft(
                     attachments = persistentListOf(

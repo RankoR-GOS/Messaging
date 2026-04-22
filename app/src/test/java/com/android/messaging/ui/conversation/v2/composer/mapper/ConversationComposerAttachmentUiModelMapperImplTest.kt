@@ -73,6 +73,7 @@ class ConversationComposerAttachmentUiModelMapperImplTest {
                     key = "content://attachments/audio/1",
                     contentType = "audio/mpeg",
                     contentUri = "content://attachments/audio/1",
+                    durationMillis = 0L,
                 ),
                 ComposerAttachmentUiModel.Resolved.VisualMedia.Image(
                     key = "content://attachments/image/1",

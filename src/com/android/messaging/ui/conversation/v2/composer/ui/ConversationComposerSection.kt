@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.tooling.preview.Preview
+import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.core.AppTheme
 import kotlinx.collections.immutable.ImmutableList
@@ -17,11 +18,14 @@ import kotlinx.collections.immutable.persistentListOf
 @Composable
 internal fun ConversationComposerSection(
     modifier: Modifier = Modifier,
+    audioRecording: ConversationAudioRecordingUiState,
     attachments: ImmutableList<ComposerAttachmentUiModel>,
     messageText: String,
     isMessageFieldEnabled: Boolean,
     isAttachmentActionEnabled: Boolean,
+    isRecordActionEnabled: Boolean,
     isSendActionEnabled: Boolean,
+    shouldShowRecordAction: Boolean,
     messageFieldFocusRequester: FocusRequester,
     onContactAttachClick: () -> Unit,
     onMediaPickerClick: () -> Unit,
@@ -29,6 +33,9 @@ internal fun ConversationComposerSection(
     onPendingAttachmentRemove: (String) -> Unit,
     onResolvedAttachmentClick: (ComposerAttachmentUiModel.Resolved) -> Unit,
     onResolvedAttachmentRemove: (String) -> Unit,
+    onAudioRecordingStartRequest: () -> Unit,
+    onAudioRecordingFinish: () -> Unit,
+    onAudioRecordingCancel: () -> Unit,
     onSendClick: () -> Unit,
 ) {
     Column(
@@ -42,14 +49,20 @@ internal fun ConversationComposerSection(
         )
 
         ConversationComposeBar(
+            audioRecording = audioRecording,
             messageText = messageText,
             isMessageFieldEnabled = isMessageFieldEnabled,
             isAttachmentActionEnabled = isAttachmentActionEnabled,
+            isRecordActionEnabled = isRecordActionEnabled,
             isSendActionEnabled = isSendActionEnabled,
+            shouldShowRecordAction = shouldShowRecordAction,
             messageFieldFocusRequester = messageFieldFocusRequester,
             onContactAttachClick = onContactAttachClick,
             onMediaPickerClick = onMediaPickerClick,
             onMessageTextChange = onMessageTextChange,
+            onAudioRecordingStartRequest = onAudioRecordingStartRequest,
+            onAudioRecordingFinish = onAudioRecordingFinish,
+            onAudioRecordingCancel = onAudioRecordingCancel,
             onSendClick = onSendClick,
         )
     }
@@ -61,11 +74,14 @@ private fun ConversationComposerSectionEmptyPreview() {
     AppTheme {
         Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
             ConversationComposerSection(
+                audioRecording = ConversationAudioRecordingUiState(),
                 attachments = persistentListOf(),
                 messageText = "",
                 isMessageFieldEnabled = true,
                 isAttachmentActionEnabled = true,
+                isRecordActionEnabled = true,
                 isSendActionEnabled = false,
+                shouldShowRecordAction = true,
                 messageFieldFocusRequester = remember { FocusRequester() },
                 onContactAttachClick = {},
                 onMediaPickerClick = {},
@@ -73,6 +89,9 @@ private fun ConversationComposerSectionEmptyPreview() {
                 onPendingAttachmentRemove = {},
                 onResolvedAttachmentClick = {},
                 onResolvedAttachmentRemove = {},
+                onAudioRecordingStartRequest = {},
+                onAudioRecordingFinish = {},
+                onAudioRecordingCancel = {},
                 onSendClick = {},
             )
         }
@@ -85,6 +104,7 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
     AppTheme {
         Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
             ConversationComposerSection(
+                audioRecording = ConversationAudioRecordingUiState(),
                 attachments = persistentListOf(
                     ComposerAttachmentUiModel.Resolved.VisualMedia.Image(
                         key = "1",
@@ -104,7 +124,9 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
                 messageText = "Check out these attachments!",
                 isMessageFieldEnabled = true,
                 isAttachmentActionEnabled = true,
+                isRecordActionEnabled = true,
                 isSendActionEnabled = true,
+                shouldShowRecordAction = false,
                 messageFieldFocusRequester = remember { FocusRequester() },
                 onContactAttachClick = {},
                 onMediaPickerClick = {},
@@ -112,6 +134,9 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
                 onPendingAttachmentRemove = {},
                 onResolvedAttachmentClick = {},
                 onResolvedAttachmentRemove = {},
+                onAudioRecordingStartRequest = {},
+                onAudioRecordingFinish = {},
+                onAudioRecordingCancel = {},
                 onSendClick = {},
             )
         }

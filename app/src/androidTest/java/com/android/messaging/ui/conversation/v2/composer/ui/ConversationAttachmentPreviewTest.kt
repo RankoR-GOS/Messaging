@@ -77,6 +77,17 @@ class ConversationAttachmentPreviewTest {
     }
 
     @Test
+    fun audioAttachment_rendersFormattedDuration() {
+        setAttachmentPreviewContent(
+            attachments = persistentListOf(AUDIO_ATTACHMENT),
+        )
+
+        composeTestRule
+            .onNodeWithText("05:39")
+            .assertIsDisplayed()
+    }
+
+    @Test
     fun pendingAttachment_removeButtonForwardsCallback() {
         val removals = mutableListOf<String>()
         setAttachmentPreviewContent(
@@ -155,6 +166,12 @@ class ConversationAttachmentPreviewTest {
                 titleText = "Sam Rivera",
                 subtitleText = "555-000-8901",
             ),
+        )
+        private val AUDIO_ATTACHMENT = ComposerAttachmentUiModel.Resolved.Audio(
+            key = "resolved-audio-1",
+            contentType = "audio/3gpp",
+            contentUri = "content://media/audio/1",
+            durationMillis = 339_000L,
         )
     }
 }

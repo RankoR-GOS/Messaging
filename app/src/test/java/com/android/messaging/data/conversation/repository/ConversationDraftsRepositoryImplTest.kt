@@ -2,21 +2,28 @@ package com.android.messaging.data.conversation.repository
 
 import android.content.ContentResolver
 import android.database.ContentObserver
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import app.cash.turbine.test
 import com.android.messaging.data.conversation.mapper.ConversationDraftMessageDataMapperImpl
 import com.android.messaging.data.conversation.mapper.ConversationMessageDataDraftMapperImpl
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.datamodel.data.MessageData
+import com.android.messaging.datamodel.data.MessagePartData
+import com.android.messaging.util.MediaMetadataRetrieverWrapper
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkConstructor
 import io.mockk.runs
 import io.mockk.slot
+import io.mockk.unmockkConstructor
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -39,6 +46,11 @@ class ConversationDraftsRepositoryImplTest {
         every {
             conversationMetadataNotifier.notifyConversationMetadataChanged(any())
         } just runs
+    }
+
+    @After
+    fun tearDown() {
+        unmockkConstructor(MediaMetadataRetrieverWrapper::class)
     }
 
     @Test
@@ -179,6 +191,92 @@ class ConversationDraftsRepositoryImplTest {
     }
 
     @Test
+    fun observeConversationDraft_resolvesAudioAttachmentDuration() {
+        runTest {
+            val registeredObserver = slot<ContentObserver>()
+            val expectedUri = MessagingContentProvider.buildConversationMetadataUri(CONVERSATION_ID)
+            val repository = createRepository()
+
+            mockkConstructor(MediaMetadataRetrieverWrapper::class)
+            every {
+                anyConstructed<MediaMetadataRetrieverWrapper>().setDataSource(any())
+            } just runs
+            every {
+                anyConstructed<MediaMetadataRetrieverWrapper>().extractMetadata(
+                    MediaMetadataRetriever.METADATA_KEY_DURATION,
+                )
+            } returns "3210"
+            every {
+                anyConstructed<MediaMetadataRetrieverWrapper>().release()
+            } just runs
+
+            every {
+                conversationDraftStore.getConversation(CONVERSATION_ID)
+            } returns ConversationDraftConversation(
+                selfParticipantId = "self-1",
+            )
+            every {
+                conversationDraftStore.readDraftMessage(
+                    conversationId = CONVERSATION_ID,
+                    selfParticipantId = "self-1",
+                )
+            } returns createDraftAudioMessageData()
+            stubObserverRegistration(
+                expectedUri = expectedUri,
+                registeredObserver = registeredObserver,
+            )
+
+            repository.observeConversationDraft(conversationId = CONVERSATION_ID).test {
+                assertEquals(
+                    3210L,
+                    awaitItem().attachments.single().durationMillis,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            verify(exactly = 1) {
+                anyConstructed<MediaMetadataRetrieverWrapper>().setDataSource(any())
+            }
+        }
+    }
+
+    @Test
+    fun observeConversationDraft_skipsAudioMetadataResolverWhenDraftHasNoAudioAttachments() {
+        runTest {
+            val registeredObserver = slot<ContentObserver>()
+            val expectedUri = MessagingContentProvider.buildConversationMetadataUri(CONVERSATION_ID)
+            val repository = createRepository()
+
+            mockkConstructor(MediaMetadataRetrieverWrapper::class)
+
+            every {
+                conversationDraftStore.getConversation(CONVERSATION_ID)
+            } returns ConversationDraftConversation(
+                selfParticipantId = "self-1",
+            )
+            every {
+                conversationDraftStore.readDraftMessage(
+                    conversationId = CONVERSATION_ID,
+                    selfParticipantId = "self-1",
+                )
+            } returns createDraftImageMessageData()
+            stubObserverRegistration(
+                expectedUri = expectedUri,
+                registeredObserver = registeredObserver,
+            )
+
+            repository.observeConversationDraft(conversationId = CONVERSATION_ID).test {
+                assertEquals("image/jpeg", awaitItem().attachments.single().contentType)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            verify(exactly = 0) {
+                anyConstructed<MediaMetadataRetrieverWrapper>().setDataSource(any())
+            }
+        }
+    }
+
+    @Test
     fun saveDraft_bindsMissingParticipantsAndNotifiesMetadata() {
         runTest {
             val updatedMessage = slot<MessageData>()
@@ -294,6 +392,42 @@ class ConversationDraftsRepositoryImplTest {
         every {
             contentResolver.unregisterContentObserver(any())
         } just runs
+    }
+
+    private fun createDraftAudioMessageData(): MessageData {
+        return MessageData.createDraftMmsMessage(
+            CONVERSATION_ID,
+            "self-1",
+            "",
+            "",
+        ).apply {
+            addPart(
+                MessagePartData.createMediaMessagePart(
+                    "audio/3gpp",
+                    Uri.parse("content://media/audio/1"),
+                    0,
+                    0,
+                ),
+            )
+        }
+    }
+
+    private fun createDraftImageMessageData(): MessageData {
+        return MessageData.createDraftMmsMessage(
+            CONVERSATION_ID,
+            "self-1",
+            "",
+            "",
+        ).apply {
+            addPart(
+                MessagePartData.createMediaMessagePart(
+                    "image/jpeg",
+                    Uri.parse("content://media/image/1"),
+                    640,
+                    480,
+                ),
+            )
+        }
     }
 
     private companion object {
