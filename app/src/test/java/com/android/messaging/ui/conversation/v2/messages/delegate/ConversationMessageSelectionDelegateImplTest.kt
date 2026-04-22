@@ -11,6 +11,8 @@ import com.android.messaging.datamodel.data.ConversationParticipantsData
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.ParticipantData
 import com.android.messaging.domain.conversation.usecase.CreateForwardedMessage
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
@@ -621,6 +623,11 @@ class ConversationMessageSelectionDelegateImplTest {
                     contentUri = Uri.parse(contentUri),
                     width = 640,
                     height = 480,
+                    vCardUiModel = ConversationVCardAttachmentUiModel(
+                        type = ConversationVCardAttachmentType.CONTACT,
+                        titleText = "Sam Rivera",
+                        subtitleText = "sam@example.com",
+                    ),
                 )
             }
 

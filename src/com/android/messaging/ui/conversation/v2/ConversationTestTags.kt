@@ -5,6 +5,10 @@ import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 
 internal const val CONVERSATION_COMPOSE_BAR_TEST_TAG = "conversation_compose_bar"
 internal const val CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG = "conversation_attachment_button"
+internal const val CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG =
+    "conversation_attachment_contact_menu_item"
+internal const val CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG =
+    "conversation_attachment_media_menu_item"
 internal const val CONVERSATION_ATTACHMENT_PREVIEW_LIST_TEST_TAG =
     "conversation_attachment_preview_list"
 internal const val CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG = "conversation_add_people_button"

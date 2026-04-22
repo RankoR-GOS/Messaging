@@ -3,8 +3,8 @@ package com.android.messaging.ui.conversation.v2.messages.ui.message
 import android.net.Uri
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentItem
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import org.junit.Assert.assertEquals
@@ -46,18 +46,17 @@ class ConversationMessageContentBuilderTest {
 
     @Test
     fun attachmentOnlyVCardMessage_buildsInlineVCardAttachment_withoutBodyText() {
-        val metadata = ConversationVCardAttachmentMetadata.Loaded(
+        val vCardUiModel = ConversationVCardAttachmentUiModel(
             type = ConversationVCardAttachmentType.CONTACT,
-            displayName = "Sam Rivera",
-            details = "sam@example.com",
-            locationAddress = null,
+            titleText = "Sam Rivera",
+            subtitleText = "sam@example.com",
         )
         val message = createMessage(
             text = null,
             parts = listOf(
                 createVCardPart(
                     contentUri = "content://mms/part/vcard-1",
-                    metadata = metadata,
+                    vCardUiModel = vCardUiModel,
                 ),
             ),
         )
@@ -75,7 +74,9 @@ class ConversationMessageContentBuilderTest {
         val inlineAttachment = (trailingAttachment as ConversationAttachmentItem.Inline)
             .attachment as ConversationInlineAttachment.VCard
         assertEquals("content://mms/part/vcard-1", inlineAttachment.contentUri)
-        assertEquals(metadata, inlineAttachment.metadata)
+        assertEquals(ConversationVCardAttachmentType.CONTACT, inlineAttachment.type)
+        assertEquals("Sam Rivera", inlineAttachment.titleText)
+        assertEquals("sam@example.com", inlineAttachment.subtitleText)
     }
 
     @Test
@@ -142,7 +143,7 @@ class ConversationMessageContentBuilderTest {
 
     private fun createVCardPart(
         contentUri: String,
-        metadata: ConversationVCardAttachmentMetadata,
+        vCardUiModel: ConversationVCardAttachmentUiModel,
     ): ConversationMessagePartUiModel.Attachment.VCard {
         return ConversationMessagePartUiModel.Attachment.VCard(
             text = null,
@@ -150,7 +151,7 @@ class ConversationMessageContentBuilderTest {
             contentUri = Uri.parse(contentUri),
             width = 0,
             height = 0,
-            metadata = metadata,
+            vCardUiModel = vCardUiModel,
         )
     }
 }

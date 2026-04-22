@@ -10,9 +10,10 @@ import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
+import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationComposerAttachmentsDelegate
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
@@ -57,7 +58,7 @@ internal interface ConversationScreenModel {
     )
 
     fun onAttachmentClicked(
-        attachment: ConversationComposerAttachmentUiState.Resolved,
+        attachment: ComposerAttachmentUiModel.Resolved,
     )
 
     fun onMessageAttachmentClicked(
@@ -76,6 +77,7 @@ internal interface ConversationScreenModel {
     fun onExternalUriClicked(uri: String)
 
     fun onGalleryMediaConfirmed(mediaItems: List<ConversationMediaItem>)
+    fun onContactCardPicked(contactUri: String?)
     fun onMessageTextChanged(text: String)
     fun onGalleryVisibilityChanged(isVisible: Boolean)
     fun onCapturedMediaReady(capturedMedia: ConversationCapturedMedia)
@@ -102,6 +104,7 @@ internal interface ConversationScreenModel {
 
 @HiltViewModel
 internal class ConversationViewModel @Inject constructor(
+    private val conversationComposerAttachmentsDelegate: ConversationComposerAttachmentsDelegate,
     private val conversationDraftDelegate: ConversationDraftDelegate,
     private val conversationMessagesDelegate: ConversationMessagesDelegate,
     private val conversationMessageSelectionDelegate: ConversationMessageSelectionDelegate,
@@ -137,13 +140,19 @@ internal class ConversationViewModel @Inject constructor(
             initialValue = persistentListOf(),
         )
 
+    init {
+        initializeDelegates()
+    }
+
     private val composerUiState = combine(
         conversationMetadataDelegate.state,
         conversationDraftDelegate.state,
+        conversationComposerAttachmentsDelegate.state,
         subscriptionsFlow,
-    ) { metadataState, draftState, subscriptions ->
+    ) { metadataState, draftState, attachments, subscriptions ->
         conversationComposerUiStateMapper.map(
             draftState = draftState,
+            attachments = attachments,
             composerAvailability = metadataState.composerAvailability,
             subscriptions = subscriptions,
         )
@@ -154,6 +163,7 @@ internal class ConversationViewModel @Inject constructor(
         ),
         initialValue = conversationComposerUiStateMapper.map(
             draftState = conversationDraftDelegate.state.value,
+            attachments = conversationComposerAttachmentsDelegate.state.value,
             composerAvailability = conversationMetadataDelegate.state.value.composerAvailability,
             subscriptions = subscriptionsFlow.value,
         ),
@@ -213,44 +223,43 @@ internal class ConversationViewModel @Inject constructor(
         )
     }
 
-    override val mediaPickerOverlayUiState: StateFlow<ConversationMediaPickerOverlayUiState> =
-        combine(
-            conversationMetadataDelegate.state,
-            conversationMediaPickerDelegate.state,
-            composerUiState,
-        ) { metadataState, mediaPickerUiState, composerUiState ->
-            val conversationTitle = when (metadataState) {
-                is ConversationMetadataUiState.Present -> metadataState.title
-                else -> null
-            }
+    override val mediaPickerOverlayUiState = combine(
+        conversationMetadataDelegate.state,
+        conversationMediaPickerDelegate.state,
+        composerUiState,
+    ) { metadataState, mediaPickerUiState, composerUiState ->
+        val conversationTitle = when (metadataState) {
+            is ConversationMetadataUiState.Present -> metadataState.title
+            else -> null
+        }
 
-            ConversationMediaPickerOverlayUiState(
-                mediaPicker = mediaPickerUiState,
-                attachments = composerUiState.attachments,
-                conversationTitle = conversationTitle,
-                isSendActionEnabled = composerUiState.isSendEnabled,
-            )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(
-                stopTimeoutMillis = STATEFLOW_STOP_TIMEOUT_MILLIS,
-            ),
-            initialValue = ConversationMediaPickerOverlayUiState(
-                mediaPicker = conversationMediaPickerDelegate.state.value,
-                attachments = composerUiState.value.attachments,
-                conversationTitle = null,
-                isSendActionEnabled = composerUiState.value.isSendEnabled,
-            ),
+        ConversationMediaPickerOverlayUiState(
+            mediaPicker = mediaPickerUiState,
+            attachments = composerUiState.attachments,
+            conversationTitle = conversationTitle,
+            isSendActionEnabled = composerUiState.isSendEnabled,
         )
-
-    init {
-        initializeDelegates()
-    }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(
+            stopTimeoutMillis = STATEFLOW_STOP_TIMEOUT_MILLIS,
+        ),
+        initialValue = ConversationMediaPickerOverlayUiState(
+            mediaPicker = conversationMediaPickerDelegate.state.value,
+            attachments = composerUiState.value.attachments,
+            conversationTitle = null,
+            isSendActionEnabled = composerUiState.value.isSendEnabled,
+        ),
+    )
 
     private fun initializeDelegates() {
         conversationDraftDelegate.bind(
             scope = viewModelScope,
             conversationIdFlow = conversationIdFlow,
+        )
+        conversationComposerAttachmentsDelegate.bind(
+            scope = viewModelScope,
+            draftStateFlow = conversationDraftDelegate.state,
         )
         conversationMediaPickerDelegate.bind(
             scope = viewModelScope,
@@ -361,12 +370,9 @@ internal class ConversationViewModel @Inject constructor(
         }
     }
 
-    override fun onAttachmentClicked(
-        attachment: ConversationComposerAttachmentUiState.Resolved,
-    ) {
-        val conversationId = conversationIdFlow.value
-
-        val imageCollectionUri = conversationId
+    override fun onAttachmentClicked(attachment: ComposerAttachmentUiModel.Resolved) {
+        val imageCollectionUri = conversationIdFlow
+            .value
             ?.let(MessagingContentProvider::buildDraftImagesUri)
             ?.toString()
 
@@ -385,9 +391,8 @@ internal class ConversationViewModel @Inject constructor(
         contentType: String,
         contentUri: String,
     ) {
-        val conversationId = conversationIdFlow.value
-
-        val imageCollectionUri = conversationId
+        val imageCollectionUri = conversationIdFlow
+            .value
             ?.let(MessagingContentProvider::buildConversationImagesUri)
             ?.toString()
 
@@ -449,6 +454,10 @@ internal class ConversationViewModel @Inject constructor(
 
     override fun onGalleryMediaConfirmed(mediaItems: List<ConversationMediaItem>) {
         conversationMediaPickerDelegate.onGalleryMediaConfirmed(mediaItems = mediaItems)
+    }
+
+    override fun onContactCardPicked(contactUri: String?) {
+        conversationMediaPickerDelegate.onContactCardPicked(contactUri = contactUri)
     }
 
     override fun onMessageTextChanged(text: String) {

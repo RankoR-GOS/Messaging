@@ -3,10 +3,12 @@ package com.android.messaging.ui.conversation.v2.messages.model.attachment
 import androidx.compose.runtime.Immutable
 
 @Immutable
-internal data class ConversationVCardAttachmentUiState(
+internal data class ConversationVCardAttachmentUiModel(
     val type: ConversationVCardAttachmentType,
-    val title: String,
-    val subtitle: String?,
+    val titleText: String? = null,
+    val titleTextResId: Int? = null,
+    val subtitleText: String? = null,
+    val subtitleTextResId: Int? = null,
 )
 
 @Immutable

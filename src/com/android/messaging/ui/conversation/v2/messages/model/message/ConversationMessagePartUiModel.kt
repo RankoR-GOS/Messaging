@@ -2,7 +2,7 @@ package com.android.messaging.ui.conversation.v2.messages.model.message
 
 import android.net.Uri
 import androidx.compose.runtime.Immutable
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 
 @Immutable
 internal sealed interface ConversationMessagePartUiModel {
@@ -59,7 +59,7 @@ internal sealed interface ConversationMessagePartUiModel {
             override val contentUri: Uri?,
             override val width: Int,
             override val height: Int,
-            val metadata: ConversationVCardAttachmentMetadata? = null,
+            val vCardUiModel: ConversationVCardAttachmentUiModel,
         ) : Attachment
 
         @Immutable

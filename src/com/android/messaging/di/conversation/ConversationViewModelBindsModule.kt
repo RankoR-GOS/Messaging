@@ -1,5 +1,7 @@
 package com.android.messaging.di.conversation
 
+import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationComposerAttachmentsDelegate
+import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationComposerAttachmentsDelegateImpl
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegateImpl
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
@@ -21,6 +23,12 @@ import dagger.hilt.android.scopes.ViewModelScoped
 @Module
 @InstallIn(ViewModelComponent::class)
 internal abstract class ConversationViewModelBindsModule {
+
+    @Binds
+    @ViewModelScoped
+    abstract fun bindConversationComposerAttachmentsDelegate(
+        impl: ConversationComposerAttachmentsDelegateImpl,
+    ): ConversationComposerAttachmentsDelegate
 
     @Binds
     @ViewModelScoped

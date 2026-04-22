@@ -9,22 +9,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.tooling.preview.Preview
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.core.AppTheme
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 internal fun ConversationComposerSection(
     modifier: Modifier = Modifier,
-    attachments: List<ConversationComposerAttachmentUiState>,
+    attachments: ImmutableList<ComposerAttachmentUiModel>,
     messageText: String,
     isMessageFieldEnabled: Boolean,
     isAttachmentActionEnabled: Boolean,
     isSendActionEnabled: Boolean,
     messageFieldFocusRequester: FocusRequester,
-    onAttachmentClick: () -> Unit,
+    onContactAttachClick: () -> Unit,
+    onMediaPickerClick: () -> Unit,
     onMessageTextChange: (String) -> Unit,
     onPendingAttachmentRemove: (String) -> Unit,
-    onResolvedAttachmentClick: (ConversationComposerAttachmentUiState.Resolved) -> Unit,
+    onResolvedAttachmentClick: (ComposerAttachmentUiModel.Resolved) -> Unit,
     onResolvedAttachmentRemove: (String) -> Unit,
     onSendClick: () -> Unit,
 ) {
@@ -44,7 +47,8 @@ internal fun ConversationComposerSection(
             isAttachmentActionEnabled = isAttachmentActionEnabled,
             isSendActionEnabled = isSendActionEnabled,
             messageFieldFocusRequester = messageFieldFocusRequester,
-            onAttachmentClick = onAttachmentClick,
+            onContactAttachClick = onContactAttachClick,
+            onMediaPickerClick = onMediaPickerClick,
             onMessageTextChange = onMessageTextChange,
             onSendClick = onSendClick,
         )
@@ -57,13 +61,14 @@ private fun ConversationComposerSectionEmptyPreview() {
     AppTheme {
         Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
             ConversationComposerSection(
-                attachments = emptyList(),
+                attachments = persistentListOf(),
                 messageText = "",
                 isMessageFieldEnabled = true,
                 isAttachmentActionEnabled = true,
                 isSendActionEnabled = false,
                 messageFieldFocusRequester = remember { FocusRequester() },
-                onAttachmentClick = {},
+                onContactAttachClick = {},
+                onMediaPickerClick = {},
                 onMessageTextChange = {},
                 onPendingAttachmentRemove = {},
                 onResolvedAttachmentClick = {},
@@ -80,8 +85,8 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
     AppTheme {
         Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
             ConversationComposerSection(
-                attachments = listOf(
-                    ConversationComposerAttachmentUiState.Resolved(
+                attachments = persistentListOf(
+                    ComposerAttachmentUiModel.Resolved.VisualMedia.Image(
                         key = "1",
                         contentType = "image/jpeg",
                         contentUri = "content://media/1",
@@ -89,7 +94,7 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
                         width = 100,
                         height = 100,
                     ),
-                    ConversationComposerAttachmentUiState.Pending(
+                    ComposerAttachmentUiModel.Pending(
                         key = "2",
                         contentType = "video/mp4",
                         contentUri = "content://media/2",
@@ -101,7 +106,8 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
                 isAttachmentActionEnabled = true,
                 isSendActionEnabled = true,
                 messageFieldFocusRequester = remember { FocusRequester() },
-                onAttachmentClick = {},
+                onContactAttachClick = {},
+                onMediaPickerClick = {},
                 onMessageTextChange = {},
                 onPendingAttachmentRemove = {},
                 onResolvedAttachmentClick = {},

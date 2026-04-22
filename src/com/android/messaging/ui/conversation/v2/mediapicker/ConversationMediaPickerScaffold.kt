@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.messaging.data.media.model.ConversationMediaItem
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.ConversationCameraController
 import com.android.messaging.ui.conversation.v2.mediapicker.component.capture.ConversationMediaCameraPreviewSurface
 import com.android.messaging.ui.conversation.v2.mediapicker.component.gallery.ConversationGallerySheet
@@ -50,7 +50,7 @@ internal fun ConversationMediaPickerScaffold(
     cameraController: ConversationCameraController,
     scaffoldState: BottomSheetScaffoldState,
     uiState: ConversationMediaPickerUiState,
-    resolvedAttachments: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
+    visualAttachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
     conversationTitle: String?,
     captureMode: ConversationCaptureMode,
     reviewContentUri: String?,
@@ -61,7 +61,7 @@ internal fun ConversationMediaPickerScaffold(
     audioPermissionGranted: Boolean,
     galleryPermissionGranted: Boolean,
     onClose: () -> Unit,
-    onAttachmentPreviewClick: (ConversationComposerAttachmentUiState.Resolved) -> Unit,
+    onAttachmentPreviewClick: (ComposerAttachmentUiModel.Resolved.VisualMedia) -> Unit,
     onAttachmentCaptionChange: (String, String) -> Unit,
     onAttachmentRemove: (String) -> Unit,
     onGalleryMediaClick: (ConversationMediaItem) -> Unit,
@@ -133,7 +133,7 @@ internal fun ConversationMediaPickerScaffold(
                         onGalleryMediaClick = onGalleryMediaClick,
                         onRequestGalleryPermission = onRequestGalleryPermission,
                         sheetPeekHeight = sheetPeekHeight,
-                        attachments = resolvedAttachments,
+                        attachments = visualAttachments,
                         conversationTitle = conversationTitle,
                         initiallyReviewedContentUri = reviewContentUri,
                         reviewRequestSequence = reviewRequestSequence,
@@ -164,12 +164,12 @@ private fun ConversationMediaPickerReviewScene(
     onGalleryMediaClick: (ConversationMediaItem) -> Unit,
     onRequestGalleryPermission: () -> Unit,
     sheetPeekHeight: Dp,
-    attachments: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
     conversationTitle: String?,
     initiallyReviewedContentUri: String?,
     reviewRequestSequence: Int,
     isSendActionEnabled: Boolean,
-    onAttachmentPreviewClick: (ConversationComposerAttachmentUiState.Resolved) -> Unit,
+    onAttachmentPreviewClick: (ComposerAttachmentUiModel.Resolved.VisualMedia) -> Unit,
     onCaptionChange: (String, String) -> Unit,
     onAttachmentRemove: (String) -> Unit,
     onAddMoreClick: () -> Unit,

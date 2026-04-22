@@ -5,8 +5,8 @@ import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentItem
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationMessageAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
@@ -45,12 +45,11 @@ class ConversationAttachmentSectionsBuilderTest {
     }
 
     @Test
-    fun vcardAttachment_mapsToInlineVCardAttachment_andPreservesMetadata() {
-        val metadata = ConversationVCardAttachmentMetadata.Loaded(
+    fun vcardAttachment_mapsToInlineVCardAttachment_andPreservesUiModel() {
+        val vCardUiModel = ConversationVCardAttachmentUiModel(
             type = ConversationVCardAttachmentType.LOCATION,
-            displayName = "Pier 57",
-            details = "New York",
-            locationAddress = "25 11th Ave New York NY 10011 United States",
+            titleText = "Pier 57",
+            subtitleText = "25 11th Ave New York NY 10011 United States",
         )
 
         val sections = buildConversationAttachmentSections(
@@ -63,7 +62,7 @@ class ConversationAttachmentSectionsBuilderTest {
                         contentUri = Uri.parse("content://mms/part/vcard-1"),
                         width = 0,
                         height = 0,
-                        metadata = metadata,
+                        vCardUiModel = vCardUiModel,
                     ),
                 ),
             ).toImmutableList(),
@@ -74,8 +73,8 @@ class ConversationAttachmentSectionsBuilderTest {
                 .attachment as ConversationInlineAttachment.VCard
 
         assertEquals("content://mms/part/vcard-1", inlineAttachment.contentUri)
-        assertEquals(R.string.notification_vcard, inlineAttachment.titleTextResId)
-        assertEquals(R.string.vcard_tap_hint, inlineAttachment.subtitleTextResId)
-        assertEquals(metadata, inlineAttachment.metadata)
+        assertEquals(ConversationVCardAttachmentType.LOCATION, inlineAttachment.type)
+        assertEquals("Pier 57", inlineAttachment.titleText)
+        assertEquals("25 11th Ave New York NY 10011 United States", inlineAttachment.subtitleText)
     }
 }

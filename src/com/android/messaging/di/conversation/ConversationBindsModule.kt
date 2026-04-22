@@ -36,12 +36,18 @@ import com.android.messaging.domain.conversation.usecase.ResolveConversationId
 import com.android.messaging.domain.conversation.usecase.ResolveConversationIdImpl
 import com.android.messaging.domain.conversation.usecase.SendConversationDraft
 import com.android.messaging.domain.conversation.usecase.SendConversationDraftImpl
+import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerAttachmentUiModelMapper
+import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerAttachmentUiModelMapperImpl
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapperImpl
-import com.android.messaging.ui.conversation.v2.mediapicker.ConversationAttachmentBridge
-import com.android.messaging.ui.conversation.v2.mediapicker.ConversationAttachmentBridgeImpl
+import com.android.messaging.ui.conversation.v2.mediapicker.mapper.ConversationDraftAttachmentMapper
+import com.android.messaging.ui.conversation.v2.mediapicker.mapper.ConversationDraftAttachmentMapperImpl
+import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
+import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepositoryImpl
 import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationMessageUiModelMapper
 import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationMessageUiModelMapperImpl
+import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationVCardAttachmentUiModelMapper
+import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationVCardAttachmentUiModelMapperImpl
 import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataMapper
 import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataMapperImpl
 import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataRepository
@@ -155,9 +161,22 @@ internal abstract class ConversationBindsModule {
     ): ConversationSubscriptionsRepository
 
     @Binds
-    abstract fun bindConversationAttachmentBridge(
-        impl: ConversationAttachmentBridgeImpl,
-    ): ConversationAttachmentBridge
+    @Reusable
+    abstract fun bindConversationAttachmentRepository(
+        impl: ConversationAttachmentRepositoryImpl,
+    ): ConversationAttachmentRepository
+
+    @Binds
+    @Reusable
+    abstract fun bindConversationDraftAttachmentMapper(
+        impl: ConversationDraftAttachmentMapperImpl,
+    ): ConversationDraftAttachmentMapper
+
+    @Binds
+    @Reusable
+    abstract fun bindConversationComposerAttachmentUiModelMapper(
+        impl: ConversationComposerAttachmentUiModelMapperImpl,
+    ): ConversationComposerAttachmentUiModelMapper
 
     @Binds
     abstract fun bindConversationComposerUiStateMapper(
@@ -168,6 +187,12 @@ internal abstract class ConversationBindsModule {
     abstract fun bindConversationMessageUiModelMapper(
         impl: ConversationMessageUiModelMapperImpl,
     ): ConversationMessageUiModelMapper
+
+    @Binds
+    @Reusable
+    abstract fun bindConversationVCardAttachmentUiModelMapper(
+        impl: ConversationVCardAttachmentUiModelMapperImpl,
+    ): ConversationVCardAttachmentUiModelMapper
 
     @Binds
     @Reusable

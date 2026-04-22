@@ -10,15 +10,19 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.height
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_TEXT_FIELD_TEST_TAG
@@ -108,7 +112,8 @@ class ConversationComposeBarTest {
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = false,
                     isSendActionEnabled = true,
-                    onAttachmentClick = {},
+                    onContactAttachClick = {},
+                    onMediaPickerClick = {},
                     onMessageTextChange = { updatedText ->
                         currentMessageText = updatedText
                         messageText = updatedText
@@ -156,7 +161,8 @@ class ConversationComposeBarTest {
                     isMessageFieldEnabled = false,
                     isAttachmentActionEnabled = false,
                     isSendActionEnabled = false,
-                    onAttachmentClick = {},
+                    onContactAttachClick = {},
+                    onMediaPickerClick = {},
                     onMessageTextChange = {},
                     onSendClick = {},
                 )
@@ -180,7 +186,8 @@ class ConversationComposeBarTest {
                         isMessageFieldEnabled = true,
                         isAttachmentActionEnabled = false,
                         isSendActionEnabled = true,
-                        onAttachmentClick = {},
+                        onContactAttachClick = {},
+                        onMediaPickerClick = {},
                         onMessageTextChange = {},
                         onSendClick = {},
                     )
@@ -200,9 +207,8 @@ class ConversationComposeBarTest {
     }
 
     @Test
-    fun attachmentButton_performsHapticFeedbackAndCallback() {
+    fun attachmentButton_performsHapticFeedbackAndOpensMenu() {
         val hapticFeedback = createHapticFeedbackMock()
-        var attachmentClicks = 0
 
         composeTestRule.setContent {
             CompositionLocalProvider(LocalHapticFeedback provides hapticFeedback) {
@@ -212,9 +218,8 @@ class ConversationComposeBarTest {
                         isMessageFieldEnabled = true,
                         isAttachmentActionEnabled = true,
                         isSendActionEnabled = false,
-                        onAttachmentClick = {
-                            attachmentClicks += 1
-                        },
+                        onContactAttachClick = {},
+                        onMediaPickerClick = {},
                         onMessageTextChange = {},
                         onSendClick = {},
                     )
@@ -223,15 +228,99 @@ class ConversationComposeBarTest {
         }
 
         composeTestRule
-            .onNodeWithTag(CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG)
-            .assertIsEnabled()
+            .onAllNodesWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
+            .assertCountEquals(0)
+
+        composeTestRule
+            .onNodeWithTag(
+                testTag = CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG,
+                useUnmergedTree = true,
+            )
             .performClick()
+
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
+            .assertCountEquals(1)
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG)
+            .assertCountEquals(1)
 
         composeTestRule.runOnIdle {
             verify(exactly = 1) {
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
             }
-            assertEquals(1, attachmentClicks)
+        }
+    }
+
+    @Test
+    fun attachmentMenuMediaItem_forwardsCallback() {
+        var mediaClicks = 0
+
+        composeTestRule.setContent {
+            AppTheme {
+                ConversationComposeBar(
+                    messageText = "",
+                    isMessageFieldEnabled = true,
+                    isAttachmentActionEnabled = true,
+                    isSendActionEnabled = false,
+                    onContactAttachClick = {},
+                    onMediaPickerClick = {
+                        mediaClicks += 1
+                    },
+                    onMessageTextChange = {},
+                    onSendClick = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag(
+                testTag = CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG,
+                useUnmergedTree = true,
+            )
+            .performClick()
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
+            .performClick()
+
+        composeTestRule.runOnIdle {
+            assertEquals(1, mediaClicks)
+        }
+    }
+
+    @Test
+    fun attachmentMenuContactItem_forwardsCallback() {
+        var contactClicks = 0
+
+        composeTestRule.setContent {
+            AppTheme {
+                ConversationComposeBar(
+                    messageText = "",
+                    isMessageFieldEnabled = true,
+                    isAttachmentActionEnabled = true,
+                    isSendActionEnabled = false,
+                    onContactAttachClick = {
+                        contactClicks += 1
+                    },
+                    onMediaPickerClick = {},
+                    onMessageTextChange = {},
+                    onSendClick = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag(
+                testTag = CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG,
+                useUnmergedTree = true,
+            )
+            .performClick()
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG)
+            .performClick()
+
+        composeTestRule.runOnIdle {
+            assertEquals(1, contactClicks)
         }
     }
 
@@ -244,8 +333,14 @@ class ConversationComposeBarTest {
         )
 
         composeTestRule
-            .onNodeWithTag(CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG)
-            .assertIsNotEnabled()
+            .onNodeWithTag(
+                testTag = CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG,
+                useUnmergedTree = true,
+            )
+            .performClick()
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
+            .assertCountEquals(0)
     }
 
     private fun setComposeBarContent(
@@ -260,7 +355,8 @@ class ConversationComposeBarTest {
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = isAttachmentActionEnabled,
                     isSendActionEnabled = isSendActionEnabled,
-                    onAttachmentClick = {},
+                    onContactAttachClick = {},
+                    onMediaPickerClick = {},
                     onMessageTextChange = {},
                     onSendClick = {},
                 )

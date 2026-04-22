@@ -2,17 +2,17 @@ package com.android.messaging.ui.conversation.v2.composer.mapper
 
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationSimSelectorUiState
 import javax.inject.Inject
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 
 internal interface ConversationComposerUiStateMapper {
     fun map(
         draftState: ConversationDraftState,
+        attachments: ImmutableList<ComposerAttachmentUiModel>,
         composerAvailability: ConversationComposerAvailability,
         subscriptions: ImmutableList<ConversationSubscription>,
     ): ConversationComposerUiState
@@ -23,6 +23,7 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
 
     override fun map(
         draftState: ConversationDraftState,
+        attachments: ImmutableList<ComposerAttachmentUiModel>,
         composerAvailability: ConversationComposerAvailability,
         subscriptions: ImmutableList<ConversationSubscription>,
     ): ConversationComposerUiState {
@@ -42,7 +43,7 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
             draftState.pendingAttachments.isEmpty()
 
         return ConversationComposerUiState(
-            attachments = draftState.toAttachmentUiState(),
+            attachments = attachments,
             messageText = draft.messageText,
             subjectText = draft.subjectText,
             selfParticipantId = draft.selfParticipantId,
@@ -77,30 +78,5 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
             subscriptions = subscriptions,
             selectedSubscription = selected,
         )
-    }
-
-    private fun ConversationDraftState.toAttachmentUiState():
-        ImmutableList<ConversationComposerAttachmentUiState> {
-        val resolvedAttachments = draft.attachments.map { attachment ->
-            ConversationComposerAttachmentUiState.Resolved(
-                key = attachment.contentUri,
-                contentType = attachment.contentType,
-                contentUri = attachment.contentUri,
-                captionText = attachment.captionText,
-                width = attachment.width,
-                height = attachment.height,
-            )
-        }
-
-        val pendingAttachments = pendingAttachments.map { pendingAttachment ->
-            ConversationComposerAttachmentUiState.Pending(
-                key = pendingAttachment.pendingAttachmentId,
-                contentType = pendingAttachment.contentType,
-                contentUri = pendingAttachment.contentUri,
-                displayName = pendingAttachment.displayName,
-            )
-        }
-
-        return (resolvedAttachments + pendingAttachments).toImmutableList()
     }
 }

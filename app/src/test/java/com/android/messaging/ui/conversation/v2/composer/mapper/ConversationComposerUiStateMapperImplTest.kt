@@ -1,10 +1,12 @@
 package com.android.messaging.ui.conversation.v2.composer.mapper
 
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
+import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerDisabledReason
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscriptionLabel
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
@@ -25,6 +27,7 @@ class ConversationComposerUiStateMapperImplTest {
                     messageText = "Hello",
                 ),
             ),
+            attachments = persistentListOf(),
             composerAvailability = ConversationComposerAvailability.editable(),
             subscriptions = persistentListOf(),
         )
@@ -38,6 +41,7 @@ class ConversationComposerUiStateMapperImplTest {
             draftState = ConversationDraftState(
                 draft = ConversationDraft(),
             ),
+            attachments = persistentListOf(),
             composerAvailability = ConversationComposerAvailability.editable(),
             subscriptions = persistentListOf(),
         )
@@ -55,6 +59,7 @@ class ConversationComposerUiStateMapperImplTest {
                     isSending = true,
                 ),
             ),
+            attachments = persistentListOf(),
             composerAvailability = ConversationComposerAvailability.editable(),
             subscriptions = persistentListOf(),
         )
@@ -77,6 +82,7 @@ class ConversationComposerUiStateMapperImplTest {
                     isSending = true,
                 ),
             ),
+            attachments = persistentListOf(),
             composerAvailability = unavailableAvailability,
             subscriptions = persistentListOf(),
         )
@@ -88,6 +94,7 @@ class ConversationComposerUiStateMapperImplTest {
                     isSending = true,
                 ),
             ),
+            attachments = persistentListOf(),
             composerAvailability = ConversationComposerAvailability.editable(),
             subscriptions = persistentListOf(),
         )
@@ -113,6 +120,7 @@ class ConversationComposerUiStateMapperImplTest {
                     selfParticipantId = "sub-b",
                 ),
             ),
+            attachments = persistentListOf(),
             composerAvailability = ConversationComposerAvailability.editable(),
             subscriptions = subscriptions,
         )
@@ -139,6 +147,7 @@ class ConversationComposerUiStateMapperImplTest {
                     selfParticipantId = "non-existent",
                 ),
             ),
+            attachments = persistentListOf(),
             composerAvailability = ConversationComposerAvailability.editable(),
             subscriptions = subscriptions,
         )
@@ -152,6 +161,7 @@ class ConversationComposerUiStateMapperImplTest {
             draftState = ConversationDraftState(
                 draft = ConversationDraft(),
             ),
+            attachments = persistentListOf(),
             composerAvailability = ConversationComposerAvailability.editable(),
             subscriptions = persistentListOf(),
         )
@@ -159,6 +169,7 @@ class ConversationComposerUiStateMapperImplTest {
             draftState = ConversationDraftState(
                 draft = ConversationDraft(),
             ),
+            attachments = persistentListOf(),
             composerAvailability = ConversationComposerAvailability.editable(),
             subscriptions = persistentListOf(
                 createSubscription(selfParticipantId = "sub-a", slotId = 1),
@@ -168,6 +179,35 @@ class ConversationComposerUiStateMapperImplTest {
         assertFalse(emptyUiState.simSelector.isAvailable)
         assertNull(emptyUiState.simSelector.selectedSubscription)
         assertFalse(singleUiState.simSelector.isAvailable)
+    }
+
+    @Test
+    fun map_preservesProvidedAttachments() {
+        val attachments = persistentListOf<ComposerAttachmentUiModel>(
+            ComposerAttachmentUiModel.Resolved.File(
+                key = "attachment-1",
+                contentType = "application/pdf",
+                contentUri = "content://files/1",
+            ),
+        )
+
+        val uiState = mapper.map(
+            draftState = ConversationDraftState(
+                draft = ConversationDraft(
+                    attachments = persistentListOf(
+                        ConversationDraftAttachment(
+                            contentType = "application/pdf",
+                            contentUri = "content://files/1",
+                        ),
+                    ),
+                ),
+            ),
+            attachments = attachments,
+            composerAvailability = ConversationComposerAvailability.editable(),
+            subscriptions = persistentListOf(),
+        )
+
+        assertEquals(attachments, uiState.attachments)
     }
 
     private fun createSubscription(

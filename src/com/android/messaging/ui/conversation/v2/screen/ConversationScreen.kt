@@ -1,6 +1,8 @@
 package com.android.messaging.ui.conversation.v2.screen
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,7 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.ui.ConversationComposerSection
 import com.android.messaging.ui.conversation.v2.composer.ui.ConversationSimSelectorSheet
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
@@ -75,6 +77,11 @@ internal fun ConversationScreen(
 
     val hostBoundsState = remember {
         mutableStateOf<ComposeRect?>(value = null)
+    }
+    val contactPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickContact(),
+    ) { contactUri ->
+        screenModel.onContactCardPicked(contactUri = contactUri?.toString())
     }
 
     LaunchedEffect(conversationId) {
@@ -161,6 +168,9 @@ internal fun ConversationScreen(
             onMessageClick = screenModel::onMessageClick,
             onMessageLongClick = screenModel::onMessageLongClick,
             onMessageSelectionActionClick = screenModel::onMessageSelectionActionClick,
+            onOpenContactPicker = {
+                contactPickerLauncher.launch(input = null)
+            },
             onOpenMediaPicker = mediaPickerState::open,
             onMessageTextChange = screenModel::onMessageTextChanged,
             onPendingAttachmentRemove = screenModel::onRemovePendingAttachment,
@@ -181,7 +191,9 @@ internal fun ConversationScreen(
             conversationTitle = mediaPickerOverlayUiState.conversationTitle,
             isSendActionEnabled = mediaPickerOverlayUiState.isSendActionEnabled,
             messageFieldFocusRequester = messageFieldFocusRequester,
-            onAttachmentPreviewClick = screenModel::onAttachmentClicked,
+            onAttachmentPreviewClick = { attachment ->
+                screenModel.onAttachmentClicked(attachment = attachment)
+            },
             onAttachmentCaptionChange = screenModel::onUpdateAttachmentCaption,
             onAttachmentRemove = screenModel::onRemoveResolvedAttachment,
             onGalleryMediaConfirmed = screenModel::onGalleryMediaConfirmed,
@@ -215,10 +227,11 @@ private fun ConversationScreenScaffold(
     onMessageLongClick: (String) -> Unit,
     onMessageSelectionActionClick: (ConversationMessageSelectionAction) -> Unit,
     onNavigateBack: () -> Unit,
+    onOpenContactPicker: () -> Unit,
     onOpenMediaPicker: () -> Unit,
     onMessageTextChange: (String) -> Unit,
     onPendingAttachmentRemove: (String) -> Unit,
-    onResolvedAttachmentClick: (ConversationComposerAttachmentUiState.Resolved) -> Unit,
+    onResolvedAttachmentClick: (ComposerAttachmentUiModel.Resolved) -> Unit,
     onResolvedAttachmentRemove: (String) -> Unit,
     onSendClick: () -> Unit,
     onSimSelected: (String) -> Unit,
@@ -278,7 +291,8 @@ private fun ConversationScreenScaffold(
                     isAttachmentActionEnabled = uiState.composer.isAttachmentActionEnabled,
                     isSendActionEnabled = uiState.composer.isSendEnabled,
                     messageFieldFocusRequester = messageFieldFocusRequester,
-                    onAttachmentClick = onOpenMediaPicker,
+                    onContactAttachClick = onOpenContactPicker,
+                    onMediaPickerClick = onOpenMediaPicker,
                     onMessageTextChange = onMessageTextChange,
                     onPendingAttachmentRemove = onPendingAttachmentRemove,
                     onResolvedAttachmentClick = onResolvedAttachmentClick,
@@ -320,11 +334,9 @@ private fun ConversationScreenScaffold(
             uiState = uiState.composer.simSelector,
             onSimSelected = { selfParticipantId ->
                 onSimSelected(selfParticipantId)
-                @Suppress("AssignedValueIsNeverRead")
                 isSimSheetVisible = false
             },
             onDismissRequest = {
-                @Suppress("AssignedValueIsNeverRead")
                 isSimSheetVisible = false
             },
         )

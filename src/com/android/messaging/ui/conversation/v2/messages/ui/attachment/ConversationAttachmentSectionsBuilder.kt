@@ -6,7 +6,7 @@ import com.android.messaging.ui.conversation.v2.messages.model.attachment.Conver
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentSections
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationMessageAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
+import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -131,7 +131,7 @@ private fun toMediaInlineAttachment(
                 key = attachment.key,
                 contentUri = part.contentUri.toString(),
                 openAction = attachment.toConversationAttachmentOpenActionOrNull(),
-                vCardAttachmentMetadata = part.metadata,
+                vCardUiModel = part.vCardUiModel,
             )
         }
 
@@ -167,16 +167,17 @@ private fun createVCardInlineAttachment(
     key: String,
     contentUri: String,
     openAction: ConversationAttachmentOpenAction?,
-    vCardAttachmentMetadata: ConversationVCardAttachmentMetadata?,
+    vCardUiModel: ConversationVCardAttachmentUiModel,
 ): ConversationInlineAttachment {
     return ConversationInlineAttachment.VCard(
         key = key,
         contentUri = contentUri,
         openAction = openAction,
-        subtitleTextResId = R.string.vcard_tap_hint,
-        titleText = null,
-        titleTextResId = R.string.notification_vcard,
-        metadata = vCardAttachmentMetadata,
+        type = vCardUiModel.type,
+        titleText = vCardUiModel.titleText,
+        titleTextResId = vCardUiModel.titleTextResId,
+        subtitleText = vCardUiModel.subtitleText,
+        subtitleTextResId = vCardUiModel.subtitleTextResId,
     )
 }
 

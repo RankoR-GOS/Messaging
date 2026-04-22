@@ -6,20 +6,20 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 internal data class ConversationMediaReviewPagerState(
     val attachmentContentUris: ImmutableList<String>,
-    val currentAttachment: ConversationComposerAttachmentUiState.Resolved,
+    val currentAttachment: ComposerAttachmentUiModel.Resolved.VisualMedia,
     val pagerState: PagerState,
     val visibleDeleteChipPage: Int?,
 )
 
 @Composable
 internal fun rememberConversationMediaReviewPagerState(
-    attachments: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
     initiallyReviewedContentUri: String?,
     reviewRequestSequence: Int,
 ): ConversationMediaReviewPagerState {
@@ -85,7 +85,7 @@ private class ConversationMediaReviewPagerCoordinator(
 
     suspend fun syncTargetPage(
         attachmentContentUris: List<String>,
-        attachments: List<ConversationComposerAttachmentUiState.Resolved>,
+        attachments: List<ComposerAttachmentUiModel.Resolved.VisualMedia>,
         initiallyReviewedContentUri: String?,
         reviewRequestSequence: Int,
         pagerState: PagerState,
@@ -136,7 +136,7 @@ private class ConversationMediaReviewPagerCoordinator(
 }
 
 private fun resolveInitialReviewPage(
-    attachments: List<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: List<ComposerAttachmentUiModel.Resolved.VisualMedia>,
     initiallyReviewedContentUri: String?,
 ): Int {
     return attachments
@@ -147,7 +147,7 @@ private fun resolveInitialReviewPage(
 
 private fun clampAttachmentPage(
     page: Int,
-    attachments: List<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: List<ComposerAttachmentUiModel.Resolved.VisualMedia>,
 ): Int {
     return page.coerceIn(
         minimumValue = 0,
@@ -156,7 +156,7 @@ private fun clampAttachmentPage(
 }
 
 private fun resolveVisibleDeleteChipPage(
-    attachments: List<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: List<ComposerAttachmentUiModel.Resolved.VisualMedia>,
     pagerState: PagerState,
 ): Int? {
     val clampedCurrentPage = clampAttachmentPage(

@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import com.android.messaging.data.media.model.ConversationMediaItem
 import com.android.messaging.ui.conversation.v2.CONVERSATION_MEDIA_PICKER_OVERLAY_TEST_TAG
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerUiState
 import kotlinx.collections.immutable.ImmutableList
@@ -28,11 +28,11 @@ internal fun ConversationMediaPickerOverlay(
     modifier: Modifier = Modifier,
     state: ConversationMediaPickerState,
     mediaPickerUiState: ConversationMediaPickerUiState,
-    attachments: ImmutableList<ConversationComposerAttachmentUiState>,
+    attachments: ImmutableList<ComposerAttachmentUiModel>,
     conversationTitle: String?,
     isSendActionEnabled: Boolean,
     messageFieldFocusRequester: FocusRequester,
-    onAttachmentPreviewClick: (ConversationComposerAttachmentUiState.Resolved) -> Unit,
+    onAttachmentPreviewClick: (ComposerAttachmentUiModel.Resolved.VisualMedia) -> Unit,
     onAttachmentCaptionChange: (String, String) -> Unit,
     onAttachmentRemove: (String) -> Unit,
     onGalleryMediaConfirmed: (List<ConversationMediaItem>) -> Unit,

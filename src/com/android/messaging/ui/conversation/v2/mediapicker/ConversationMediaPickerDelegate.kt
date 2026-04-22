@@ -5,8 +5,10 @@ import com.android.messaging.data.media.repository.ConversationMediaRepository
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.ui.conversation.v2.common.ConversationScreenDelegate
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
+import com.android.messaging.ui.conversation.v2.mediapicker.mapper.ConversationDraftAttachmentMapper
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerUiState
+import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.util.LogUtil
 import javax.inject.Inject
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,6 +39,8 @@ internal interface ConversationMediaPickerDelegate :
 
     fun onCapturedMediaReady(capturedMedia: ConversationCapturedMedia)
 
+    fun onContactCardPicked(contactUri: String?)
+
     fun onRemovePendingAttachment(pendingAttachmentId: String)
 
     fun onRemoveResolvedAttachment(contentUri: String)
@@ -45,7 +50,8 @@ internal interface ConversationMediaPickerDelegate :
 
 internal class ConversationMediaPickerDelegateImpl @Inject constructor(
     private val conversationDraftDelegate: ConversationDraftDelegate,
-    private val conversationAttachmentBridge: ConversationAttachmentBridge,
+    private val conversationAttachmentRepository: ConversationAttachmentRepository,
+    private val conversationDraftAttachmentMapper: ConversationDraftAttachmentMapper,
     private val conversationMediaRepository: ConversationMediaRepository,
     @param:DefaultDispatcher
     private val defaultDispatcher: CoroutineDispatcher,
@@ -86,9 +92,11 @@ internal class ConversationMediaPickerDelegateImpl @Inject constructor(
         }
 
         conversationDraftDelegate.addAttachments(
-            attachments = conversationAttachmentBridge.createDraftAttachments(
-                mediaItems = mediaItems,
-            ),
+            attachments = mediaItems.map { mediaItem ->
+                conversationDraftAttachmentMapper.map(
+                    mediaItem = mediaItem,
+                )
+            },
         )
     }
 
@@ -132,11 +140,23 @@ internal class ConversationMediaPickerDelegateImpl @Inject constructor(
     override fun onCapturedMediaReady(capturedMedia: ConversationCapturedMedia) {
         conversationDraftDelegate.addAttachments(
             attachments = listOf(
-                conversationAttachmentBridge.createDraftAttachment(
+                conversationDraftAttachmentMapper.map(
                     capturedMedia = capturedMedia,
                 ),
             ),
         )
+    }
+
+    override fun onContactCardPicked(contactUri: String?) {
+        val resolvedContactUri = contactUri?.takeIf { it.isNotBlank() } ?: return
+
+        boundScope?.launch(defaultDispatcher) {
+            conversationAttachmentRepository
+                .createDraftAttachmentFromContact(contactUri = resolvedContactUri)
+                .filterNotNull()
+                .map(::listOf)
+                .collect(conversationDraftDelegate::addAttachments)
+        }
     }
 
     override fun onRemovePendingAttachment(pendingAttachmentId: String) {
@@ -150,7 +170,7 @@ internal class ConversationMediaPickerDelegateImpl @Inject constructor(
         conversationDraftDelegate.removeAttachment(contentUri = contentUri)
 
         boundScope?.launch(defaultDispatcher) {
-            conversationAttachmentBridge
+            conversationAttachmentRepository
                 .deleteTemporaryAttachment(contentUri = contentUri)
                 .collect()
         }

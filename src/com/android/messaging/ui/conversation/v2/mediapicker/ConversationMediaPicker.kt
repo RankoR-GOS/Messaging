@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.android.messaging.data.media.model.ConversationMediaItem
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.BindConversationCameraLifecycleEffect
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.rememberConversationCameraController
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
@@ -25,7 +25,7 @@ import kotlinx.collections.immutable.toImmutableList
 internal fun ConversationMediaPicker(
     modifier: Modifier = Modifier,
     uiState: ConversationMediaPickerUiState,
-    attachments: ImmutableList<ConversationComposerAttachmentUiState>,
+    attachments: ImmutableList<ComposerAttachmentUiModel>,
     conversationTitle: String?,
     isSendActionEnabled: Boolean,
     state: ConversationMediaPickerState,
@@ -33,7 +33,7 @@ internal fun ConversationMediaPicker(
     audioPermissionGranted: Boolean,
     galleryPermissionGranted: Boolean,
     onClose: () -> Unit,
-    onAttachmentPreviewClick: (ConversationComposerAttachmentUiState.Resolved) -> Unit,
+    onAttachmentPreviewClick: (ComposerAttachmentUiModel.Resolved.VisualMedia) -> Unit,
     onAttachmentCaptionChange: (String, String) -> Unit,
     onAttachmentRemove: (String) -> Unit,
     onGalleryMediaConfirmed: (List<ConversationMediaItem>) -> Unit,
@@ -46,14 +46,14 @@ internal fun ConversationMediaPicker(
     val cameraController = rememberConversationCameraController()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val resolvedAttachments = remember(attachments) {
+    val visualAttachments = remember(attachments) {
         attachments
             .asSequence()
-            .filterIsInstance<ConversationComposerAttachmentUiState.Resolved>()
+            .filterIsInstance<ComposerAttachmentUiModel.Resolved.VisualMedia>()
             .toImmutableList()
     }
 
-    val isReviewVisible = state.isReviewRequested && resolvedAttachments.isNotEmpty()
+    val isReviewVisible = state.isReviewRequested && visualAttachments.isNotEmpty()
     val sheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.PartiallyExpanded,
         skipHiddenState = true,
@@ -73,7 +73,6 @@ internal fun ConversationMediaPicker(
         onGalleryMediaConfirmed = onGalleryMediaConfirmed,
         onShowReview = state::showReview,
         onSelectionHandled = {
-            @Suppress("AssignedValueIsNeverRead")
             pendingSelectedMediaItem = null
         },
     )
@@ -89,7 +88,7 @@ internal fun ConversationMediaPicker(
         cameraController = cameraController,
         scaffoldState = scaffoldState,
         uiState = uiState,
-        resolvedAttachments = resolvedAttachments,
+        visualAttachments = visualAttachments,
         conversationTitle = conversationTitle,
         captureMode = state.captureMode,
         reviewContentUri = state.reviewContentUri,
@@ -104,7 +103,6 @@ internal fun ConversationMediaPicker(
         onAttachmentCaptionChange = onAttachmentCaptionChange,
         onAttachmentRemove = onAttachmentRemove,
         onGalleryMediaClick = { mediaItem ->
-            @Suppress("AssignedValueIsNeverRead")
             pendingSelectedMediaItem = mediaItem
         },
         onRequestAudioPermission = onRequestAudioPermission,

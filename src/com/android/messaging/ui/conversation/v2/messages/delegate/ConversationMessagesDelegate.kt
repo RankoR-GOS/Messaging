@@ -4,12 +4,14 @@ import com.android.messaging.data.conversation.repository.ConversationsRepositor
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.ui.conversation.v2.common.ConversationScreenDelegate
 import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationMessageUiModelMapper
+import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationVCardAttachmentUiModelMapper
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
 import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataRepository
 import javax.inject.Inject
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +34,7 @@ internal interface ConversationMessagesDelegate :
 internal class ConversationMessagesDelegateImpl @Inject constructor(
     private val conversationsRepository: ConversationsRepository,
     private val conversationMessageUiModelMapper: ConversationMessageUiModelMapper,
+    private val conversationVCardAttachmentUiModelMapper: ConversationVCardAttachmentUiModelMapper,
     private val conversationVCardMetadataRepository: ConversationVCardMetadataRepository,
     @param:DefaultDispatcher
     private val defaultDispatcher: CoroutineDispatcher,
@@ -114,7 +117,7 @@ internal class ConversationMessagesDelegateImpl @Inject constructor(
             )
         }
 
-        val vCardAttachmentUiStateFlows = vCardContentUris.map { contentUri ->
+        val vCardMetadataFlows = vCardContentUris.map { contentUri ->
             conversationVCardMetadataRepository
                 .observeAttachmentMetadata(contentUri = contentUri)
                 .map { metadata ->
@@ -122,55 +125,72 @@ internal class ConversationMessagesDelegateImpl @Inject constructor(
                 }
         }
 
-        return combine(flows = vCardAttachmentUiStateFlows) { contentUriAndUiStates ->
-            val vCardAttachmentMetadata = contentUriAndUiStates.associate { pair ->
+        return combine(flows = vCardMetadataFlows) { contentUriAndMetadata ->
+            val vCardAttachmentMetadata = contentUriAndMetadata.associate { pair ->
                 pair.first to pair.second
             }
 
             ConversationMessagesUiState.Present(
-                messages = messages
-                    .map { message ->
-                        message.withVCardAttachmentMetadata(
-                            vCardAttachmentMetadata = vCardAttachmentMetadata,
-                        )
-                    }
-                    .toImmutableList(),
+                messages = updateMessagesWithVCardUiModel(
+                    messages = messages,
+                    vCardAttachmentMetadata = vCardAttachmentMetadata,
+                ),
             )
         }
     }
-}
 
-private fun ConversationMessageUiModel.withVCardAttachmentMetadata(
-    vCardAttachmentMetadata: Map<String, ConversationVCardAttachmentMetadata>,
-): ConversationMessageUiModel {
-    return copy(
-        parts = parts.map { part ->
-            part.withVCardAttachmentMetadata(
-                vCardAttachmentMetadata = vCardAttachmentMetadata,
-            )
-        },
-    )
-}
+    private fun updateMessagesWithVCardUiModel(
+        messages: List<ConversationMessageUiModel>,
+        vCardAttachmentMetadata: Map<String, ConversationVCardAttachmentMetadata>,
+    ): ImmutableList<ConversationMessageUiModel> {
+        return messages
+            .map { message ->
+                updateMessageUiModelWithVCardUiModel(
+                    message = message,
+                    vCardAttachmentMetadata = vCardAttachmentMetadata,
+                )
+            }
+            .toImmutableList()
+    }
 
-private fun ConversationMessagePartUiModel.withVCardAttachmentMetadata(
-    vCardAttachmentMetadata: Map<String, ConversationVCardAttachmentMetadata>,
-): ConversationMessagePartUiModel {
-    return when (this) {
-        is ConversationMessagePartUiModel.Attachment.VCard -> {
-            val contentUri = contentUri?.toString()
+    private fun updateMessageUiModelWithVCardUiModel(
+        message: ConversationMessageUiModel,
+        vCardAttachmentMetadata: Map<String, ConversationVCardAttachmentMetadata>,
+    ): ConversationMessageUiModel {
+        return message.copy(
+            parts = message.parts.map { part ->
+                updateMessagePartUiModelWithVCardUiModel(
+                    part = part,
+                    vCardAttachmentMetadata = vCardAttachmentMetadata,
+                )
+            },
+        )
+    }
 
-            copy(
-                metadata = contentUri?.let(vCardAttachmentMetadata::get),
-            )
-        }
+    private fun updateMessagePartUiModelWithVCardUiModel(
+        part: ConversationMessagePartUiModel,
+        vCardAttachmentMetadata: Map<String, ConversationVCardAttachmentMetadata>,
+    ): ConversationMessagePartUiModel {
+        return when (part) {
+            is ConversationMessagePartUiModel.Attachment.VCard -> {
+                val contentUri = part.contentUri?.toString()
+                val metadata = contentUri?.let(vCardAttachmentMetadata::get)
 
-        is ConversationMessagePartUiModel.Attachment.Audio,
-        is ConversationMessagePartUiModel.Attachment.File,
-        is ConversationMessagePartUiModel.Attachment.Image,
-        is ConversationMessagePartUiModel.Attachment.Video,
-        is ConversationMessagePartUiModel.Text,
-        -> {
-            this
+                part.copy(
+                    vCardUiModel = conversationVCardAttachmentUiModelMapper.map(
+                        metadata = metadata,
+                    ),
+                )
+            }
+
+            is ConversationMessagePartUiModel.Attachment.Audio,
+            is ConversationMessagePartUiModel.Attachment.File,
+            is ConversationMessagePartUiModel.Attachment.Image,
+            is ConversationMessagePartUiModel.Attachment.Video,
+            is ConversationMessagePartUiModel.Text,
+            -> {
+                part
+            }
         }
     }
 }

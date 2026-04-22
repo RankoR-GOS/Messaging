@@ -6,7 +6,9 @@ import com.android.messaging.data.media.model.ConversationMediaType
 import com.android.messaging.data.media.repository.ConversationMediaRepository
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
+import com.android.messaging.ui.conversation.v2.mediapicker.mapper.ConversationDraftAttachmentMapper
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
+import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -37,11 +39,13 @@ class ConversationMediaPickerDelegateImplTest {
     @Test
     fun onGalleryMediaConfirmed_mapsMediaItemsToDraftAttachments() = runTest {
         val draftDelegate = createConversationDraftDelegateMock()
-        val attachmentBridge = createConversationAttachmentBridgeMock()
+        val attachmentMapper = createConversationDraftAttachmentMapperMock()
+        val attachmentRepository = createConversationAttachmentRepositoryMock()
         val repository = createConversationMediaRepositoryMock()
         val delegate = createDelegate(
             draftDelegate = draftDelegate,
-            attachmentBridge = attachmentBridge,
+            attachmentMapper = attachmentMapper,
+            attachmentRepository = attachmentRepository,
             repository = repository,
             defaultDispatcher = Dispatchers.Unconfined,
         )
@@ -81,13 +85,19 @@ class ConversationMediaPickerDelegateImplTest {
         )
 
         every {
-            attachmentBridge.createDraftAttachments(mediaItems = mediaItems)
-        } returns attachments
+            attachmentMapper.map(mediaItem = mediaItems[0])
+        } returns attachments[0]
+        every {
+            attachmentMapper.map(mediaItem = mediaItems[1])
+        } returns attachments[1]
 
         delegate.onGalleryMediaConfirmed(mediaItems = mediaItems)
 
         verify(exactly = 1) {
-            attachmentBridge.createDraftAttachments(mediaItems = mediaItems)
+            attachmentMapper.map(mediaItem = mediaItems[0])
+        }
+        verify(exactly = 1) {
+            attachmentMapper.map(mediaItem = mediaItems[1])
         }
         verify(exactly = 1) {
             draftDelegate.addAttachments(attachments = attachments)
@@ -97,12 +107,12 @@ class ConversationMediaPickerDelegateImplTest {
     @Test
     fun onCapturedMediaReady_addsSingleDraftAttachment() = runTest {
         val draftDelegate = createConversationDraftDelegateMock()
-        val attachmentBridge = createConversationAttachmentBridgeMock()
-        val repository = createConversationMediaRepositoryMock()
+        val attachmentMapper = createConversationDraftAttachmentMapperMock()
         val delegate = createDelegate(
             draftDelegate = draftDelegate,
-            attachmentBridge = attachmentBridge,
-            repository = repository,
+            attachmentMapper = attachmentMapper,
+            attachmentRepository = createConversationAttachmentRepositoryMock(),
+            repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = Dispatchers.Unconfined,
         )
         val capturedMedia = ConversationCapturedMedia(
@@ -119,13 +129,13 @@ class ConversationMediaPickerDelegateImplTest {
         )
 
         every {
-            attachmentBridge.createDraftAttachment(capturedMedia = capturedMedia)
+            attachmentMapper.map(capturedMedia = capturedMedia)
         } returns attachment
 
         delegate.onCapturedMediaReady(capturedMedia = capturedMedia)
 
         verify(exactly = 1) {
-            attachmentBridge.createDraftAttachment(capturedMedia = capturedMedia)
+            attachmentMapper.map(capturedMedia = capturedMedia)
         }
         verify(exactly = 1) {
             draftDelegate.addAttachments(attachments = listOf(attachment))
@@ -133,10 +143,67 @@ class ConversationMediaPickerDelegateImplTest {
     }
 
     @Test
+    fun onContactCardPicked_addsResolvedContactAttachment() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val draftDelegate = createConversationDraftDelegateMock()
+        val attachment = ConversationDraftAttachment(
+            contentType = "text/x-vCard",
+            contentUri = "content://contacts/as_vcard/1",
+        )
+        val attachmentRepository = createConversationAttachmentRepositoryMock(
+            createDraftAttachmentFromContactFlow = flowOf(attachment),
+        )
+        val delegate = createDelegate(
+            draftDelegate = draftDelegate,
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = attachmentRepository,
+            repository = createConversationMediaRepositoryMock(),
+            defaultDispatcher = dispatcher,
+        )
+        val boundScope = CoroutineScope(dispatcher + SupervisorJob())
+
+        try {
+            delegate.bind(
+                scope = boundScope,
+                conversationIdFlow = MutableStateFlow(value = null),
+            )
+
+            delegate.onContactCardPicked(contactUri = CONTACT_URI)
+            advanceUntilIdle()
+
+            verify(exactly = 1) {
+                attachmentRepository.createDraftAttachmentFromContact(contactUri = CONTACT_URI)
+            }
+            verify(exactly = 1) {
+                draftDelegate.addAttachments(attachments = listOf(attachment))
+            }
+        } finally {
+            boundScope.cancel()
+        }
+    }
+
+    @Test
+    fun onContactCardPicked_ignoresBlankUris() = runTest {
+        val attachmentRepository = createConversationAttachmentRepositoryMock()
+        val delegate = createDelegate(
+            draftDelegate = createConversationDraftDelegateMock(),
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = attachmentRepository,
+            repository = createConversationMediaRepositoryMock(),
+            defaultDispatcher = Dispatchers.Unconfined,
+        )
+
+        delegate.onContactCardPicked(contactUri = "   ")
+
+        verify(exactly = 0) {
+            attachmentRepository.createDraftAttachmentFromContact(any())
+        }
+    }
+
+    @Test
     fun onGalleryVisibilityChanged_loadsGalleryOnceAndExposesItems() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val draftDelegate = createConversationDraftDelegateMock()
-        val attachmentBridge = createConversationAttachmentBridgeMock()
         val mediaItems = listOf(
             createMediaItem(
                 mediaId = "1",
@@ -151,10 +218,11 @@ class ConversationMediaPickerDelegateImplTest {
         val repository = createConversationMediaRepositoryMock(
             recentMediaFlow = flowOf(mediaItems),
         )
-        val conversationIdFlow = MutableStateFlow<String?>(null)
+        val conversationIdFlow = MutableStateFlow<String?>(value = null)
         val delegate = createDelegate(
             draftDelegate = draftDelegate,
-            attachmentBridge = attachmentBridge,
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = createConversationAttachmentRepositoryMock(),
             repository = repository,
             defaultDispatcher = dispatcher,
         )
@@ -190,7 +258,6 @@ class ConversationMediaPickerDelegateImplTest {
     fun onGalleryVisibilityChanged_failureClearsLoadingState() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val draftDelegate = createConversationDraftDelegateMock()
-        val attachmentBridge = createConversationAttachmentBridgeMock()
         val repository = createConversationMediaRepositoryMock(
             recentMediaFlow = flow {
                 throw IllegalStateException("boom")
@@ -198,7 +265,8 @@ class ConversationMediaPickerDelegateImplTest {
         )
         val delegate = createDelegate(
             draftDelegate = draftDelegate,
-            attachmentBridge = attachmentBridge,
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = createConversationAttachmentRepositoryMock(),
             repository = repository,
             defaultDispatcher = dispatcher,
         )
@@ -207,7 +275,7 @@ class ConversationMediaPickerDelegateImplTest {
         try {
             delegate.bind(
                 scope = boundScope,
-                conversationIdFlow = MutableStateFlow(null),
+                conversationIdFlow = MutableStateFlow(value = null),
             )
 
             delegate.onGalleryVisibilityChanged(isVisible = true)
@@ -227,14 +295,14 @@ class ConversationMediaPickerDelegateImplTest {
     fun onRemoveResolvedAttachment_removesDraftAndDeletesTemporaryAttachment() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val draftDelegate = createConversationDraftDelegateMock()
-        val attachmentBridge = createConversationAttachmentBridgeMock(
+        val attachmentRepository = createConversationAttachmentRepositoryMock(
             deleteTemporaryAttachmentFlow = flowOf(Unit),
         )
-        val repository = createConversationMediaRepositoryMock()
         val delegate = createDelegate(
             draftDelegate = draftDelegate,
-            attachmentBridge = attachmentBridge,
-            repository = repository,
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = attachmentRepository,
+            repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = dispatcher,
         )
         val boundScope = CoroutineScope(dispatcher + SupervisorJob())
@@ -242,7 +310,7 @@ class ConversationMediaPickerDelegateImplTest {
         try {
             delegate.bind(
                 scope = boundScope,
-                conversationIdFlow = MutableStateFlow(null),
+                conversationIdFlow = MutableStateFlow(value = null),
             )
 
             delegate.onRemoveResolvedAttachment(contentUri = REMOTE_CONTENT_URI)
@@ -252,7 +320,7 @@ class ConversationMediaPickerDelegateImplTest {
                 draftDelegate.removeAttachment(contentUri = REMOTE_CONTENT_URI)
             }
             verify(exactly = 1) {
-                attachmentBridge.deleteTemporaryAttachment(contentUri = REMOTE_CONTENT_URI)
+                attachmentRepository.deleteTemporaryAttachment(contentUri = REMOTE_CONTENT_URI)
             }
         } finally {
             boundScope.cancel()
@@ -264,7 +332,8 @@ class ConversationMediaPickerDelegateImplTest {
         val draftDelegate = createConversationDraftDelegateMock()
         val delegate = createDelegate(
             draftDelegate = draftDelegate,
-            attachmentBridge = createConversationAttachmentBridgeMock(),
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = createConversationAttachmentRepositoryMock(),
             repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = Dispatchers.Unconfined,
         )
@@ -278,11 +347,12 @@ class ConversationMediaPickerDelegateImplTest {
 
     @Test
     fun onGalleryMediaConfirmed_ignoresEmptyLists() = runTest {
+        val attachmentMapper = createConversationDraftAttachmentMapperMock()
         val draftDelegate = createConversationDraftDelegateMock()
-        val attachmentBridge = createConversationAttachmentBridgeMock()
         val delegate = createDelegate(
             draftDelegate = draftDelegate,
-            attachmentBridge = attachmentBridge,
+            attachmentMapper = attachmentMapper,
+            attachmentRepository = createConversationAttachmentRepositoryMock(),
             repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = Dispatchers.Unconfined,
         )
@@ -290,7 +360,7 @@ class ConversationMediaPickerDelegateImplTest {
         delegate.onGalleryMediaConfirmed(mediaItems = emptyList())
 
         verify(exactly = 0) {
-            attachmentBridge.createDraftAttachments(any())
+            attachmentMapper.map(mediaItem = any())
         }
         verify(exactly = 0) {
             draftDelegate.addAttachments(any())
@@ -299,13 +369,15 @@ class ConversationMediaPickerDelegateImplTest {
 
     private fun createDelegate(
         draftDelegate: ConversationDraftDelegate,
-        attachmentBridge: ConversationAttachmentBridge,
+        attachmentMapper: ConversationDraftAttachmentMapper,
+        attachmentRepository: ConversationAttachmentRepository,
         repository: ConversationMediaRepository,
         defaultDispatcher: CoroutineDispatcher,
     ): ConversationMediaPickerDelegateImpl {
         return ConversationMediaPickerDelegateImpl(
             conversationDraftDelegate = draftDelegate,
-            conversationAttachmentBridge = attachmentBridge,
+            conversationAttachmentRepository = attachmentRepository,
+            conversationDraftAttachmentMapper = attachmentMapper,
             conversationMediaRepository = repository,
             defaultDispatcher = defaultDispatcher,
         )
@@ -318,14 +390,22 @@ class ConversationMediaPickerDelegateImplTest {
         return draftDelegate
     }
 
-    private fun createConversationAttachmentBridgeMock(
+    private fun createConversationDraftAttachmentMapperMock(): ConversationDraftAttachmentMapper {
+        return mockk(relaxed = true)
+    }
+
+    private fun createConversationAttachmentRepositoryMock(
+        createDraftAttachmentFromContactFlow: Flow<ConversationDraftAttachment?> = flowOf(null),
         deleteTemporaryAttachmentFlow: Flow<Unit> = flowOf(Unit),
-    ): ConversationAttachmentBridge {
-        val attachmentBridge = mockk<ConversationAttachmentBridge>()
+    ): ConversationAttachmentRepository {
+        val attachmentRepository = mockk<ConversationAttachmentRepository>()
         every {
-            attachmentBridge.deleteTemporaryAttachment(any())
+            attachmentRepository.createDraftAttachmentFromContact(any())
+        } returns createDraftAttachmentFromContactFlow
+        every {
+            attachmentRepository.deleteTemporaryAttachment(any())
         } returns deleteTemporaryAttachmentFlow
-        return attachmentBridge
+        return attachmentRepository
     }
 
     private fun createConversationMediaRepositoryMock(
@@ -359,7 +439,8 @@ class ConversationMediaPickerDelegateImplTest {
     }
 
     private companion object {
+        private const val CONTACT_URI = "content://contacts/lookup/1"
         private const val PENDING_ATTACHMENT_ID = "pending-1"
-        private const val REMOTE_CONTENT_URI = "content://media/1"
+        private const val REMOTE_CONTENT_URI = "content://remote/1"
     }
 }

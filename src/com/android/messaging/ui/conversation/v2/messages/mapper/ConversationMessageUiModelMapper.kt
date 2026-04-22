@@ -14,8 +14,9 @@ internal interface ConversationMessageUiModelMapper {
     fun map(data: ConversationMessageData): ConversationMessageUiModel
 }
 
-internal class ConversationMessageUiModelMapperImpl @Inject constructor() :
-    ConversationMessageUiModelMapper {
+internal class ConversationMessageUiModelMapperImpl @Inject constructor(
+    private val conversationVCardAttachmentUiModelMapper: ConversationVCardAttachmentUiModelMapper,
+) : ConversationMessageUiModelMapper {
 
     override fun map(data: ConversationMessageData): ConversationMessageUiModel {
         return ConversationMessageUiModel(
@@ -83,6 +84,9 @@ internal class ConversationMessageUiModelMapperImpl @Inject constructor() :
                     contentUri = part.contentUri,
                     width = part.width,
                     height = part.height,
+                    vCardUiModel = conversationVCardAttachmentUiModelMapper.map(
+                        metadata = null,
+                    ),
                 )
             }
 

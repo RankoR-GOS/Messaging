@@ -12,9 +12,10 @@ import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
 import com.android.messaging.testutil.MainDispatcherRule
+import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationComposerAttachmentsDelegate
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
@@ -63,11 +64,13 @@ class ConversationViewModelTest {
     fun init_bindsAllDelegates() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
+            val composerAttachmentsDelegate = createComposerAttachmentsDelegateMock()
             val messagesDelegate = createMessagesDelegateMock()
             val messageSelectionDelegate = createMessageSelectionDelegateMock()
             val mediaPickerDelegate = createMediaPickerDelegateMock()
             val metadataDelegate = createMetadataDelegateMock()
             val viewModel = createViewModel(
+                composerAttachmentsDelegate = composerAttachmentsDelegate.mock,
                 draftDelegate = draftDelegate.mock,
                 messagesDelegate = messagesDelegate.mock,
                 messageSelectionDelegate = messageSelectionDelegate.mock,
@@ -78,10 +81,15 @@ class ConversationViewModelTest {
             advanceUntilIdle()
 
             assertEquals(1, draftDelegate.bindCalls.size)
+            assertEquals(1, composerAttachmentsDelegate.bindCalls.size)
             assertEquals(1, messagesDelegate.bindCalls.size)
             assertEquals(1, messageSelectionDelegate.bindCalls.size)
             assertEquals(1, mediaPickerDelegate.bindCalls.size)
             assertEquals(1, metadataDelegate.bindCalls.size)
+            assertSame(
+                draftDelegate.stateFlow,
+                composerAttachmentsDelegate.bindCalls.single().draftStateFlow,
+            )
             assertSame(
                 draftDelegate.bindCalls.single().conversationIdFlow,
                 messagesDelegate.bindCalls.single().conversationIdFlow,
@@ -366,7 +374,7 @@ class ConversationViewModelTest {
 
             viewModel.effects.test {
                 viewModel.onAttachmentClicked(
-                    attachment = ConversationComposerAttachmentUiState.Resolved(
+                    attachment = ComposerAttachmentUiModel.Resolved.VisualMedia.Image(
                         key = "attachment-1",
                         contentType = "image/jpeg",
                         contentUri = "content://media/image/1",
@@ -548,6 +556,8 @@ class ConversationViewModelTest {
     }
 
     private fun createViewModel(
+        composerAttachmentsDelegate: ConversationComposerAttachmentsDelegate =
+            createComposerAttachmentsDelegateMock().mock,
         draftDelegate: ConversationDraftDelegate = createDraftDelegateMock().mock,
         messagesDelegate: ConversationMessagesDelegate = createMessagesDelegateMock().mock,
         messageSelectionDelegate: ConversationMessageSelectionDelegate =
@@ -564,6 +574,7 @@ class ConversationViewModelTest {
             createSubscriptionsRepositoryMock(subscriptions = persistentListOf()),
     ): ConversationViewModel {
         return ConversationViewModel(
+            conversationComposerAttachmentsDelegate = composerAttachmentsDelegate,
             conversationDraftDelegate = draftDelegate,
             conversationMessagesDelegate = messagesDelegate,
             conversationMessageSelectionDelegate = messageSelectionDelegate,
@@ -580,6 +591,8 @@ class ConversationViewModelTest {
 
     private fun createViewModelInStore(
         viewModelStore: ViewModelStore,
+        composerAttachmentsDelegate: ConversationComposerAttachmentsDelegate =
+            createComposerAttachmentsDelegateMock().mock,
         draftDelegate: ConversationDraftDelegate = createDraftDelegateMock().mock,
         messagesDelegate: ConversationMessagesDelegate = createMessagesDelegateMock().mock,
         messageSelectionDelegate: ConversationMessageSelectionDelegate =
@@ -601,6 +614,7 @@ class ConversationViewModelTest {
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                     @Suppress("UNCHECKED_CAST")
                     return createViewModel(
+                        composerAttachmentsDelegate = composerAttachmentsDelegate,
                         draftDelegate = draftDelegate,
                         messagesDelegate = messagesDelegate,
                         messageSelectionDelegate = messageSelectionDelegate,
@@ -614,6 +628,28 @@ class ConversationViewModelTest {
                 }
             },
         )[ConversationViewModel::class.java]
+    }
+
+    private fun createComposerAttachmentsDelegateMock(): ComposerAttachmentsDelegateMock {
+        val bindCalls = mutableListOf<ComposerAttachmentsBindCall>()
+        val stateFlow = MutableStateFlow<ImmutableList<ComposerAttachmentUiModel>>(
+            persistentListOf(),
+        )
+        val mock = mockk<ConversationComposerAttachmentsDelegate>(relaxed = true)
+        every { mock.state } returns stateFlow
+        every {
+            mock.bind(any(), any())
+        } answers {
+            bindCalls += ComposerAttachmentsBindCall(
+                scope = firstArg(),
+                draftStateFlow = secondArg(),
+            )
+        }
+        return ComposerAttachmentsDelegateMock(
+            mock = mock,
+            stateFlow = stateFlow,
+            bindCalls = bindCalls,
+        )
     }
 
     private fun createSubscriptionsRepositoryMock(
@@ -749,7 +785,7 @@ class ConversationViewModelTest {
     ): ConversationComposerUiStateMapper {
         val mapper = mockk<ConversationComposerUiStateMapper>()
         every {
-            mapper.map(any(), any(), any())
+            mapper.map(any(), any(), any(), any())
         } returns mappedUiState
         return mapper
     }
@@ -763,6 +799,17 @@ class ConversationViewModelTest {
         val mock: ConversationDraftDelegate,
         val stateFlow: MutableStateFlow<ConversationDraftState>,
         val bindCalls: List<BindCall<ConversationDraftState>>,
+    )
+
+    private data class ComposerAttachmentsBindCall(
+        val scope: CoroutineScope,
+        val draftStateFlow: StateFlow<ConversationDraftState>,
+    )
+
+    private data class ComposerAttachmentsDelegateMock(
+        val mock: ConversationComposerAttachmentsDelegate,
+        val stateFlow: MutableStateFlow<ImmutableList<ComposerAttachmentUiModel>>,
+        val bindCalls: List<ComposerAttachmentsBindCall>,
     )
 
     private data class MediaPickerDelegateMock(

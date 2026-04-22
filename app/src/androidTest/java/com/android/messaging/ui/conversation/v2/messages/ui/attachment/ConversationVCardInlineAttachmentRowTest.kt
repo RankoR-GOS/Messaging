@@ -6,7 +6,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
 import com.android.messaging.ui.core.AppTheme
 import org.junit.Rule
@@ -18,21 +17,17 @@ class ConversationVCardInlineAttachmentRowTest {
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun loadedContactMetadata_rendersDisplayNameAndDetails() {
+    fun loadedContactUiModel_rendersDisplayNameAndDetails() {
         setRowContent(
             attachment = ConversationInlineAttachment.VCard(
                 key = "attachment-1",
                 contentUri = "content://mms/part/vcard-1",
                 openAction = null,
-                subtitleTextResId = R.string.vcard_tap_hint,
-                titleText = null,
-                titleTextResId = R.string.notification_vcard,
-                metadata = ConversationVCardAttachmentMetadata.Loaded(
-                    type = ConversationVCardAttachmentType.CONTACT,
-                    displayName = "Sam Rivera",
-                    details = "sam@example.com",
-                    locationAddress = null,
-                ),
+                type = ConversationVCardAttachmentType.CONTACT,
+                titleText = "Sam Rivera",
+                titleTextResId = null,
+                subtitleText = "sam@example.com",
+                subtitleTextResId = null,
             ),
         )
 
@@ -45,21 +40,17 @@ class ConversationVCardInlineAttachmentRowTest {
     }
 
     @Test
-    fun loadedLocationMetadata_withoutName_usesLocationFallbackTitle() {
+    fun loadedLocationUiModel_withoutName_usesLocationFallbackTitle() {
         setRowContent(
             attachment = ConversationInlineAttachment.VCard(
                 key = "attachment-1",
                 contentUri = "content://mms/part/vcard-1",
                 openAction = null,
-                subtitleTextResId = R.string.vcard_tap_hint,
+                type = ConversationVCardAttachmentType.LOCATION,
                 titleText = null,
-                titleTextResId = R.string.notification_vcard,
-                metadata = ConversationVCardAttachmentMetadata.Loaded(
-                    type = ConversationVCardAttachmentType.LOCATION,
-                    displayName = null,
-                    details = "New York",
-                    locationAddress = "25 11th Ave New York NY 10011 United States",
-                ),
+                titleTextResId = R.string.notification_location,
+                subtitleText = "25 11th Ave New York NY 10011 United States",
+                subtitleTextResId = null,
             ),
         )
 
@@ -74,16 +65,17 @@ class ConversationVCardInlineAttachmentRowTest {
     }
 
     @Test
-    fun missingMetadata_rendersDefaultStringsFromResources() {
+    fun missingUiModelDetails_rendersDefaultStringsFromResources() {
         setRowContent(
             attachment = ConversationInlineAttachment.VCard(
                 key = "attachment-1",
                 contentUri = "content://mms/part/vcard-1",
                 openAction = null,
-                subtitleTextResId = R.string.vcard_tap_hint,
+                type = ConversationVCardAttachmentType.CONTACT,
                 titleText = null,
                 titleTextResId = R.string.notification_vcard,
-                metadata = ConversationVCardAttachmentMetadata.Missing,
+                subtitleText = null,
+                subtitleTextResId = R.string.vcard_tap_hint,
             ),
         )
 

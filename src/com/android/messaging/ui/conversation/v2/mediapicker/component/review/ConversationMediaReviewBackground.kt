@@ -19,7 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import androidx.core.net.toUri
-import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerAttachmentUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.mediapicker.component.loadConversationMediaThumbnailBitmap
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -31,7 +31,7 @@ private const val PICKER_REVIEW_BACKGROUND_BITMAP_SIZE_PX = 40
 internal fun ConversationMediaReviewBackground(
     modifier: Modifier = Modifier,
     pagerState: PagerState,
-    attachments: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
 ) {
     val backgroundState = rememberConversationMediaReviewBackgroundState(
         pagerState = pagerState,
@@ -79,7 +79,7 @@ private fun ConversationMediaReviewBackgroundContent(
 @Composable
 private fun rememberConversationMediaReviewBackgroundState(
     pagerState: PagerState,
-    attachments: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
 ): ConversationMediaReviewBackgroundState {
     val backgroundSelection = remember(
         attachments,
@@ -118,8 +118,8 @@ private fun rememberConversationMediaReviewBackgroundState(
 
 @Composable
 private fun rememberConversationMediaReviewBitmapCache(
-    attachments: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
-    attachmentsToPrefetch: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
+    attachmentsToPrefetch: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
 ): ConversationMediaReviewBitmapCache {
     val context = LocalContext.current
 
@@ -163,7 +163,7 @@ private fun rememberConversationMediaReviewBitmapCache(
 }
 
 private fun getConversationMediaReviewBackgroundSelection(
-    attachments: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
+    attachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
     settledPage: Int,
 ): ConversationMediaReviewBackgroundSelection {
     if (attachments.isEmpty()) {
@@ -203,7 +203,7 @@ private fun getConversationMediaReviewBackgroundSelection(
 
 @Immutable
 private data class ConversationMediaReviewBackgroundSelection(
-    val attachmentsToPrefetch: ImmutableList<ConversationComposerAttachmentUiState.Resolved>,
+    val attachmentsToPrefetch: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
 )
 
 @Immutable

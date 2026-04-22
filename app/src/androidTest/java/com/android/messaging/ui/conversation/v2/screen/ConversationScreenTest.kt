@@ -25,6 +25,7 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_CALL_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_COMPOSE_BAR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
@@ -401,7 +402,13 @@ class ConversationScreenTest {
         setScreenContent(screenModel = screenModel.model)
 
         composeTestRule
-            .onNodeWithTag(CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG)
+            .onNodeWithTag(
+                testTag = CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG,
+                useUnmergedTree = true,
+            )
+            .performClick()
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
             .performClick()
         composeTestRule.waitForIdle()
 

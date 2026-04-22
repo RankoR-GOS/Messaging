@@ -7,7 +7,7 @@ import kotlinx.collections.immutable.persistentListOf
 
 @Immutable
 internal data class ConversationComposerUiState(
-    val attachments: ImmutableList<ConversationComposerAttachmentUiState> = persistentListOf(),
+    val attachments: ImmutableList<ComposerAttachmentUiModel> = persistentListOf(),
     val messageText: String = "",
     val subjectText: String = "",
     val selfParticipantId: String = "",
