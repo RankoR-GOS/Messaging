@@ -179,7 +179,7 @@ public class ParticipantData implements Parcelable {
         pd.mIsEmailAddress = MmsSmsUtils.isEmailAddress(pd.mSendDestination);
         pd.mNormalizedDestination = pd.mIsEmailAddress ?
                 pd.mSendDestination :
-                PhoneUtils.getDefault().getCanonicalBySystemLocale(pd.mSendDestination);
+                PhoneUtils.getDefault().getCanonicalForEnteredPhoneNumber(pd.mSendDestination);
         pd.mDisplayDestination = pd.mIsEmailAddress ?
                 pd.mNormalizedDestination :
                 PhoneUtils.getDefault().formatForDisplay(pd.mNormalizedDestination);
@@ -223,7 +223,8 @@ public class ParticipantData implements Parcelable {
     }
 
     /**
-     * Get an instance from a raw phone number and using system locale to normalize it.
+     * Get an instance from a raw phone number and using the best available telephony or locale
+     * signal to normalize it.
      *
      * Use this when creating a participant that is for displaying UI and not associated
      * with a specific SIM. For example, when creating a conversation using user entered
@@ -236,7 +237,7 @@ public class ParticipantData implements Parcelable {
         final ParticipantData pd = getFromRawPhone(phoneNumber);
         pd.mNormalizedDestination = pd.mIsEmailAddress ?
                 pd.mSendDestination :
-                PhoneUtils.getDefault().getCanonicalBySystemLocale(pd.mSendDestination);
+                PhoneUtils.getDefault().getCanonicalForEnteredPhoneNumber(pd.mSendDestination);
         pd.mDisplayDestination = pd.mIsEmailAddress ?
                 pd.mNormalizedDestination :
                 PhoneUtils.getDefault().formatForDisplay(pd.mNormalizedDestination);

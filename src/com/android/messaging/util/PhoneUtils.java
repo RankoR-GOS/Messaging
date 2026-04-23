@@ -39,12 +39,16 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 
 /**
@@ -445,6 +449,28 @@ public class PhoneUtils {
         return country;
     }
 
+    @Nullable
+    public String getNetworkCountry() {
+        try {
+            final String country;
+
+            if (mSubId == ParticipantData.DEFAULT_SELF_SUB_ID) {
+                country = mTelephonyManager.getNetworkCountryIso();
+            } else {
+                country = mTelephonyManager.createForSubscriptionId(mSubId).getNetworkCountryIso();
+            }
+
+            if (TextUtils.isEmpty(country)) {
+                return null;
+            }
+
+            return country.toUpperCase();
+        } catch (final Exception e) {
+            LogUtil.e(TAG, "PhoneUtils.getNetworkCountry(): system exception for " + mSubId, e);
+            return null;
+        }
+    }
+
     // Get or set the cache of canonicalized phone numbers for a specific country
     private static ArrayMap<String, String> getOrAddCountryMapInCacheLocked(String country) {
         if (country == null) {
@@ -482,10 +508,24 @@ public class PhoneUtils {
      * @param country ISO country code based on which to parse the number.
      * @return E164 phone number. Returns null in case parsing failed.
      */
-    private static String getValidE164Number(final String phoneText, final String country) {
+    @Nullable
+    private static String getValidE164Number(
+            @NonNull final String phoneText,
+            @Nullable final String country
+    ) {
+        if (!TextUtils.isEmpty(country)) {
+            final String frameworkE164Number = PhoneNumberUtils
+                    .formatNumberToE164(phoneText, country);
+
+            if (!TextUtils.isEmpty(frameworkE164Number)) {
+                return frameworkE164Number;
+            }
+        }
+
         final PhoneNumberUtil phoneNumberUtil = PhoneNumberUtil.getInstance();
         try {
             final PhoneNumber phoneNumber = phoneNumberUtil.parse(phoneText, country);
+
             if (phoneNumber != null && phoneNumberUtil.isValidNumber(phoneNumber)) {
                 return phoneNumberUtil.format(phoneNumber, PhoneNumberFormat.E164);
             }
@@ -493,6 +533,7 @@ public class PhoneUtils {
             LogUtil.e(TAG, "PhoneUtils.getValidE164Number(): Not able to parse phone number "
                         + LogUtil.sanitizePII(phoneText) + " for country " + country);
         }
+
         return null;
     }
 
@@ -507,6 +548,55 @@ public class PhoneUtils {
     }
 
     /**
+     * Canonicalize phone number using the best currently available country signal for manually
+     * entered destinations. The priority is network country, subscription countries, then locale.
+     *
+     * @param phoneText The phone number to canonicalize
+     * @return the canonicalized number
+     */
+    public String getCanonicalForEnteredPhoneNumber(@NonNull final String phoneText) {
+        if (phoneText.isEmpty()) {
+            return phoneText;
+        }
+
+        if (phoneText.charAt(0) == '+') {
+            final String canonicalNumber = getValidE164Number(phoneText, null);
+            return canonicalNumber != null ? canonicalNumber : phoneText;
+        }
+
+        return getCanonicalByCountryCandidates(
+                phoneText,
+                getCountryCandidatesForEnteredPhoneNumber()
+        );
+    }
+
+    @NonNull
+    private String getCanonicalByCountryCandidates(
+            @NonNull final String phoneText,
+            final Iterable<String> countryCandidates
+    ) {
+        for (final String country : countryCandidates) {
+            final String cachedCanonicalNumber = getCanonicalFromCache(phoneText, country);
+            if (cachedCanonicalNumber != null) {
+                if (!TextUtils.equals(cachedCanonicalNumber, phoneText)) {
+                    return cachedCanonicalNumber;
+                }
+                continue;
+            }
+
+            final String canonicalNumber = getValidE164Number(phoneText, country);
+            if (canonicalNumber != null) {
+                putCanonicalToCache(phoneText, country, canonicalNumber);
+                return canonicalNumber;
+            }
+
+            putCanonicalToCache(phoneText, country, phoneText);
+        }
+
+        return phoneText;
+    }
+
+    /**
      * Canonicalize phone number using SIM's country, may fall back to system locale country
      * if SIM country can not be obtained
      *
@@ -515,6 +605,54 @@ public class PhoneUtils {
      */
     public String getCanonicalBySimLocale(final String phoneText) {
         return getCanonicalByCountry(phoneText, getSimOrDefaultLocaleCountry());
+    }
+
+    @VisibleForTesting
+    List<String> getCountryCandidatesForEnteredPhoneNumber() {
+        final LinkedHashSet<String> uniqueCountries = new LinkedHashSet<>();
+        String normalizedCountryCode = normalizeCountryCode(getNetworkCountry());
+        if (normalizedCountryCode != null) {
+            uniqueCountries.add(normalizedCountryCode);
+        }
+
+        final int defaultSmsSubId = getDefaultSmsSubscriptionId();
+        if (defaultSmsSubId != ParticipantData.DEFAULT_SELF_SUB_ID) {
+            final PhoneUtils defaultSmsPhoneUtils = PhoneUtils.get(defaultSmsSubId);
+            normalizedCountryCode = normalizeCountryCode(defaultSmsPhoneUtils.getNetworkCountry());
+            if (normalizedCountryCode != null) {
+                uniqueCountries.add(normalizedCountryCode);
+            }
+
+            normalizedCountryCode = normalizeCountryCode(defaultSmsPhoneUtils.getSimCountry());
+            if (normalizedCountryCode != null) {
+                uniqueCountries.add(normalizedCountryCode);
+            }
+        }
+
+        for (final SubscriptionInfo subscriptionInfo : getActiveSubscriptionInfoList()) {
+            normalizedCountryCode = normalizeCountryCode(subscriptionInfo.getCountryIso());
+            if (normalizedCountryCode != null) {
+                uniqueCountries.add(normalizedCountryCode);
+            }
+
+            final PhoneUtils subscriptionPhoneUtils =
+                    PhoneUtils.get(subscriptionInfo.getSubscriptionId());
+            normalizedCountryCode = normalizeCountryCode(subscriptionPhoneUtils.getNetworkCountry());
+            if (normalizedCountryCode != null) {
+                uniqueCountries.add(normalizedCountryCode);
+            }
+
+            normalizedCountryCode = normalizeCountryCode(subscriptionPhoneUtils.getSimCountry());
+            if (normalizedCountryCode != null) {
+                uniqueCountries.add(normalizedCountryCode);
+            }
+        }
+
+        normalizedCountryCode = normalizeCountryCode(getLocaleCountry());
+        if (normalizedCountryCode != null) {
+            uniqueCountries.add(normalizedCountryCode);
+        }
+        return new ArrayList<>(uniqueCountries);
     }
 
     /**
@@ -540,6 +678,14 @@ public class PhoneUtils {
         }
         putCanonicalToCache(phoneText, country, canonicalNumber);
         return canonicalNumber;
+    }
+
+    @Nullable
+    private static String normalizeCountryCode(final String country) {
+        if (!TextUtils.isEmpty(country)) {
+            return country.toUpperCase();
+        }
+        return null;
     }
 
     /**
