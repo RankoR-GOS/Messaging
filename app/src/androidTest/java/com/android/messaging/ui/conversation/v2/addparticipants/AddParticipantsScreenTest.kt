@@ -12,6 +12,7 @@ import com.android.messaging.ui.conversation.v2.ADD_PARTICIPANTS_CONFIRM_BUTTON_
 import com.android.messaging.ui.conversation.v2.addParticipantsContactRowTestTag
 import com.android.messaging.ui.conversation.v2.addparticipants.model.AddParticipantsEffect
 import com.android.messaging.ui.conversation.v2.addparticipants.model.AddParticipantsUiState
+import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerListItem
 import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerUiState
 import com.android.messaging.ui.core.AppTheme
 import io.mockk.clearAllMocks
@@ -43,8 +44,8 @@ class AddParticipantsScreenTest {
         val screenUiStateFlow = MutableStateFlow(
             AddParticipantsUiState(
                 recipientPickerUiState = RecipientPickerUiState(
-                    contacts = listOf(
-                        recipient(
+                    items = listOf(
+                        contactItem(
                             id = "2",
                             displayName = "Bob",
                             destination = "+1 555 0101",
@@ -152,16 +153,18 @@ class AddParticipantsScreenTest {
         }
     }
 
-    private fun recipient(
+    private fun contactItem(
         id: String,
         displayName: String,
         destination: String,
-    ): ConversationRecipient {
-        return ConversationRecipient(
-            id = id,
-            displayName = displayName,
-            destination = destination,
-            secondaryText = destination,
+    ): RecipientPickerListItem.Contact {
+        return RecipientPickerListItem.Contact(
+            recipient = ConversationRecipient(
+                id = id,
+                displayName = displayName,
+                destination = destination,
+                secondaryText = destination,
+            ),
         )
     }
 }

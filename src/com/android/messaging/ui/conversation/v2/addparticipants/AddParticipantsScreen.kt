@@ -35,9 +35,11 @@ import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientSelecti
 import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientSelectionPrimaryActionUiState
 import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientSelectionRowDecorators
 import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientSelectionStrings
+import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerListItem
 import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerUiState
 import com.android.messaging.ui.core.AppTheme
 import com.android.messaging.util.UiUtils
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
@@ -186,6 +188,14 @@ private fun previewContacts(): List<ConversationRecipient> {
     )
 }
 
+private fun previewRecipientItems(
+    contacts: List<ConversationRecipient>,
+): ImmutableList<RecipientPickerListItem> {
+    return contacts
+        .map(RecipientPickerListItem::Contact)
+        .toImmutableList()
+}
+
 @Preview(
     name = "Add Participants",
     showBackground = true,
@@ -194,6 +204,7 @@ private fun previewContacts(): List<ConversationRecipient> {
 @Composable
 private fun AddParticipantsScreenPreview() {
     val contacts = previewContacts()
+    val items = previewRecipientItems(contacts = contacts)
 
     AppTheme {
         AddParticipantsRecipientSelectionContent(
@@ -201,7 +212,7 @@ private fun AddParticipantsScreenPreview() {
             uiState = AddParticipantsUiState(
                 isLoadingConversationParticipants = false,
                 recipientPickerUiState = RecipientPickerUiState(
-                    contacts = contacts.toImmutableList(),
+                    items = items,
                 ),
                 selectedRecipientDestinations = persistentListOf(contacts[1].destination),
             ),

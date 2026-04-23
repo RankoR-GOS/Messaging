@@ -7,6 +7,7 @@ import com.android.messaging.data.conversation.repository.ConversationRecipients
 import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGranted
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegateImpl
+import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerListItem
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
@@ -60,11 +61,43 @@ class RecipientPickerViewModelTest {
 
         assertEquals("Ada", viewModel.uiState.value.query)
         assertFalse(viewModel.uiState.value.hasContactsPermission)
-        assertTrue(viewModel.uiState.value.contacts.isEmpty())
+        assertTrue(viewModel.uiState.value.items.isEmpty())
         assertFalse(viewModel.uiState.value.canLoadMore)
         verify(exactly = 1) {
             isReadContactsPermissionGranted.invoke()
         }
+        verify(exactly = 0) {
+            @Suppress("UnusedFlow")
+            conversationRecipientsRepository.searchRecipients(query = any(), offset = any())
+        }
+    }
+
+    @Test
+    fun init_withoutContactsPermission_withValidTypedDestinationShowsSyntheticRecipient() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        every {
+            isReadContactsPermissionGranted.invoke()
+        } returns false
+        val savedStateHandle = SavedStateHandle(
+            mapOf(SEARCH_QUERY_KEY to "+1 415 555 2671"),
+        )
+
+        val viewModel = createViewModel(savedStateHandle = savedStateHandle)
+        advanceUntilIdle()
+
+        assertEquals("+1 415 555 2671", viewModel.uiState.value.query)
+        assertFalse(viewModel.uiState.value.hasContactsPermission)
+        assertEquals(1, viewModel.uiState.value.items.size)
+        assertEquals(
+            syntheticPhoneItem(
+                id = "synthetic:+1 415 555 2671",
+                rawQuery = "+1 415 555 2671",
+                destination = "+1 415 555 2671",
+                normalizedDestination = "+14155552671",
+            ),
+            viewModel.uiState.value.items.single(),
+        )
         verify(exactly = 0) {
             @Suppress("UnusedFlow")
             conversationRecipientsRepository.searchRecipients(query = any(), offset = any())
@@ -116,14 +149,14 @@ class RecipientPickerViewModelTest {
 
         assertEquals("Ada", viewModel.uiState.value.query)
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "1",
                     displayName = "Grace Hopper",
                     destination = "+1 555 0100",
                 ),
             ),
-            viewModel.uiState.value.contacts,
+            viewModel.uiState.value.items,
         )
         assertTrue(viewModel.uiState.value.hasContactsPermission)
         assertFalse(viewModel.uiState.value.isLoading)
@@ -198,14 +231,14 @@ class RecipientPickerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "2",
                     displayName = "Bob",
                     destination = "+1 555 0101",
                 ),
             ),
-            viewModel.uiState.value.contacts,
+            viewModel.uiState.value.items,
         )
         verify(exactly = 1) {
             @Suppress("UnusedFlow")
@@ -214,6 +247,110 @@ class RecipientPickerViewModelTest {
                 offset = 0,
             )
         }
+    }
+
+    @Test
+    fun onQueryChanged_withValidTypedDestination_prependsSyntheticRecipient() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        every {
+            isReadContactsPermissionGranted.invoke()
+        } returns true
+        every {
+            conversationRecipientsRepository.searchRecipients(
+                query = "",
+                offset = 0,
+            )
+        } returns flowOf(page())
+        every {
+            conversationRecipientsRepository.searchRecipients(
+                query = "+1 415 555 2671",
+                offset = 0,
+            )
+        } returns flowOf(
+            page(
+                recipients = listOf(
+                    recipient(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 555 0100",
+                    ),
+                ),
+            ),
+        )
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onQueryChanged(query = "+1 415 555 2671")
+        advanceTimeBy(150L)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                syntheticPhoneItem(
+                    id = "synthetic:+1 415 555 2671",
+                    rawQuery = "+1 415 555 2671",
+                    destination = "+1 415 555 2671",
+                    normalizedDestination = "+14155552671",
+                ),
+                contactItem(
+                    recipient = recipient(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 555 0100",
+                    ),
+                ),
+            ),
+            viewModel.uiState.value.items,
+        )
+    }
+
+    @Test
+    fun onQueryChanged_withMatchingRealDestination_doesNotDuplicateSyntheticRecipient() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        every {
+            isReadContactsPermissionGranted.invoke()
+        } returns true
+        every {
+            conversationRecipientsRepository.searchRecipients(
+                query = "",
+                offset = 0,
+            )
+        } returns flowOf(page())
+        every {
+            conversationRecipientsRepository.searchRecipients(
+                query = "+14155552671",
+                offset = 0,
+            )
+        } returns flowOf(
+            page(
+                recipients = listOf(
+                    recipient(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 415 555 2671",
+                    ),
+                ),
+            ),
+        )
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onQueryChanged(query = "+14155552671")
+        advanceTimeBy(150L)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOfItems(
+                recipient(
+                    id = "1",
+                    displayName = "Ada Lovelace",
+                    destination = "+1 415 555 2671",
+                ),
+            ),
+            viewModel.uiState.value.items,
+        )
     }
 
     @Test
@@ -284,14 +421,14 @@ class RecipientPickerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "2",
                     displayName = "Bob",
                     destination = "+1 555 0101",
                 ),
             ),
-            viewModel.uiState.value.contacts,
+            viewModel.uiState.value.items,
         )
         verify(exactly = 1) {
             @Suppress("UnusedFlow")
@@ -366,7 +503,7 @@ class RecipientPickerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "1",
                     displayName = "Ada",
@@ -383,7 +520,7 @@ class RecipientPickerViewModelTest {
                     destination = "+1 555 0102",
                 ),
             ),
-            viewModel.uiState.value.contacts,
+            viewModel.uiState.value.items,
         )
         assertFalse(viewModel.uiState.value.isLoadingMore)
         assertFalse(viewModel.uiState.value.canLoadMore)
@@ -510,14 +647,14 @@ class RecipientPickerViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "2",
                     displayName = "Bob",
                     destination = "+1 555 0101",
                 ),
             ),
-            viewModel.uiState.value.contacts,
+            viewModel.uiState.value.items,
         )
         assertFalse(viewModel.uiState.value.isLoadingMore)
     }
@@ -551,13 +688,42 @@ class RecipientPickerViewModelTest {
         id: String,
         displayName: String,
         destination: String,
+        secondaryText: String = destination,
     ): ConversationRecipient {
         return ConversationRecipient(
             id = id,
             displayName = displayName,
             destination = destination,
-            secondaryText = destination,
+            secondaryText = secondaryText,
         )
+    }
+
+    private fun contactItem(
+        recipient: ConversationRecipient,
+    ): RecipientPickerListItem.Contact {
+        return RecipientPickerListItem.Contact(recipient = recipient)
+    }
+
+    private fun syntheticPhoneItem(
+        id: String,
+        rawQuery: String,
+        destination: String,
+        normalizedDestination: String,
+    ): RecipientPickerListItem.SyntheticPhone {
+        return RecipientPickerListItem.SyntheticPhone(
+            id = id,
+            rawQuery = rawQuery,
+            destination = destination,
+            normalizedDestination = normalizedDestination,
+        )
+    }
+
+    private fun listOfItems(
+        vararg recipients: ConversationRecipient,
+    ): List<RecipientPickerListItem> {
+        return recipients.map { recipient ->
+            contactItem(recipient = recipient)
+        }
     }
 
     private companion object {

@@ -22,6 +22,7 @@ import com.android.messaging.ui.conversation.v2.NEW_CHAT_CONTACT_RESOLVING_INDIC
 import com.android.messaging.ui.conversation.v2.NEW_CHAT_CREATE_GROUP_NEXT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.newChatContactRowTestTag
 import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientPickerModel
+import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerListItem
 import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerUiState
 import com.android.messaging.ui.core.AppTheme
 import io.mockk.every
@@ -50,8 +51,8 @@ class NewChatScreenTest {
         val onCreateGroupRecipientClick = mockk<(String) -> Unit>(relaxed = true)
         val uiStateFlow = MutableStateFlow(
             RecipientPickerUiState(
-                contacts = listOf(
-                    recipient(
+                items = listOf(
+                    contactItem(
                         id = "1",
                         displayName = "Ada Lovelace",
                         destination = "+1 555 0100",
@@ -109,8 +110,8 @@ class NewChatScreenTest {
         val pickerModel = mockk<RecipientPickerModel>()
         val uiStateFlow = MutableStateFlow(
             RecipientPickerUiState(
-                contacts = List(size = 30) { index ->
-                    recipient(
+                items = List(size = 30) { index ->
+                    contactItem(
                         id = "$index",
                         displayName = "Contact $index",
                         destination = "+1 555 ${
@@ -142,8 +143,8 @@ class NewChatScreenTest {
         val pickerModel = mockk<RecipientPickerModel>()
         val uiStateFlow = MutableStateFlow(
             RecipientPickerUiState(
-                contacts = listOf(
-                    recipient(
+                items = listOf(
+                    contactItem(
                         id = "1",
                         displayName = "Ada Lovelace",
                         destination = "+1 555 0100",
@@ -185,8 +186,8 @@ class NewChatScreenTest {
         val pickerModel = mockk<RecipientPickerModel>()
         val uiStateFlow = MutableStateFlow(
             RecipientPickerUiState(
-                contacts = listOf(
-                    recipient(
+                items = listOf(
+                    contactItem(
                         id = "1",
                         displayName = "Ada Lovelace",
                         destination = "+1 555 0100",
@@ -222,8 +223,8 @@ class NewChatScreenTest {
         val onCreateGroupRecipientClick = mockk<(String) -> Unit>(relaxed = true)
         val uiStateFlow = MutableStateFlow(
             RecipientPickerUiState(
-                contacts = listOf(
-                    recipient(
+                items = listOf(
+                    contactItem(
                         id = "1",
                         displayName = "Ada Lovelace",
                         destination = "+1 555 0100",
@@ -270,8 +271,8 @@ class NewChatScreenTest {
         val onCreateGroupConfirmed = mockk<() -> Unit>(relaxed = true)
         val uiStateFlow = MutableStateFlow(
             RecipientPickerUiState(
-                contacts = listOf(
-                    recipient(
+                items = listOf(
+                    contactItem(
                         id = "1",
                         displayName = "Ada Lovelace",
                         destination = "+1 555 0100",
@@ -310,8 +311,8 @@ class NewChatScreenTest {
         val onContactLongClick = mockk<(String) -> Unit>(relaxed = true)
         val uiStateFlow = MutableStateFlow(
             RecipientPickerUiState(
-                contacts = listOf(
-                    recipient(
+                items = listOf(
+                    contactItem(
                         id = "1",
                         displayName = "Ada Lovelace",
                         destination = "+1 555 0100",
@@ -378,16 +379,18 @@ class NewChatScreenTest {
         }
     }
 
-    private fun recipient(
+    private fun contactItem(
         id: String,
         displayName: String,
         destination: String,
-    ): ConversationRecipient {
-        return ConversationRecipient(
-            id = id,
-            displayName = displayName,
-            destination = destination,
-            secondaryText = destination,
+    ): RecipientPickerListItem.Contact {
+        return RecipientPickerListItem.Contact(
+            recipient = ConversationRecipient(
+                id = id,
+                displayName = displayName,
+                destination = destination,
+                secondaryText = destination,
+            ),
         )
     }
 }

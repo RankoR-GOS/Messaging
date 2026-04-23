@@ -61,6 +61,7 @@ import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientSelecti
 import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientSelectionPrimaryActionUiState
 import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientSelectionRowDecorators
 import com.android.messaging.ui.conversation.v2.recipientpicker.RecipientSelectionStrings
+import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerListItem
 import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerUiState
 import com.android.messaging.ui.core.AppTheme
 import kotlinx.collections.immutable.ImmutableList
@@ -345,6 +346,14 @@ private fun previewContacts(): List<ConversationRecipient> {
     )
 }
 
+private fun previewRecipientItems(
+    contacts: List<ConversationRecipient>,
+): ImmutableList<RecipientPickerListItem> {
+    return contacts
+        .map(RecipientPickerListItem::Contact)
+        .toImmutableList()
+}
+
 @Preview(
     name = "Contacts",
     showBackground = true,
@@ -353,6 +362,7 @@ private fun previewContacts(): List<ConversationRecipient> {
 @Composable
 private fun NewChatScreenContactsPreview() {
     val contacts = previewContacts()
+    val items = previewRecipientItems(contacts = contacts)
 
     AppTheme {
         Surface(
@@ -361,7 +371,7 @@ private fun NewChatScreenContactsPreview() {
             NewChatRecipientSelectionContent(
                 modifier = Modifier.fillMaxSize(),
                 pickerUiState = RecipientPickerUiState(
-                    contacts = contacts.toImmutableList(),
+                    items = items,
                 ),
                 isCreatingGroup = false,
                 isResolvingConversation = false,
@@ -388,12 +398,13 @@ private fun NewChatScreenContactsPreview() {
 @Composable
 private fun NewChatScreenCreateGroupPreview() {
     val contacts = previewContacts()
+    val items = previewRecipientItems(contacts = contacts)
 
     AppTheme {
         NewChatRecipientSelectionContent(
             modifier = Modifier.fillMaxSize(),
             pickerUiState = RecipientPickerUiState(
-                contacts = contacts.toImmutableList(),
+                items = items,
             ),
             isCreatingGroup = true,
             isResolvingConversation = false,
@@ -422,13 +433,14 @@ private fun NewChatScreenCreateGroupPreview() {
 @Composable
 private fun NewChatScreenResolvingPreview() {
     val contacts = previewContacts()
+    val items = previewRecipientItems(contacts = contacts)
 
     AppTheme {
         NewChatRecipientSelectionContent(
             modifier = Modifier.fillMaxSize(),
             pickerUiState = RecipientPickerUiState(
                 query = "Ada",
-                contacts = contacts.take(2).toImmutableList(),
+                items = items.take(2).toImmutableList(),
             ),
             isCreatingGroup = false,
             isResolvingConversation = true,

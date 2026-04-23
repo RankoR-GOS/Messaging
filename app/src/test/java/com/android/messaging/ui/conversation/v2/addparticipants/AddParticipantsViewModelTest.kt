@@ -14,6 +14,7 @@ import com.android.messaging.domain.conversation.usecase.model.ResolveConversati
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.addparticipants.model.AddParticipantsEffect
 import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegateImpl
+import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerListItem
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -277,14 +278,14 @@ class AddParticipantsViewModelTest {
         advanceUntilIdle()
 
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "2",
                     displayName = "Bob",
                     destination = "+1 555 0101",
                 ),
             ),
-            viewModel.uiState.value.recipientPickerUiState.contacts,
+            viewModel.uiState.value.recipientPickerUiState.items,
         )
         assertEquals(
             listOf("+1 555 0101"),
@@ -299,7 +300,7 @@ class AddParticipantsViewModelTest {
         assertFalse(viewModel.uiState.value.isLoadingConversationParticipants)
         assertTrue(viewModel.uiState.value.selectedRecipientDestinations.isEmpty())
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "1",
                     displayName = "Ada",
@@ -311,7 +312,7 @@ class AddParticipantsViewModelTest {
                     destination = "+1 555 0101",
                 ),
             ),
-            viewModel.uiState.value.recipientPickerUiState.contacts,
+            viewModel.uiState.value.recipientPickerUiState.items,
         )
         uiStateCollectionJob.cancel()
     }
@@ -376,7 +377,7 @@ class AddParticipantsViewModelTest {
             viewModel.uiState.value.selectedRecipientDestinations,
         )
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "2",
                     displayName = "Bob",
@@ -388,7 +389,7 @@ class AddParticipantsViewModelTest {
                     destination = "+1 555 0102",
                 ),
             ),
-            viewModel.uiState.value.recipientPickerUiState.contacts,
+            viewModel.uiState.value.recipientPickerUiState.items,
         )
 
         participantsFlow.value = listOf(
@@ -408,14 +409,14 @@ class AddParticipantsViewModelTest {
 
         assertTrue(viewModel.uiState.value.selectedRecipientDestinations.isEmpty())
         assertEquals(
-            listOf(
+            listOfItems(
                 recipient(
                     id = "3",
                     displayName = "Carol",
                     destination = "+1 555 0102",
                 ),
             ),
-            viewModel.uiState.value.recipientPickerUiState.contacts,
+            viewModel.uiState.value.recipientPickerUiState.items,
         )
         uiStateCollectionJob.cancel()
     }
@@ -718,5 +719,13 @@ class AddParticipantsViewModelTest {
             destination = destination,
             secondaryText = destination,
         )
+    }
+
+    private fun listOfItems(
+        vararg recipients: ConversationRecipient,
+    ): List<RecipientPickerListItem> {
+        return recipients.map { recipient ->
+            RecipientPickerListItem.Contact(recipient = recipient)
+        }
     }
 }

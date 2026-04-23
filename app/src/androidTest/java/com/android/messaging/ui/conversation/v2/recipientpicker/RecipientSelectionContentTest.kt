@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
+import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerListItem
 import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerUiState
 import com.android.messaging.ui.core.AppTheme
 import kotlinx.collections.immutable.persistentSetOf
@@ -73,8 +74,8 @@ class RecipientSelectionContentTest {
         setScreenContent(
             uiState = RecipientSelectionContentUiState(
                 picker = RecipientPickerUiState(
-                    contacts = listOf(
-                        recipient(
+                    items = listOf(
+                        contactItem(
                             id = "1",
                             displayName = "Ada Lovelace",
                             destination = "+1 555 0100",
@@ -109,8 +110,8 @@ class RecipientSelectionContentTest {
         setScreenContent(
             uiState = RecipientSelectionContentUiState(
                 picker = RecipientPickerUiState(
-                    contacts = listOf(
-                        recipient(
+                    items = listOf(
+                        contactItem(
                             id = "1",
                             displayName = "Ada Lovelace",
                             destination = "+1 555 0100",
@@ -155,8 +156,8 @@ class RecipientSelectionContentTest {
         setScreenContent(
             uiState = RecipientSelectionContentUiState(
                 picker = RecipientPickerUiState(
-                    contacts = List(size = 30) { index ->
-                        recipient(
+                    items = List(size = 30) { index ->
+                        contactItem(
                             id = "$index",
                             displayName = "Contact $index",
                             destination = "+1 555 ${
@@ -183,14 +184,14 @@ class RecipientSelectionContentTest {
     private fun setScreenContent(
         uiState: RecipientSelectionContentUiState,
         rowDecorators: RecipientSelectionRowDecorators = RecipientSelectionRowDecorators(
-            recipientRowTestTag = { contact ->
-                recipientRowTestTag(contactId = contact.id)
+            recipientRowTestTag = { item ->
+                recipientRowTestTag(contactId = item.id)
             },
         ),
         onLoadMore: () -> Unit = {},
         onPrimaryActionClick: () -> Unit = {},
-        onRecipientClick: (ConversationRecipient) -> Unit = {},
-        onRecipientLongClick: ((ConversationRecipient) -> Unit)? = null,
+        onRecipientClick: (RecipientPickerListItem) -> Unit = {},
+        onRecipientLongClick: ((RecipientPickerListItem) -> Unit)? = null,
     ) {
         composeTestRule.setContent {
             AppTheme {
@@ -215,16 +216,18 @@ class RecipientSelectionContentTest {
         }
     }
 
-    private fun recipient(
+    private fun contactItem(
         id: String,
         displayName: String,
         destination: String,
-    ): ConversationRecipient {
-        return ConversationRecipient(
-            id = id,
-            displayName = displayName,
-            destination = destination,
-            secondaryText = destination,
+    ): RecipientPickerListItem.Contact {
+        return RecipientPickerListItem.Contact(
+            recipient = ConversationRecipient(
+                id = id,
+                displayName = displayName,
+                destination = destination,
+                secondaryText = destination,
+            ),
         )
     }
 
