@@ -2,6 +2,7 @@ package com.android.messaging.ui.conversation.v2.composer.mapper
 
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachment
+import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachmentKind
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationVCardAttachmentUiModelMapper
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
@@ -31,15 +32,36 @@ internal class ConversationComposerAttachmentUiModelMapperImpl @Inject construct
             )
         }
         val pendingAttachmentUiModels = pendingAttachments.map { pendingAttachment ->
-            ComposerAttachmentUiModel.Pending(
-                key = pendingAttachment.pendingAttachmentId,
-                contentType = pendingAttachment.contentType,
-                contentUri = pendingAttachment.contentUri,
-                displayName = pendingAttachment.displayName,
+            createPendingAttachmentUiModel(
+                pendingAttachment = pendingAttachment,
             )
         }
 
         return (resolvedAttachments + pendingAttachmentUiModels).toImmutableList()
+    }
+
+    private fun createPendingAttachmentUiModel(
+        pendingAttachment: ConversationDraftPendingAttachment,
+    ): ComposerAttachmentUiModel.Pending {
+        return when (pendingAttachment.kind) {
+            ConversationDraftPendingAttachmentKind.Generic -> {
+                ComposerAttachmentUiModel.Pending.Generic(
+                    key = pendingAttachment.pendingAttachmentId,
+                    contentType = pendingAttachment.contentType,
+                    contentUri = pendingAttachment.contentUri,
+                    displayName = pendingAttachment.displayName,
+                )
+            }
+
+            ConversationDraftPendingAttachmentKind.AudioFinalizing -> {
+                ComposerAttachmentUiModel.Pending.AudioFinalizing(
+                    key = pendingAttachment.pendingAttachmentId,
+                    contentType = pendingAttachment.contentType,
+                    contentUri = pendingAttachment.contentUri,
+                    displayName = pendingAttachment.displayName,
+                )
+            }
+        }
     }
 
     private fun createResolvedAttachmentUiModel(

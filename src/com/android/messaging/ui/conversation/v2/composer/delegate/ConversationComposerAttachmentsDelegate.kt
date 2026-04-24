@@ -160,7 +160,9 @@ internal class ConversationComposerAttachmentsDelegateImpl @Inject constructor(
         vCardAttachmentMetadata: Map<String, ConversationVCardAttachmentMetadata>,
     ): ComposerAttachmentUiModel {
         return when (attachment) {
-            is ComposerAttachmentUiModel.Pending -> {
+            is ComposerAttachmentUiModel.Pending.AudioFinalizing,
+            is ComposerAttachmentUiModel.Pending.Generic,
+            -> {
                 attachment
             }
 

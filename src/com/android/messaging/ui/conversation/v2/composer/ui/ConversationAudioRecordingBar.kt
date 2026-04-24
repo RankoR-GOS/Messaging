@@ -16,6 +16,8 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,16 +25,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -42,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_BAR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_CANCEL_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG
 import com.android.messaging.ui.conversation.v2.audio.formatConversationAudioDuration
 
 private const val AUDIO_RECORDING_COLOR_ANIMATION_THRESHOLD = 0.7f
@@ -58,39 +65,45 @@ internal fun ConversationAudioRecordingBar(
         isCancellationArmed = isCancellationArmed,
     )
 
-    Row(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(height = 56.dp)
-            .background(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(size = 28.dp),
-            )
-            .padding(
-                horizontal = 12.dp,
-            )
             .testTag(CONVERSATION_AUDIO_RECORDING_BAR_TEST_TAG),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        AudioRecordingDeleteIcon(
-            isVisible = isCancellationArmed,
-            tint = visualState.deleteIconTint,
-        )
-
-        Spacer(modifier = Modifier.width(width = 4.dp))
-
-        AudioRecordingDurationLabel(
-            durationMillis = durationMillis,
-            contentColor = visualState.contentColor,
-        )
-
-        AudioRecordingCancelHint(
+        Row(
             modifier = Modifier
-                .weight(weight = 1f)
-                .padding(end = 8.dp),
-            contentColor = visualState.contentColor,
-            hintAlpha = visualState.hintAlpha,
-        )
+                .fillMaxWidth()
+                .height(height = 56.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(size = 28.dp),
+                )
+                .padding(
+                    horizontal = 12.dp,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AudioRecordingDeleteIcon(
+                isVisible = isCancellationArmed,
+                tint = visualState.deleteIconTint,
+            )
+
+            Spacer(modifier = Modifier.width(width = 4.dp))
+
+            AudioRecordingDurationLabel(
+                durationMillis = durationMillis,
+                contentColor = visualState.contentColor,
+            )
+
+            AudioRecordingCancelHint(
+                modifier = Modifier
+                    .weight(weight = 1f)
+                    .padding(end = 8.dp),
+                contentColor = visualState.contentColor,
+                hintAlpha = visualState.hintAlpha,
+            )
+        }
     }
 }
 
@@ -282,6 +295,84 @@ private fun RecordingIndicatorDot() {
                 shape = RoundedCornerShape(size = 100.dp),
             ),
     )
+}
+
+@Composable
+internal fun ConversationAudioRecordingLockAffordance(
+    modifier: Modifier = Modifier,
+    lockProgress: Float,
+) {
+    val resolvedLockProgress = lockProgress.coerceIn(minimumValue = 0f, maximumValue = 1f)
+
+    val contentColor = animateColorAsState(
+        targetValue = lerp(
+            start = MaterialTheme.colorScheme.onSurfaceVariant,
+            stop = MaterialTheme.colorScheme.onSurface,
+            fraction = resolvedLockProgress,
+        ),
+        animationSpec = tween(durationMillis = 180),
+        label = "conversation_audio_lock_content_color",
+    ).value
+
+    val affordanceScale = animateFloatAsState(
+        targetValue = 0.96f + (resolvedLockProgress * 0.06f),
+        animationSpec = tween(durationMillis = 180),
+        label = "conversation_audio_lock_scale",
+    ).value
+
+    val verticalTranslation = -8f * resolvedLockProgress
+
+    Column(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = affordanceScale
+                scaleY = affordanceScale
+                translationY = verticalTranslation
+            }
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(size = 24.dp),
+            )
+            .background(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(size = 24.dp),
+            )
+            .padding(
+                paddingValues = PaddingValues(
+                    horizontal = 10.dp,
+                    vertical = 8.dp,
+                ),
+            )
+            .testTag(CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            modifier = Modifier.size(size = 18.dp),
+            imageVector = Icons.Rounded.Lock,
+            contentDescription = null,
+            tint = contentColor,
+        )
+
+        Spacer(
+            modifier = Modifier
+                .padding(vertical = 4.dp)
+                .size(
+                    width = 18.dp,
+                    height = 1.dp,
+                )
+                .background(
+                    color = contentColor.copy(alpha = 0.2f),
+                    shape = CircleShape,
+                ),
+        )
+
+        Icon(
+            modifier = Modifier.size(size = 18.dp),
+            imageVector = Icons.Rounded.KeyboardArrowUp,
+            contentDescription = null,
+            tint = contentColor,
+        )
+    }
 }
 
 private data class AudioRecordingBarVisualState(

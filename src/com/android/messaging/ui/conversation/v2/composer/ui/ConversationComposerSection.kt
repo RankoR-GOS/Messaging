@@ -35,6 +35,7 @@ internal fun ConversationComposerSection(
     onResolvedAttachmentRemove: (String) -> Unit,
     onAudioRecordingStartRequest: () -> Unit,
     onAudioRecordingFinish: () -> Unit,
+    onAudioRecordingLock: () -> Boolean,
     onAudioRecordingCancel: () -> Unit,
     onSendClick: () -> Unit,
 ) {
@@ -62,6 +63,7 @@ internal fun ConversationComposerSection(
             onMessageTextChange = onMessageTextChange,
             onAudioRecordingStartRequest = onAudioRecordingStartRequest,
             onAudioRecordingFinish = onAudioRecordingFinish,
+            onAudioRecordingLock = onAudioRecordingLock,
             onAudioRecordingCancel = onAudioRecordingCancel,
             onSendClick = onSendClick,
         )
@@ -91,6 +93,7 @@ private fun ConversationComposerSectionEmptyPreview() {
                 onResolvedAttachmentRemove = {},
                 onAudioRecordingStartRequest = {},
                 onAudioRecordingFinish = {},
+                onAudioRecordingLock = { false },
                 onAudioRecordingCancel = {},
                 onSendClick = {},
             )
@@ -114,7 +117,7 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
                         width = 100,
                         height = 100,
                     ),
-                    ComposerAttachmentUiModel.Pending(
+                    ComposerAttachmentUiModel.Pending.Generic(
                         key = "2",
                         contentType = "video/mp4",
                         contentUri = "content://media/2",
@@ -136,6 +139,7 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
                 onResolvedAttachmentRemove = {},
                 onAudioRecordingStartRequest = {},
                 onAudioRecordingFinish = {},
+                onAudioRecordingLock = { false },
                 onAudioRecordingCancel = {},
                 onSendClick = {},
             )

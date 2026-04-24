@@ -4,9 +4,12 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.platform.app.InstrumentationRegistry
+import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_PREVIEW_LIST_TEST_TAG
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.conversationAttachmentPreviewItemTestTag
@@ -104,6 +107,25 @@ class ConversationAttachmentPreviewTest {
     }
 
     @Test
+    fun pendingAudioFinalizingAttachment_rendersAudioPlaceholderWithoutRemoveButton() {
+        setAttachmentPreviewContent(
+            attachments = persistentListOf(PENDING_AUDIO_FINALIZING_ATTACHMENT),
+        )
+
+        composeTestRule
+            .onNodeWithText(getString(id = R.string.audio_recording_finalizing_attachment_label))
+            .assertIsDisplayed()
+        composeTestRule
+            .onAllNodesWithText("00:00")
+            .assertCountEquals(expectedSize = 0)
+        composeTestRule
+            .onAllNodesWithTag(
+                conversationAttachmentPreviewRemoveButtonTestTag(PENDING_AUDIO_KEY),
+            )
+            .assertCountEquals(expectedSize = 0)
+    }
+
+    @Test
     fun resolvedAttachment_removeButtonForwardsCallback() {
         val removals = mutableListOf<String>()
         setAttachmentPreviewContent(
@@ -138,17 +160,32 @@ class ConversationAttachmentPreviewTest {
         }
     }
 
+    private fun getString(id: Int): String {
+        return InstrumentationRegistry
+            .getInstrumentation()
+            .targetContext
+            .getString(id)
+    }
+
     private companion object {
         private const val PENDING_KEY = "pending-1"
+        private const val PENDING_AUDIO_KEY = "pending-audio-1"
         private const val RESOLVED_KEY = "resolved-1"
         private const val RESOLVED_CONTENT_URI = "content://media/resolved/1"
 
-        private val PENDING_ATTACHMENT = ComposerAttachmentUiModel.Pending(
+        private val PENDING_ATTACHMENT = ComposerAttachmentUiModel.Pending.Generic(
             key = PENDING_KEY,
             contentType = "image/jpeg",
             contentUri = "content://media/pending/1",
             displayName = "pending.jpg",
         )
+        private val PENDING_AUDIO_FINALIZING_ATTACHMENT =
+            ComposerAttachmentUiModel.Pending.AudioFinalizing(
+                key = PENDING_AUDIO_KEY,
+                contentType = "audio/3gpp",
+                contentUri = "pending://audio/1",
+                displayName = "",
+            )
         private val RESOLVED_ATTACHMENT = ComposerAttachmentUiModel.Resolved.VisualMedia.Video(
             key = RESOLVED_KEY,
             contentType = "video/mp4",

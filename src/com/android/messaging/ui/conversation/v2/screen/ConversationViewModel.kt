@@ -81,6 +81,7 @@ internal interface ConversationScreenModel {
     fun onContactCardPicked(contactUri: String?)
     fun onMessageTextChanged(text: String)
     fun onAudioRecordingStart()
+    fun onAudioRecordingLock(): Boolean
     fun onAudioRecordingFinish()
     fun onAudioRecordingCancel()
     fun onGalleryVisibilityChanged(isVisible: Boolean)
@@ -486,6 +487,10 @@ internal class ConversationViewModel @Inject constructor(
         conversationAudioRecordingDelegate.startRecording(
             selfParticipantId = effectiveSelfParticipantId,
         )
+    }
+
+    override fun onAudioRecordingLock(): Boolean {
+        return conversationAudioRecordingDelegate.lockRecording()
     }
 
     override fun onAudioRecordingFinish() {

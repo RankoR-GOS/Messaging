@@ -355,9 +355,12 @@ private fun ConversationMediaReviewBottomBar(
             enabled = isSendActionEnabled,
             mode = ConversationSendActionButtonMode.Send,
             isRecordingActive = false,
+            isRecordingLocked = false,
             onClick = onSendClick,
+            onLockedStopClick = {},
             onRecordGestureStart = {},
-            onRecordGestureMove = {},
+            onRecordGestureMove = { _ -> },
+            onRecordGestureLock = { false },
             onRecordGestureFinish = {},
         )
     }

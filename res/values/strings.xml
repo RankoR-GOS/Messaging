@@ -957,6 +957,10 @@
 
     <!-- Content description for the audio record view -->
     <string name="audio_record_view_content_description">Tap &amp; hold to record audio</string>
+    <!-- Content description for the locked audio record action -->
+    <string name="audio_record_stop_content_description">Stop recording and attach audio</string>
+    <!-- Label for an audio recording attachment while it is being finalized -->
+    <string name="audio_recording_finalizing_attachment_label">Finalizing audio</string>
 
     <!-- Content description for new conversation button in desktop widget -->
     <string name="widget_new_conversation_content_description">Start new conversation</string>

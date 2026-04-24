@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -19,10 +20,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.messaging.R
@@ -30,9 +31,11 @@ import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_T
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_BAR_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_TEXT_FIELD_TEST_TAG
+import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingPhase
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
 import com.android.messaging.ui.conversation.v2.conversationShapeSemanticsKey
 import com.android.messaging.ui.core.AppTheme
@@ -131,6 +134,7 @@ class ConversationComposeBarTest {
                     },
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
+                    onAudioRecordingLock = { false },
                     onAudioRecordingCancel = {},
                     onSendClick = {
                         sendClicks += 1
@@ -173,6 +177,7 @@ class ConversationComposeBarTest {
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
+                    onAudioRecordingLock = { false },
                     onAudioRecordingCancel = {},
                     onSendClick = {
                         sendClicks += 1
@@ -207,6 +212,7 @@ class ConversationComposeBarTest {
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
+                    onAudioRecordingLock = { false },
                     onAudioRecordingCancel = {},
                     onSendClick = {},
                 )
@@ -218,6 +224,7 @@ class ConversationComposeBarTest {
             .assertIsNotEnabled()
     }
 
+    @Test
     fun attachmentButton_performsHapticFeedbackAndOpensMenu() {
         val hapticFeedback = createHapticFeedbackMock()
 
@@ -237,6 +244,7 @@ class ConversationComposeBarTest {
                         onMessageTextChange = {},
                         onAudioRecordingStartRequest = {},
                         onAudioRecordingFinish = {},
+                        onAudioRecordingLock = { false },
                         onAudioRecordingCancel = {},
                         onSendClick = {},
                     )
@@ -246,7 +254,7 @@ class ConversationComposeBarTest {
 
         composeTestRule
             .onAllNodesWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
-            .assertCountEquals(0)
+            .assertCountEquals(expectedSize = 0)
 
         composeTestRule
             .onNodeWithTag(
@@ -257,10 +265,10 @@ class ConversationComposeBarTest {
 
         composeTestRule
             .onAllNodesWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
-            .assertCountEquals(1)
+            .assertCountEquals(expectedSize = 1)
         composeTestRule
             .onAllNodesWithTag(CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG)
-            .assertCountEquals(1)
+            .assertCountEquals(expectedSize = 1)
 
         composeTestRule.runOnIdle {
             verify(exactly = 1) {
@@ -290,6 +298,7 @@ class ConversationComposeBarTest {
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
+                    onAudioRecordingLock = { false },
                     onAudioRecordingCancel = {},
                     onSendClick = {},
                 )
@@ -332,6 +341,7 @@ class ConversationComposeBarTest {
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
+                    onAudioRecordingLock = { false },
                     onAudioRecordingCancel = {},
                     onSendClick = {},
                 )
@@ -354,6 +364,25 @@ class ConversationComposeBarTest {
     }
 
     @Test
+    fun attachmentButton_canBeDisabled() {
+        setComposeBarContent(
+            messageText = "",
+            isSendActionEnabled = false,
+            isAttachmentActionEnabled = false,
+        )
+
+        composeTestRule
+            .onNodeWithTag(
+                testTag = CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG,
+                useUnmergedTree = true,
+            )
+            .performClick()
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
+            .assertCountEquals(expectedSize = 0)
+    }
+
+    @Test
     fun emptyMessage_withRecordActionVisible_showsRecordButton() {
         setComposeBarContent(
             messageText = "",
@@ -368,10 +397,10 @@ class ConversationComposeBarTest {
     }
 
     @Test
-    fun recordingState_showsRecordingBarWithoutChangingActionButtonHeight() {
+    fun recordingState_showsRecordingBarAndLockAffordanceWithoutChangingActionButtonHeight() {
         setComposeBarContent(
             audioRecording = ConversationAudioRecordingUiState(
-                isRecording = true,
+                phase = ConversationAudioRecordingPhase.Recording,
                 durationMillis = 1_000L,
             ),
             messageText = "",
@@ -384,12 +413,70 @@ class ConversationComposeBarTest {
         val sendButtonBounds = composeTestRule
             .onNodeWithTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
             .getUnclippedBoundsInRoot()
+        val lockAffordanceBounds = composeTestRule
+            .onNodeWithTag(CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG)
+            .getUnclippedBoundsInRoot()
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG)
+            .assertIsDisplayed()
 
         assertEquals(
             recordingBarBounds.height.value,
             sendButtonBounds.height.value,
             0.5f,
         )
+        assertTrue(lockAffordanceBounds.bottom.value <= sendButtonBounds.top.value + 8f)
+        assertTrue(
+            kotlin.math.abs(
+                (
+                    (lockAffordanceBounds.left.value + lockAffordanceBounds.right.value) / 2f
+                    ) - (
+                    (sendButtonBounds.left.value + sendButtonBounds.right.value) / 2f
+                    ),
+            ) <= 8f,
+        )
+    }
+
+    @Test
+    fun lockedRecordingState_showsStopButtonFromUiState() {
+        setComposeBarContent(
+            audioRecording = recordingAudioState(isLocked = true),
+            messageText = "",
+            shouldShowRecordAction = false,
+        )
+
+        composeTestRule
+            .onNodeWithContentDescription(
+                getString(id = R.string.audio_record_stop_content_description),
+            )
+            .assertIsDisplayed()
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG)
+            .assertCountEquals(expectedSize = 0)
+    }
+
+    @Test
+    fun activeRecording_controlsStayEnabledWhenRecordStartActionIsDisabled() {
+        var finishRequests = 0
+        setComposeBarContent(
+            audioRecording = recordingAudioState(isLocked = true),
+            messageText = "",
+            isRecordActionEnabled = false,
+            shouldShowRecordAction = false,
+            onAudioRecordingFinish = {
+                finishRequests += 1
+            },
+        )
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
+            .assertIsEnabled()
+            .performClick()
+
+        composeTestRule.runOnIdle {
+            assertEquals(1, finishRequests)
+        }
     }
 
     @Test
@@ -414,14 +501,13 @@ class ConversationComposeBarTest {
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {
                         startRequests += 1
-                        audioRecording = ConversationAudioRecordingUiState(
-                            isRecording = true,
-                        )
+                        audioRecording = recordingAudioState()
                     },
                     onAudioRecordingFinish = {
                         finishRequests += 1
                         audioRecording = ConversationAudioRecordingUiState()
                     },
+                    onAudioRecordingLock = { false },
                     onAudioRecordingCancel = {
                         cancelRequests += 1
                         audioRecording = ConversationAudioRecordingUiState()
@@ -446,22 +532,247 @@ class ConversationComposeBarTest {
         }
     }
 
-    fun attachmentButton_canBeDisabled() {
-        setComposeBarContent(
-            messageText = "",
-            isSendActionEnabled = false,
-            isAttachmentActionEnabled = false,
-        )
+    @Test
+    fun longPressAndDragLeft_cancelsRecording() {
+        var audioRecording by mutableStateOf(ConversationAudioRecordingUiState())
+        var startRequests = 0
+        var finishRequests = 0
+        var cancelRequests = 0
+        val cancelDragDistancePx = with(composeTestRule.density) {
+            (AUDIO_RECORD_CANCEL_THRESHOLD + 24.dp).toPx()
+        }
+
+        composeTestRule.setContent {
+            AppTheme {
+                ConversationComposeBar(
+                    audioRecording = audioRecording,
+                    messageText = "",
+                    isMessageFieldEnabled = true,
+                    isAttachmentActionEnabled = false,
+                    isRecordActionEnabled = true,
+                    isSendActionEnabled = false,
+                    shouldShowRecordAction = true,
+                    onContactAttachClick = {},
+                    onMediaPickerClick = {},
+                    onMessageTextChange = {},
+                    onAudioRecordingStartRequest = {
+                        startRequests += 1
+                        audioRecording = recordingAudioState()
+                    },
+                    onAudioRecordingFinish = {
+                        finishRequests += 1
+                        audioRecording = ConversationAudioRecordingUiState()
+                    },
+                    onAudioRecordingLock = { false },
+                    onAudioRecordingCancel = {
+                        cancelRequests += 1
+                        audioRecording = ConversationAudioRecordingUiState()
+                    },
+                    onSendClick = {},
+                )
+            }
+        }
 
         composeTestRule
-            .onNodeWithTag(
-                testTag = CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG,
-                useUnmergedTree = true,
-            )
-            .performClick()
+            .onNodeWithTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
+            .performTouchInput {
+                down(center)
+                advanceEventTime(durationMillis = 700L)
+                moveBy(
+                    Offset(
+                        x = -cancelDragDistancePx,
+                        y = 0f,
+                    ),
+                )
+                up()
+            }
+
+        composeTestRule.runOnIdle {
+            assertEquals(1, startRequests)
+            assertEquals(0, finishRequests)
+            assertEquals(1, cancelRequests)
+        }
+    }
+
+    @Test
+    fun lockGesture_emitsConfirmHapticAndKeepsRecordingActiveUntilStopTap() {
+        var audioRecording by mutableStateOf(ConversationAudioRecordingUiState())
+        var startRequests = 0
+        var lockRequests = 0
+        var finishRequests = 0
+        var cancelRequests = 0
+        var shouldShowRecordAction by mutableStateOf(true)
+        val hapticFeedback = createHapticFeedbackMock()
+        val lockDragDistancePx = with(composeTestRule.density) {
+            (AUDIO_RECORD_LOCK_THRESHOLD + 24.dp).toPx()
+        }
+
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalHapticFeedback provides hapticFeedback) {
+                AppTheme {
+                    ConversationComposeBar(
+                        audioRecording = audioRecording,
+                        messageText = "",
+                        isMessageFieldEnabled = true,
+                        isAttachmentActionEnabled = false,
+                        isRecordActionEnabled = true,
+                        isSendActionEnabled = false,
+                        shouldShowRecordAction = shouldShowRecordAction,
+                        onContactAttachClick = {},
+                        onMediaPickerClick = {},
+                        onMessageTextChange = {},
+                        onAudioRecordingStartRequest = {
+                            startRequests += 1
+                            shouldShowRecordAction = false
+                            audioRecording = recordingAudioState()
+                        },
+                        onAudioRecordingFinish = {
+                            finishRequests += 1
+                            audioRecording = finalizingAudioState()
+                        },
+                        onAudioRecordingLock = {
+                            lockRequests += 1
+                            audioRecording = recordingAudioState(isLocked = true)
+                            true
+                        },
+                        onAudioRecordingCancel = {
+                            cancelRequests += 1
+                            audioRecording = ConversationAudioRecordingUiState()
+                            shouldShowRecordAction = true
+                        },
+                        onSendClick = {},
+                    )
+                }
+            }
+        }
+
         composeTestRule
-            .onAllNodesWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
-            .assertCountEquals(0)
+            .onNodeWithTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
+            .performTouchInput {
+                down(center)
+                advanceEventTime(durationMillis = 700L)
+                moveBy(
+                    Offset(
+                        x = 0f,
+                        y = -lockDragDistancePx,
+                    ),
+                )
+                up()
+            }
+
+        composeTestRule
+            .onNodeWithContentDescription(
+                getString(id = R.string.audio_record_stop_content_description),
+            )
+            .assertIsDisplayed()
+
+        composeTestRule.runOnIdle {
+            assertEquals(1, startRequests)
+            assertEquals(1, lockRequests)
+            assertEquals(0, finishRequests)
+            assertEquals(0, cancelRequests)
+            assertEquals(ConversationAudioRecordingPhase.Recording, audioRecording.phase)
+            assertTrue(audioRecording.isLocked)
+            verify(exactly = 1) {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
+            .performClick()
+
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_AUDIO_RECORDING_BAR_TEST_TAG)
+            .assertCountEquals(expectedSize = 0)
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG)
+            .assertCountEquals(expectedSize = 0)
+
+        composeTestRule.runOnIdle {
+            assertEquals(1, finishRequests)
+            assertEquals(0, cancelRequests)
+            assertEquals(ConversationAudioRecordingPhase.Finalizing, audioRecording.phase)
+        }
+    }
+
+    @Test
+    fun lockedRecording_canStillSlideLeftToCancel() {
+        var audioRecording by mutableStateOf(ConversationAudioRecordingUiState())
+        var finishRequests = 0
+        var cancelRequests = 0
+        val lockDragDistancePx = with(composeTestRule.density) {
+            (AUDIO_RECORD_LOCK_THRESHOLD + 24.dp).toPx()
+        }
+        val cancelDragDistancePx = with(composeTestRule.density) {
+            (AUDIO_RECORD_CANCEL_THRESHOLD + 24.dp).toPx()
+        }
+
+        composeTestRule.setContent {
+            AppTheme {
+                ConversationComposeBar(
+                    audioRecording = audioRecording,
+                    messageText = "",
+                    isMessageFieldEnabled = true,
+                    isAttachmentActionEnabled = false,
+                    isRecordActionEnabled = true,
+                    isSendActionEnabled = false,
+                    shouldShowRecordAction = true,
+                    onContactAttachClick = {},
+                    onMediaPickerClick = {},
+                    onMessageTextChange = {},
+                    onAudioRecordingStartRequest = {
+                        audioRecording = recordingAudioState()
+                    },
+                    onAudioRecordingFinish = {
+                        finishRequests += 1
+                        audioRecording = ConversationAudioRecordingUiState()
+                    },
+                    onAudioRecordingLock = {
+                        audioRecording = recordingAudioState(isLocked = true)
+                        true
+                    },
+                    onAudioRecordingCancel = {
+                        cancelRequests += 1
+                        audioRecording = ConversationAudioRecordingUiState()
+                    },
+                    onSendClick = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
+            .performTouchInput {
+                down(center)
+                advanceEventTime(durationMillis = 700L)
+                moveBy(
+                    Offset(
+                        x = 0f,
+                        y = -lockDragDistancePx,
+                    ),
+                )
+                up()
+            }
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
+            .performTouchInput {
+                down(center)
+                moveBy(
+                    Offset(
+                        x = -cancelDragDistancePx,
+                        y = 0f,
+                    ),
+                )
+                up()
+            }
+
+        composeTestRule.runOnIdle {
+            assertEquals(0, finishRequests)
+            assertEquals(1, cancelRequests)
+            assertEquals(ConversationAudioRecordingPhase.Idle, audioRecording.phase)
+        }
     }
 
     private fun setComposeBarContent(
@@ -469,7 +780,9 @@ class ConversationComposeBarTest {
         messageText: String,
         isSendActionEnabled: Boolean = true,
         isAttachmentActionEnabled: Boolean = false,
+        isRecordActionEnabled: Boolean = true,
         shouldShowRecordAction: Boolean = false,
+        onAudioRecordingFinish: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             AppTheme {
@@ -478,14 +791,15 @@ class ConversationComposeBarTest {
                     messageText = messageText,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = isAttachmentActionEnabled,
-                    isRecordActionEnabled = true,
+                    isRecordActionEnabled = isRecordActionEnabled,
                     isSendActionEnabled = isSendActionEnabled,
                     shouldShowRecordAction = shouldShowRecordAction,
                     onContactAttachClick = {},
                     onMediaPickerClick = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
-                    onAudioRecordingFinish = {},
+                    onAudioRecordingFinish = onAudioRecordingFinish,
+                    onAudioRecordingLock = { false },
                     onAudioRecordingCancel = {},
                     onSendClick = {},
                 )
@@ -506,5 +820,22 @@ class ConversationComposeBarTest {
             hapticFeedback.performHapticFeedback(any())
         } just runs
         return hapticFeedback
+    }
+
+    private fun recordingAudioState(
+        durationMillis: Long = 0L,
+        isLocked: Boolean = false,
+    ): ConversationAudioRecordingUiState {
+        return ConversationAudioRecordingUiState(
+            phase = ConversationAudioRecordingPhase.Recording,
+            durationMillis = durationMillis,
+            isLocked = isLocked,
+        )
+    }
+
+    private fun finalizingAudioState(): ConversationAudioRecordingUiState {
+        return ConversationAudioRecordingUiState(
+            phase = ConversationAudioRecordingPhase.Finalizing,
+        )
     }
 }

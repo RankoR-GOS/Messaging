@@ -5,4 +5,11 @@ internal data class ConversationDraftPendingAttachment(
     val contentUri: String,
     val contentType: String,
     val displayName: String = "",
+    val kind: ConversationDraftPendingAttachmentKind =
+        ConversationDraftPendingAttachmentKind.Generic,
 )
+
+internal enum class ConversationDraftPendingAttachmentKind {
+    Generic,
+    AudioFinalizing,
+}

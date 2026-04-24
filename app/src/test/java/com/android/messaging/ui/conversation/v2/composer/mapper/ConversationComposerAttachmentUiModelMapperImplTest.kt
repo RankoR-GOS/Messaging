@@ -102,7 +102,7 @@ class ConversationComposerAttachmentUiModelMapperImplTest {
                     contentType = "application/pdf",
                     contentUri = "content://attachments/file/1",
                 ),
-                ComposerAttachmentUiModel.Pending(
+                ComposerAttachmentUiModel.Pending.Generic(
                     key = "pending-1",
                     contentType = "image/jpeg",
                     contentUri = "content://pending/1",

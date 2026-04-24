@@ -10,12 +10,25 @@ internal sealed interface ComposerAttachmentUiModel {
     val contentUri: String
 
     @Immutable
-    data class Pending(
-        override val key: String,
-        override val contentType: String,
-        override val contentUri: String,
-        val displayName: String,
-    ) : ComposerAttachmentUiModel
+    sealed interface Pending : ComposerAttachmentUiModel {
+        val displayName: String
+
+        @Immutable
+        data class Generic(
+            override val key: String,
+            override val contentType: String,
+            override val contentUri: String,
+            override val displayName: String,
+        ) : Pending
+
+        @Immutable
+        data class AudioFinalizing(
+            override val key: String,
+            override val contentType: String,
+            override val contentUri: String,
+            override val displayName: String,
+        ) : Pending
+    }
 
     @Immutable
     sealed interface Resolved : ComposerAttachmentUiModel {

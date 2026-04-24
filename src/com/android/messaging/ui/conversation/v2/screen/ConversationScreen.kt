@@ -25,7 +25,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -39,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
+import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingPhase
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.ui.ConversationComposerSection
 import com.android.messaging.ui.conversation.v2.composer.ui.ConversationSimSelectorSheet
@@ -55,6 +55,7 @@ import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessage
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionAction
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import kotlinx.collections.immutable.ImmutableList
+import androidx.compose.ui.geometry.Rect as ComposeRect
 
 @Composable
 internal fun ConversationScreen(
@@ -156,7 +157,10 @@ internal fun ConversationScreen(
     )
 
     LifecycleEventEffect(event = Lifecycle.Event.ON_STOP) {
-        if (scaffoldUiState.composer.audioRecording.isRecording) {
+        val isRecording = scaffoldUiState.composer.audioRecording.phase ==
+            ConversationAudioRecordingPhase.Recording
+
+        if (isRecording) {
             screenModel.onAudioRecordingCancel()
         }
         screenModel.persistDraft()
@@ -219,6 +223,7 @@ internal fun ConversationScreen(
                 }
             },
             onAudioRecordingFinish = screenModel::onAudioRecordingFinish,
+            onAudioRecordingLock = screenModel::onAudioRecordingLock,
             onAudioRecordingCancel = screenModel::onAudioRecordingCancel,
             onSendClick = screenModel::onSendClick,
             onSimSelected = screenModel::onSimSelected,
@@ -279,6 +284,7 @@ private fun ConversationScreenScaffold(
     onResolvedAttachmentRemove: (String) -> Unit,
     onAudioRecordingStartRequest: () -> Unit,
     onAudioRecordingFinish: () -> Unit,
+    onAudioRecordingLock: () -> Boolean,
     onAudioRecordingCancel: () -> Unit,
     onSendClick: () -> Unit,
     onSimSelected: (String) -> Unit,
@@ -349,6 +355,7 @@ private fun ConversationScreenScaffold(
                     onResolvedAttachmentRemove = onResolvedAttachmentRemove,
                     onAudioRecordingStartRequest = onAudioRecordingStartRequest,
                     onAudioRecordingFinish = onAudioRecordingFinish,
+                    onAudioRecordingLock = onAudioRecordingLock,
                     onAudioRecordingCancel = onAudioRecordingCancel,
                     onSendClick = onSendClick,
                 )

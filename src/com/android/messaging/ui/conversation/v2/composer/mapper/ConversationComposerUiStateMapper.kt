@@ -2,6 +2,7 @@ package com.android.messaging.ui.conversation.v2.composer.mapper
 
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
+import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingPhase
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
@@ -38,7 +39,9 @@ internal class ConversationComposerUiStateMapperImpl @Inject constructor() :
             !draft.isSending
 
         val isMessageFieldEnabled = composerAvailability.isMessageFieldEnabled
-        val shouldShowRecordAction = !hasWorkingDraft && !audioRecording.isRecording
+        val shouldShowRecordAction = !hasWorkingDraft &&
+            audioRecording.phase == ConversationAudioRecordingPhase.Idle
+
         val isRecordActionEnabled = composerAvailability.isSendAvailable &&
             !draft.isCheckingDraft &&
             !draft.isSending &&

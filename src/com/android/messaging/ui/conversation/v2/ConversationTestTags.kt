@@ -29,10 +29,10 @@ internal const val CONVERSATION_INLINE_AUDIO_ATTACHMENT_PROGRESS_TEST_TAG =
 internal const val CONVERSATION_AUDIO_RECORDING_BAR_TEST_TAG = "conversation_audio_recording_bar"
 internal const val CONVERSATION_AUDIO_RECORDING_CANCEL_BUTTON_TEST_TAG =
     "conversation_audio_recording_cancel_button"
-internal const val ADD_PARTICIPANTS_CONFIRM_BUTTON_TEST_TAG =
-    "add_participants_confirm_button"
-internal const val NEW_CHAT_CREATE_GROUP_NEXT_BUTTON_TEST_TAG =
-    "new_chat_create_group_next_button"
+internal const val CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG =
+    "conversation_audio_recording_lock_affordance"
+internal const val ADD_PARTICIPANTS_CONFIRM_BUTTON_TEST_TAG = "add_participants_confirm_button"
+internal const val NEW_CHAT_CREATE_GROUP_NEXT_BUTTON_TEST_TAG = "new_chat_create_group_next_button"
 internal const val NEW_CHAT_CONTACT_RESOLVING_INDICATOR_TEST_TAG =
     "new_chat_contact_resolving_indicator"
 internal const val CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE = "circle"
