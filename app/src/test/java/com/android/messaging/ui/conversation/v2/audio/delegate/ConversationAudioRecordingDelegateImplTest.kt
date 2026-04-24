@@ -114,6 +114,37 @@ class ConversationAudioRecordingDelegateImplTest {
     }
 
     @Test
+    fun startLockedRecording_startsRecorderAndPublishesLockedRecordingState() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            mockSuccessfulRecorderStart()
+
+            val delegate = createBoundDelegate(scope = backgroundScope)
+
+            delegate.startLockedRecording(selfParticipantId = "self-1")
+            runCurrent()
+
+            assertEquals(
+                ConversationAudioRecordingPhase.Recording,
+                delegate.state.value.phase,
+            )
+            assertTrue(delegate.state.value.isLocked)
+            verify(exactly = 1) {
+                @Suppress("UnusedFlow")
+                conversationSubscriptionsRepository.resolveMaxMessageSize(
+                    selfParticipantId = "self-1",
+                )
+            }
+            verify(exactly = 1) {
+                anyConstructed<LevelTrackingMediaRecorder>().startRecording(
+                    any(),
+                    any(),
+                    500_000,
+                )
+            }
+        }
+    }
+
+    @Test
     fun lockRecording_whileStarting_locksWhenRecorderStarts() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val maxMessageSize = CompletableDeferred<Int>()

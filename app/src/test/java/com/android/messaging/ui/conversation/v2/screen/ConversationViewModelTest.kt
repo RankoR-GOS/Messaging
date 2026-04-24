@@ -445,6 +445,7 @@ class ConversationViewModelTest {
             )
             viewModel.onMessageTextChanged(text = "Hello")
             viewModel.onAudioRecordingStart()
+            viewModel.onLockedAudioRecordingStart()
             viewModel.onAudioRecordingFinish()
             viewModel.onAudioRecordingCancel()
             viewModel.onGalleryVisibilityChanged(isVisible = true)
@@ -470,6 +471,9 @@ class ConversationViewModelTest {
             }
             verify(exactly = 1) {
                 audioRecordingDelegate.mock.startRecording(selfParticipantId = "")
+            }
+            verify(exactly = 1) {
+                audioRecordingDelegate.mock.startLockedRecording(selfParticipantId = "")
             }
             verify(exactly = 1) {
                 audioRecordingDelegate.mock.finishRecording()

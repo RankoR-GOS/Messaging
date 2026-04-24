@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.messaging.R
+import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_AUDIO_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG
@@ -128,6 +129,7 @@ class ConversationComposeBarTest {
                     shouldShowRecordAction = false,
                     onContactAttachClick = {},
                     onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = { updatedText ->
                         currentMessageText = updatedText
                         messageText = updatedText
@@ -174,6 +176,7 @@ class ConversationComposeBarTest {
                     shouldShowRecordAction = false,
                     onContactAttachClick = {},
                     onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
@@ -209,6 +212,7 @@ class ConversationComposeBarTest {
                     shouldShowRecordAction = false,
                     onContactAttachClick = {},
                     onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
@@ -241,6 +245,7 @@ class ConversationComposeBarTest {
                         shouldShowRecordAction = false,
                         onContactAttachClick = {},
                         onMediaPickerClick = {},
+                        onLockedAudioRecordingStartRequest = {},
                         onMessageTextChange = {},
                         onAudioRecordingStartRequest = {},
                         onAudioRecordingFinish = {},
@@ -265,6 +270,9 @@ class ConversationComposeBarTest {
 
         composeTestRule
             .onAllNodesWithTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG)
+            .assertCountEquals(expectedSize = 1)
+        composeTestRule
+            .onAllNodesWithTag(CONVERSATION_ATTACHMENT_AUDIO_MENU_ITEM_TEST_TAG)
             .assertCountEquals(expectedSize = 1)
         composeTestRule
             .onAllNodesWithTag(CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG)
@@ -295,6 +303,7 @@ class ConversationComposeBarTest {
                     onMediaPickerClick = {
                         mediaClicks += 1
                     },
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
@@ -321,6 +330,50 @@ class ConversationComposeBarTest {
     }
 
     @Test
+    fun attachmentMenuAudioItem_forwardsLockedRecordingStartRequest() {
+        var audioClicks = 0
+
+        composeTestRule.setContent {
+            AppTheme {
+                ConversationComposeBar(
+                    audioRecording = ConversationAudioRecordingUiState(),
+                    messageText = "Message with text",
+                    isMessageFieldEnabled = true,
+                    isAttachmentActionEnabled = true,
+                    isRecordActionEnabled = true,
+                    isSendActionEnabled = true,
+                    shouldShowRecordAction = false,
+                    onContactAttachClick = {},
+                    onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {
+                        audioClicks += 1
+                    },
+                    onMessageTextChange = {},
+                    onAudioRecordingStartRequest = {},
+                    onAudioRecordingFinish = {},
+                    onAudioRecordingLock = { false },
+                    onAudioRecordingCancel = {},
+                    onSendClick = {},
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithTag(
+                testTag = CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG,
+                useUnmergedTree = true,
+            )
+            .performClick()
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_ATTACHMENT_AUDIO_MENU_ITEM_TEST_TAG)
+            .performClick()
+
+        composeTestRule.runOnIdle {
+            assertEquals(1, audioClicks)
+        }
+    }
+
+    @Test
     fun attachmentMenuContactItem_forwardsCallback() {
         var contactClicks = 0
 
@@ -338,6 +391,7 @@ class ConversationComposeBarTest {
                         contactClicks += 1
                     },
                     onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = {},
@@ -498,6 +552,7 @@ class ConversationComposeBarTest {
                     shouldShowRecordAction = true,
                     onContactAttachClick = {},
                     onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {
                         startRequests += 1
@@ -554,6 +609,7 @@ class ConversationComposeBarTest {
                     shouldShowRecordAction = true,
                     onContactAttachClick = {},
                     onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {
                         startRequests += 1
@@ -620,6 +676,7 @@ class ConversationComposeBarTest {
                         shouldShowRecordAction = shouldShowRecordAction,
                         onContactAttachClick = {},
                         onMediaPickerClick = {},
+                        onLockedAudioRecordingStartRequest = {},
                         onMessageTextChange = {},
                         onAudioRecordingStartRequest = {
                             startRequests += 1
@@ -720,6 +777,7 @@ class ConversationComposeBarTest {
                     shouldShowRecordAction = true,
                     onContactAttachClick = {},
                     onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {
                         audioRecording = recordingAudioState()
@@ -796,6 +854,7 @@ class ConversationComposeBarTest {
                     shouldShowRecordAction = shouldShowRecordAction,
                     onContactAttachClick = {},
                     onMediaPickerClick = {},
+                    onLockedAudioRecordingStartRequest = {},
                     onMessageTextChange = {},
                     onAudioRecordingStartRequest = {},
                     onAudioRecordingFinish = onAudioRecordingFinish,
