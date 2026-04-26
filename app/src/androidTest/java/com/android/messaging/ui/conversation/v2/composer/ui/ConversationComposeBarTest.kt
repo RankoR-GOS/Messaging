@@ -1,10 +1,14 @@
 package com.android.messaging.ui.conversation.v2.composer.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -844,24 +848,29 @@ class ConversationComposeBarTest {
     ) {
         composeTestRule.setContent {
             AppTheme {
-                ConversationComposeBar(
-                    audioRecording = audioRecording,
-                    messageText = messageText,
-                    isMessageFieldEnabled = true,
-                    isAttachmentActionEnabled = isAttachmentActionEnabled,
-                    isRecordActionEnabled = isRecordActionEnabled,
-                    isSendActionEnabled = isSendActionEnabled,
-                    shouldShowRecordAction = shouldShowRecordAction,
-                    onContactAttachClick = {},
-                    onMediaPickerClick = {},
-                    onLockedAudioRecordingStartRequest = {},
-                    onMessageTextChange = {},
-                    onAudioRecordingStartRequest = {},
-                    onAudioRecordingFinish = onAudioRecordingFinish,
-                    onAudioRecordingLock = { false },
-                    onAudioRecordingCancel = {},
-                    onSendClick = {},
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    ConversationComposeBar(
+                        audioRecording = audioRecording,
+                        messageText = messageText,
+                        isMessageFieldEnabled = true,
+                        isAttachmentActionEnabled = isAttachmentActionEnabled,
+                        isRecordActionEnabled = isRecordActionEnabled,
+                        isSendActionEnabled = isSendActionEnabled,
+                        shouldShowRecordAction = shouldShowRecordAction,
+                        onContactAttachClick = {},
+                        onMediaPickerClick = {},
+                        onLockedAudioRecordingStartRequest = {},
+                        onMessageTextChange = {},
+                        onAudioRecordingStartRequest = {},
+                        onAudioRecordingFinish = onAudioRecordingFinish,
+                        onAudioRecordingLock = { false },
+                        onAudioRecordingCancel = {},
+                        onSendClick = {},
+                    )
+                }
             }
         }
     }

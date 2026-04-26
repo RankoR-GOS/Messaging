@@ -8,9 +8,12 @@ import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGra
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegateImpl
 import com.android.messaging.ui.conversation.v2.recipientpicker.model.RecipientPickerListItem
+import com.android.messaging.util.PhoneUtils
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import io.mockk.verify
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +23,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -43,6 +47,19 @@ class RecipientPickerViewModelTest {
     fun setUp() {
         conversationRecipientsRepository = mockk()
         isReadContactsPermissionGranted = mockk()
+        mockkStatic(PhoneUtils::class)
+        val phoneUtilsMock = mockk<PhoneUtils>()
+        every { PhoneUtils.getDefault() } returns phoneUtilsMock
+        every {
+            phoneUtilsMock.getCanonicalForEnteredPhoneNumber(any())
+        } answers {
+            firstArg<String>().filter { ch -> ch == '+' || ch.isDigit() }
+        }
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(PhoneUtils::class)
     }
 
     @Test

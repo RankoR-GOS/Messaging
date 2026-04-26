@@ -43,6 +43,9 @@ internal fun ConversationNavGraph(
     val latestNavigationReducer = rememberUpdatedState(navigationReducer)
     val latestOnConversationDetailsClick = rememberUpdatedState(onConversationDetailsClick)
     val latestOnFinish = rememberUpdatedState(onFinish)
+    val latestIsLaunchedFromBubble = rememberUpdatedState(
+        launchRequest?.isLaunchedFromBubble == true,
+    )
 
     val entryDecorators = listOf(
         rememberSaveableStateHolderNavEntryDecorator(),
@@ -61,6 +64,7 @@ internal fun ConversationNavGraph(
                 ConversationScreen(
                     conversationId = navKey.conversationId,
                     launchGeneration = currentEntryUiState.launchGeneration,
+                    cancelIncomingNotification = !latestIsLaunchedFromBubble.value,
                     onAddPeopleClick = {
                         latestNavigationReducer.value.navigateToAddParticipants(
                             backStack = backStack,

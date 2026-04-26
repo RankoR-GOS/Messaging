@@ -68,6 +68,7 @@ internal fun ConversationScreen(
     modifier: Modifier = Modifier,
     conversationId: String? = null,
     launchGeneration: Int? = null,
+    cancelIncomingNotification: Boolean = true,
     onAddPeopleClick: () -> Unit,
     onConversationDetailsClick: () -> Unit,
     onNavigateBack: () -> Unit,
@@ -177,6 +178,14 @@ internal fun ConversationScreen(
         context = context,
         permissionState = permissionState,
     )
+
+    LifecycleEventEffect(event = Lifecycle.Event.ON_RESUME) {
+        screenModel.onScreenForegrounded(cancelNotification = cancelIncomingNotification)
+    }
+
+    LifecycleEventEffect(event = Lifecycle.Event.ON_PAUSE) {
+        screenModel.onScreenBackgrounded()
+    }
 
     LifecycleEventEffect(event = Lifecycle.Event.ON_STOP) {
         val isRecording = scaffoldUiState.composer.audioRecording.phase ==

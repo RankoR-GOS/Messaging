@@ -21,6 +21,7 @@ import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmen
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
+import com.android.messaging.ui.conversation.v2.focus.delegate.ConversationFocusDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerUiState
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegate
@@ -72,6 +73,7 @@ class ConversationViewModelTest {
             val messageSelectionDelegate = createMessageSelectionDelegateMock()
             val mediaPickerDelegate = createMediaPickerDelegateMock()
             val metadataDelegate = createMetadataDelegateMock()
+            val focusDelegate = createFocusDelegateMock()
             val viewModel = createViewModel(
                 audioRecordingDelegate = audioRecordingDelegate.mock,
                 composerAttachmentsDelegate = composerAttachmentsDelegate.mock,
@@ -80,6 +82,7 @@ class ConversationViewModelTest {
                 messageSelectionDelegate = messageSelectionDelegate.mock,
                 mediaPickerDelegate = mediaPickerDelegate.mock,
                 metadataDelegate = metadataDelegate.mock,
+                focusDelegate = focusDelegate.mock,
             )
 
             advanceUntilIdle()
@@ -91,6 +94,11 @@ class ConversationViewModelTest {
             assertEquals(1, messageSelectionDelegate.bindCalls.size)
             assertEquals(1, mediaPickerDelegate.bindCalls.size)
             assertEquals(1, metadataDelegate.bindCalls.size)
+            assertEquals(1, focusDelegate.bindCalls.size)
+            assertSame(
+                draftDelegate.bindCalls.single().conversationIdFlow,
+                focusDelegate.bindCalls.single().conversationIdFlow,
+            )
             assertSame(
                 draftDelegate.stateFlow,
                 composerAttachmentsDelegate.bindCalls.single().draftStateFlow,
@@ -565,12 +573,14 @@ class ConversationViewModelTest {
             val draftDelegate = createDraftDelegateMock()
             val audioRecordingDelegate = createAudioRecordingDelegateMock()
             val mediaPickerDelegate = createMediaPickerDelegateMock()
+            val focusDelegate = createFocusDelegateMock()
             val viewModelStore = ViewModelStore()
             createViewModelInStore(
                 viewModelStore = viewModelStore,
                 audioRecordingDelegate = audioRecordingDelegate.mock,
                 draftDelegate = draftDelegate.mock,
                 mediaPickerDelegate = mediaPickerDelegate.mock,
+                focusDelegate = focusDelegate.mock,
             )
 
             viewModelStore.clear()
@@ -583,6 +593,47 @@ class ConversationViewModelTest {
             }
             verify(exactly = 1) {
                 mediaPickerDelegate.mock.onScreenCleared()
+            }
+            verify(exactly = 1) {
+                focusDelegate.mock.setScreenFocused(focused = false)
+            }
+        }
+    }
+
+    @Test
+    fun onScreenForegrounded_forwardsCancelNotificationFlagToFocusDelegate() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val focusDelegate = createFocusDelegateMock()
+            val viewModel = createViewModel(focusDelegate = focusDelegate.mock)
+
+            viewModel.onScreenForegrounded(cancelNotification = true)
+            viewModel.onScreenForegrounded(cancelNotification = false)
+
+            verify(exactly = 1) {
+                focusDelegate.mock.setScreenFocused(
+                    focused = true,
+                    cancelNotification = true,
+                )
+            }
+            verify(exactly = 1) {
+                focusDelegate.mock.setScreenFocused(
+                    focused = true,
+                    cancelNotification = false,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun onScreenBackgrounded_unsetsFocusOnDelegate() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val focusDelegate = createFocusDelegateMock()
+            val viewModel = createViewModel(focusDelegate = focusDelegate.mock)
+
+            viewModel.onScreenBackgrounded()
+
+            verify(exactly = 1) {
+                focusDelegate.mock.setScreenFocused(focused = false)
             }
         }
     }
@@ -598,6 +649,7 @@ class ConversationViewModelTest {
             createMessageSelectionDelegateMock().mock,
         mediaPickerDelegate: ConversationMediaPickerDelegate = createMediaPickerDelegateMock().mock,
         metadataDelegate: ConversationMetadataDelegate = createMetadataDelegateMock().mock,
+        focusDelegate: ConversationFocusDelegate = createFocusDelegateMock().mock,
         canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
             every { invoke(participantCount = any()) } returns false
         },
@@ -615,6 +667,7 @@ class ConversationViewModelTest {
             conversationMessageSelectionDelegate = messageSelectionDelegate,
             conversationMediaPickerDelegate = mediaPickerDelegate,
             conversationMetadataDelegate = metadataDelegate,
+            conversationFocusDelegate = focusDelegate,
             conversationComposerUiStateMapper = composerUiStateMapper,
             conversationSubscriptionsRepository = subscriptionsRepository,
             canAddMoreConversationParticipants = canAddMoreConversationParticipants,
@@ -636,6 +689,7 @@ class ConversationViewModelTest {
             createMessageSelectionDelegateMock().mock,
         mediaPickerDelegate: ConversationMediaPickerDelegate = createMediaPickerDelegateMock().mock,
         metadataDelegate: ConversationMetadataDelegate = createMetadataDelegateMock().mock,
+        focusDelegate: ConversationFocusDelegate = createFocusDelegateMock().mock,
         canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
             every { invoke(participantCount = any()) } returns false
         },
@@ -658,6 +712,7 @@ class ConversationViewModelTest {
                         messageSelectionDelegate = messageSelectionDelegate,
                         mediaPickerDelegate = mediaPickerDelegate,
                         metadataDelegate = metadataDelegate,
+                        focusDelegate = focusDelegate,
                         canAddMoreConversationParticipants = canAddMoreConversationParticipants,
                         isDeviceVoiceCapable = isDeviceVoiceCapable,
                         composerUiStateMapper = composerUiStateMapper,
@@ -838,6 +893,23 @@ class ConversationViewModelTest {
         )
     }
 
+    private fun createFocusDelegateMock(): FocusDelegateMock {
+        val bindCalls = mutableListOf<FocusBindCall>()
+        val mock = mockk<ConversationFocusDelegate>(relaxed = true)
+        every {
+            mock.bind(any(), any())
+        } answers {
+            bindCalls += FocusBindCall(
+                scope = firstArg(),
+                conversationIdFlow = secondArg(),
+            )
+        }
+        return FocusDelegateMock(
+            mock = mock,
+            bindCalls = bindCalls,
+        )
+    }
+
     private fun createComposerUiStateMapperMock(
         mappedUiState: ConversationComposerUiState,
     ): ConversationComposerUiStateMapper {
@@ -902,6 +974,16 @@ class ConversationViewModelTest {
         val effectsFlow: MutableSharedFlow<ConversationScreenEffect>,
         val deleteConfirmationVisibleFlow: MutableStateFlow<Boolean>,
         val bindCalls: List<BindCall<ConversationMetadataUiState>>,
+    )
+
+    private data class FocusBindCall(
+        val scope: CoroutineScope,
+        val conversationIdFlow: StateFlow<String?>,
+    )
+
+    private data class FocusDelegateMock(
+        val mock: ConversationFocusDelegate,
+        val bindCalls: List<FocusBindCall>,
     )
 
     private fun createMessageUiModel(messageId: String): ConversationMessageUiModel {

@@ -17,6 +17,7 @@ import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComp
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
+import com.android.messaging.ui.conversation.v2.focus.delegate.ConversationFocusDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegate
@@ -106,6 +107,9 @@ internal interface ConversationScreenModel {
     fun onDeleteConversationClick()
     fun confirmDeleteConversation()
     fun dismissDeleteConversationConfirmation()
+
+    fun onScreenForegrounded(cancelNotification: Boolean)
+    fun onScreenBackgrounded()
 }
 
 @HiltViewModel
@@ -117,6 +121,7 @@ internal class ConversationViewModel @Inject constructor(
     private val conversationMessageSelectionDelegate: ConversationMessageSelectionDelegate,
     private val conversationMediaPickerDelegate: ConversationMediaPickerDelegate,
     private val conversationMetadataDelegate: ConversationMetadataDelegate,
+    private val conversationFocusDelegate: ConversationFocusDelegate,
     private val conversationComposerUiStateMapper: ConversationComposerUiStateMapper,
     private val conversationSubscriptionsRepository: ConversationSubscriptionsRepository,
     private val canAddMoreConversationParticipants: CanAddMoreConversationParticipants,
@@ -288,6 +293,10 @@ internal class ConversationViewModel @Inject constructor(
             conversationIdFlow = conversationIdFlow,
         )
         conversationMetadataDelegate.bind(
+            scope = viewModelScope,
+            conversationIdFlow = conversationIdFlow,
+        )
+        conversationFocusDelegate.bind(
             scope = viewModelScope,
             conversationIdFlow = conversationIdFlow,
         )
@@ -590,7 +599,19 @@ internal class ConversationViewModel @Inject constructor(
         conversationMetadataDelegate.dismissDeleteConversationConfirmation()
     }
 
+    override fun onScreenForegrounded(cancelNotification: Boolean) {
+        conversationFocusDelegate.setScreenFocused(
+            focused = true,
+            cancelNotification = cancelNotification,
+        )
+    }
+
+    override fun onScreenBackgrounded() {
+        conversationFocusDelegate.setScreenFocused(focused = false)
+    }
+
     override fun onCleared() {
+        conversationFocusDelegate.setScreenFocused(focused = false)
         conversationAudioRecordingDelegate.onScreenCleared()
         conversationMediaPickerDelegate.onScreenCleared()
         conversationDraftDelegate.flushDraft()

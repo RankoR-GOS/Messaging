@@ -10,4 +10,5 @@ internal data class ConversationEntryLaunchRequest(
     val draftData: MessageData? = null,
     val startupAttachmentUri: String? = null,
     val startupAttachmentType: String? = null,
+    val isLaunchedFromBubble: Boolean = false,
 )

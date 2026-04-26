@@ -88,6 +88,7 @@ internal class ConversationActivity : ComponentActivity() {
             startupAttachmentType = intent
                 .getStringExtra(UIIntents.UI_INTENT_EXTRA_ATTACHMENT_TYPE)
                 ?.takeUnless(TextUtils::isEmpty),
+            isLaunchedFromBubble = isLaunchedFromBubble,
         )
 
         intent.removeExtra(UIIntents.UI_INTENT_EXTRA_DRAFT_DATA)
