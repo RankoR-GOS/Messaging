@@ -3,8 +3,26 @@ package com.android.messaging.domain.conversation.usecase.draft
 import app.cash.turbine.test
 import com.android.messaging.data.conversation.mapper.ConversationDraftMessageDataMapper
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
+import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
+import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
+import com.android.messaging.data.conversation.model.metadata.ConversationMetadata
+import com.android.messaging.data.conversation.model.send.ConversationSendData
+import com.android.messaging.data.conversation.repository.ConversationsRepository
 import com.android.messaging.datamodel.action.InsertNewMessageAction
+import com.android.messaging.datamodel.data.ConversationParticipantsData
 import com.android.messaging.datamodel.data.MessageData
+import com.android.messaging.datamodel.data.ParticipantData
+import com.android.messaging.domain.conversation.usecase.draft.exception.BlankConversationIdException
+import com.android.messaging.domain.conversation.usecase.draft.exception.ConversationRecipientsNotLoadedException
+import com.android.messaging.domain.conversation.usecase.draft.exception.ConversationSimNotReadyException
+import com.android.messaging.domain.conversation.usecase.draft.exception.DraftDispatchFailedException
+import com.android.messaging.domain.conversation.usecase.draft.exception.EmptyConversationDraftException
+import com.android.messaging.domain.conversation.usecase.draft.exception.MissingSelfPhoneNumberForGroupMmsException
+import com.android.messaging.domain.conversation.usecase.draft.exception.TooManyVideoAttachmentsException
+import com.android.messaging.domain.conversation.usecase.draft.exception.UnknownConversationRecipientException
+import com.android.messaging.domain.conversation.usecase.draft.model.ConversationDraftSendProtocol
+import com.android.messaging.sms.MmsUtils
+import com.android.messaging.util.PhoneUtils
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -12,68 +30,109 @@ import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.unmockkAll
 import io.mockk.verify
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
+private const val CONVERSATION_ID = "conversation-1"
+private const val SELF_SUB_ID = 7
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class SendConversationDraftImplTest {
+
+    private val defaultPhoneUtils = mockk<PhoneUtils>(relaxed = true)
 
     @Before
     fun setUp() {
         unmockkAll()
         mockkStatic(InsertNewMessageAction::class)
+        mockkStatic(PhoneUtils::class)
         every { InsertNewMessageAction.insertNewMessage(any()) } just runs
+        every {
+            InsertNewMessageAction.insertNewMessage(
+                any<MessageData>(),
+                any(),
+            )
+        } just runs
+        every { PhoneUtils.getDefault() } returns defaultPhoneUtils
+        every {
+            defaultPhoneUtils.defaultSmsSubscriptionId
+        } returns ParticipantData.DEFAULT_SELF_SUB_ID
     }
 
-    @Test(expected = BlankConversationIdException::class)
+    @Test
     fun invoke_throwsWhenConversationIdIsBlank() {
-        createUseCase().invoke(
-            conversationId = " ",
-            draft = ConversationDraft(
-                messageText = "Hello",
-            ),
-        )
+        runTest {
+            val exception = collectFailure(
+                createUseCase().invoke(
+                    conversationId = " ",
+                    draft = ConversationDraft(
+                        messageText = "Hello",
+                    ),
+                ),
+            )
+
+            assertEquals(BlankConversationIdException::class.java, exception.javaClass)
+        }
     }
 
-    @Test(expected = EmptyConversationDraftException::class)
+    @Test
     fun invoke_throwsWhenDraftIsEmpty() {
-        createUseCase().invoke(
-            conversationId = "conversation-1",
-            draft = ConversationDraft(),
-        )
+        runTest {
+            val exception = collectFailure(
+                createUseCase().invoke(
+                    conversationId = CONVERSATION_ID,
+                    draft = ConversationDraft(),
+                ),
+            )
+
+            assertEquals(EmptyConversationDraftException::class.java, exception.javaClass)
+        }
     }
 
     @Test
     fun invoke_isColdUntilCollected() {
-        val messageData = createMessageData()
-        val mapper = createConversationDraftMessageDataMapperMock(
-            messageToReturn = messageData,
-        )
+        val repository = createConversationsRepositoryMock()
+        val mapper = createConversationDraftMessageDataMapperMock()
+        val getSendProtocol = createGetSendProtocolMock()
         val useCase = createUseCase(
+            repository = repository,
             mapper = mapper,
+            getSendProtocol = getSendProtocol,
         )
 
         useCase.invoke(
-            conversationId = "conversation-1",
+            conversationId = CONVERSATION_ID,
             draft = ConversationDraft(
                 messageText = "Hello",
             ),
         )
 
         verify(exactly = 0) {
-            mapper.map(any(), any())
+            repository.getConversationSendData(any(), any())
+        }
+        verify(exactly = 0) {
+            getSendProtocol.invoke(any(), any())
+        }
+        verify(exactly = 0) {
+            mapper.map(
+                conversationId = any(),
+                draft = any(),
+                forceMms = any(),
+            )
         }
         verify(exactly = 0) {
             InsertNewMessageAction.insertNewMessage(any())
@@ -84,19 +143,74 @@ class SendConversationDraftImplTest {
     fun invoke_mapsDraftAndSendsMessageOnCollection() {
         runTest {
             val messageData = createMessageData()
+            val sendData = createSendData()
+            val repository = createConversationsRepositoryMock(sendData = sendData)
             val mapper = createConversationDraftMessageDataMapperMock(
                 messageToReturn = messageData,
             )
+            val getSendProtocol = createGetSendProtocolMock(
+                protocol = ConversationDraftSendProtocol.SMS,
+            )
+            val draft = ConversationDraft(
+                messageText = "Hello",
+                selfParticipantId = "self-1",
+            )
+            val useCase = createUseCase(
+                repository = repository,
+                mapper = mapper,
+                getSendProtocol = getSendProtocol,
+                dispatcher = StandardTestDispatcher(scheduler = testScheduler),
+            )
+
+            useCase.invoke(
+                conversationId = CONVERSATION_ID,
+                draft = draft,
+            ).test {
+                assertEquals(Unit, awaitItem())
+                awaitComplete()
+            }
+
+            verify(exactly = 1) {
+                repository.getConversationSendData(
+                    conversationId = CONVERSATION_ID,
+                    requestedSelfParticipantId = "self-1",
+                )
+            }
+            verify(exactly = 1) {
+                getSendProtocol.invoke(
+                    draft = draft,
+                    sendData = sendData,
+                )
+            }
+            verify(exactly = 1) {
+                mapper.map(
+                    conversationId = CONVERSATION_ID,
+                    draft = draft,
+                    forceMms = false,
+                )
+            }
+            verify(exactly = 1) {
+                InsertNewMessageAction.insertNewMessage(messageData)
+            }
+        }
+    }
+
+    @Test
+    fun invoke_forcesMmsWhenProtocolUseCaseReturnsMms() {
+        runTest {
+            val mapper = createConversationDraftMessageDataMapperMock()
             val draft = ConversationDraft(
                 messageText = "Hello",
             )
             val useCase = createUseCase(
                 mapper = mapper,
-                dispatcher = StandardTestDispatcher(scheduler = testScheduler),
+                getSendProtocol = createGetSendProtocolMock(
+                    protocol = ConversationDraftSendProtocol.MMS,
+                ),
             )
 
             useCase.invoke(
-                conversationId = "conversation-1",
+                conversationId = CONVERSATION_ID,
                 draft = draft,
             ).test {
                 assertEquals(Unit, awaitItem())
@@ -105,12 +219,201 @@ class SendConversationDraftImplTest {
 
             verify(exactly = 1) {
                 mapper.map(
-                    conversationId = "conversation-1",
+                    conversationId = CONVERSATION_ID,
                     draft = draft,
+                    forceMms = true,
                 )
             }
+        }
+    }
+
+    @Test
+    fun invoke_throwsWhenConversationSendDataIsMissing() {
+        runTest {
+            val exception = collectFailure(
+                createUseCase(
+                    repository = createConversationsRepositoryMock(sendData = null),
+                ).invoke(
+                    conversationId = CONVERSATION_ID,
+                    draft = ConversationDraft(
+                        messageText = "Hello",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                ConversationRecipientsNotLoadedException::class.java,
+                exception.javaClass,
+            )
+        }
+    }
+
+    @Test
+    fun invoke_throwsWhenParticipantsAreNotLoaded() {
+        runTest {
+            val exception = collectFailure(
+                createUseCase(
+                    repository = createConversationsRepositoryMock(
+                        sendData = createSendData(
+                            participants = createParticipantsData(loaded = false),
+                        ),
+                    ),
+                ).invoke(
+                    conversationId = CONVERSATION_ID,
+                    draft = ConversationDraft(
+                        messageText = "Hello",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                ConversationRecipientsNotLoadedException::class.java,
+                exception.javaClass,
+            )
+        }
+    }
+
+    @Test
+    fun invoke_throwsWhenConversationContainsUnknownRecipient() {
+        runTest {
+            val unknownParticipant = mockk<ParticipantData>()
+            every { unknownParticipant.isUnknownSender } returns true
+            val exception = collectFailure(
+                createUseCase(
+                    repository = createConversationsRepositoryMock(
+                        sendData = createSendData(
+                            participants = createParticipantsData(
+                                participantList = listOf(unknownParticipant),
+                            ),
+                        ),
+                    ),
+                ).invoke(
+                    conversationId = CONVERSATION_ID,
+                    draft = ConversationDraft(
+                        messageText = "Hello",
+                    ),
+                ),
+            )
+
+            assertEquals(UnknownConversationRecipientException::class.java, exception.javaClass)
+        }
+    }
+
+    @Test
+    fun invoke_throwsWhenGroupMmsSelfPhoneNumberIsMissing() {
+        runTest {
+            every { PhoneUtils.get(SELF_SUB_ID) } returns defaultPhoneUtils
+            every { defaultPhoneUtils.getSelfRawNumber(true) } returns null
+
+            val exception = collectFailure(
+                createUseCase(
+                    repository = createConversationsRepositoryMock(
+                        sendData = createSendData(
+                            metadata = createMetadata(isGroupConversation = true),
+                        ),
+                    ),
+                    getSendProtocol = createGetSendProtocolMock(
+                        protocol = ConversationDraftSendProtocol.MMS,
+                    ),
+                ).invoke(
+                    conversationId = CONVERSATION_ID,
+                    draft = ConversationDraft(
+                        messageText = "Hello",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                MissingSelfPhoneNumberForGroupMmsException::class.java,
+                exception.javaClass,
+            )
+        }
+    }
+
+    @Test
+    fun invoke_throwsWhenGroupMmsSelfPhoneNumberCannotBeRead() {
+        runTest {
+            every { PhoneUtils.get(SELF_SUB_ID) } returns defaultPhoneUtils
+            every {
+                defaultPhoneUtils.getSelfRawNumber(true)
+            } throws IllegalStateException("sim not ready")
+
+            val exception = collectFailure(
+                createUseCase(
+                    repository = createConversationsRepositoryMock(
+                        sendData = createSendData(
+                            metadata = createMetadata(isGroupConversation = true),
+                        ),
+                    ),
+                    getSendProtocol = createGetSendProtocolMock(
+                        protocol = ConversationDraftSendProtocol.MMS,
+                    ),
+                ).invoke(
+                    conversationId = CONVERSATION_ID,
+                    draft = ConversationDraft(
+                        messageText = "Hello",
+                    ),
+                ),
+            )
+
+            assertEquals(ConversationSimNotReadyException::class.java, exception.javaClass)
+            assertEquals("sim not ready", exception.cause?.message)
+        }
+    }
+
+    @Test
+    fun invoke_throwsWhenDraftHasTooManyVideoAttachments() {
+        runTest {
+            val videoAttachments = List(MmsUtils.MAX_VIDEO_ATTACHMENT_COUNT + 1) { index ->
+                ConversationDraftAttachment(
+                    contentType = "video/mp4",
+                    contentUri = "content://video/$index",
+                )
+            }.toPersistentList()
+
+            val exception = collectFailure(
+                createUseCase().invoke(
+                    conversationId = CONVERSATION_ID,
+                    draft = ConversationDraft(
+                        attachments = videoAttachments,
+                    ),
+                ),
+            )
+
+            assertEquals(TooManyVideoAttachmentsException::class.java, exception.javaClass)
+        }
+    }
+
+    @Test
+    fun invoke_locksDefaultSelfMessageToSystemDefaultSubscription() {
+        runTest {
+            val messageData = createMessageData()
+            every { defaultPhoneUtils.defaultSmsSubscriptionId } returns SELF_SUB_ID
+            val useCase = createUseCase(
+                mapper = createConversationDraftMessageDataMapperMock(
+                    messageToReturn = messageData,
+                ),
+                repository = createConversationsRepositoryMock(
+                    sendData = createSendData(
+                        selfParticipant = ParticipantData.getSelfParticipant(
+                            ParticipantData.DEFAULT_SELF_SUB_ID,
+                        ),
+                    ),
+                ),
+            )
+
+            useCase.invoke(
+                conversationId = CONVERSATION_ID,
+                draft = ConversationDraft(
+                    messageText = "Hello",
+                ),
+            ).test {
+                assertEquals(Unit, awaitItem())
+                awaitComplete()
+            }
+
             verify(exactly = 1) {
-                InsertNewMessageAction.insertNewMessage(messageData)
+                InsertNewMessageAction.insertNewMessage(messageData, SELF_SUB_ID)
             }
         }
     }
@@ -123,20 +426,17 @@ class SendConversationDraftImplTest {
             )
             val useCase = createUseCase(mapper = mapper)
 
-            var exception: Throwable? = null
-            try {
+            val exception = collectFailure(
                 useCase.invoke(
-                    conversationId = "conversation-1",
+                    conversationId = CONVERSATION_ID,
                     draft = ConversationDraft(
                         messageText = "Hello",
                     ),
-                ).collect()
-            } catch (thrown: Throwable) {
-                exception = thrown
-            }
+                ),
+            )
 
-            assertEquals(DraftDispatchFailedException::class.java, exception?.javaClass)
-            assertEquals("mapper failure", exception?.cause?.message)
+            assertEquals(DraftDispatchFailedException::class.java, exception.javaClass)
+            assertEquals("mapper failure", exception.cause?.message)
         }
     }
 
@@ -148,20 +448,17 @@ class SendConversationDraftImplTest {
             } throws IllegalStateException("sender failure")
             val useCase = createUseCase()
 
-            var exception: Throwable? = null
-            try {
+            val exception = collectFailure(
                 useCase.invoke(
-                    conversationId = "conversation-1",
+                    conversationId = CONVERSATION_ID,
                     draft = ConversationDraft(
                         messageText = "Hello",
                     ),
-                ).collect()
-            } catch (thrown: Throwable) {
-                exception = thrown
-            }
+                ),
+            )
 
-            assertEquals(DraftDispatchFailedException::class.java, exception?.javaClass)
-            assertEquals("sender failure", exception?.cause?.message)
+            assertEquals(DraftDispatchFailedException::class.java, exception.javaClass)
+            assertEquals("sender failure", exception.cause?.message)
         }
     }
 
@@ -174,30 +471,69 @@ class SendConversationDraftImplTest {
             } throws cancellationException
             val useCase = createUseCase()
 
-            var exception: Throwable? = null
-            try {
+            val exception = collectFailure(
                 useCase.invoke(
-                    conversationId = "conversation-1",
+                    conversationId = CONVERSATION_ID,
                     draft = ConversationDraft(
                         messageText = "Hello",
                     ),
-                ).collect()
-            } catch (thrown: Throwable) {
-                exception = thrown
-            }
+                ),
+            )
 
-            assertSame(cancellationException, exception)
+            assertEquals(CancellationException::class.java, exception.javaClass)
+            assertEquals(cancellationException.message, exception.message)
         }
     }
 
+    private suspend fun collectFailure(flow: Flow<Unit>): Throwable {
+        try {
+            flow.collect()
+        } catch (exception: Throwable) {
+            return exception
+        }
+
+        fail("Expected flow collection to fail.")
+        error("Unreachable")
+    }
+
     private fun createUseCase(
+        repository: ConversationsRepository = createConversationsRepositoryMock(),
         mapper: ConversationDraftMessageDataMapper = createConversationDraftMessageDataMapperMock(),
+        getSendProtocol: GetConversationDraftSendProtocol = createGetSendProtocolMock(),
         dispatcher: TestDispatcher = UnconfinedTestDispatcher(),
     ): SendConversationDraftImpl {
         return SendConversationDraftImpl(
+            conversationsRepository = repository,
+            getConversationDraftSendProtocol = getSendProtocol,
             conversationDraftMessageDataMapper = mapper,
-            defaultDispatcher = dispatcher,
+            ioDispatcher = dispatcher,
         )
+    }
+
+    private fun createConversationsRepositoryMock(
+        sendData: ConversationSendData? = createSendData(),
+    ): ConversationsRepository {
+        val repository = mockk<ConversationsRepository>(relaxed = true)
+        every {
+            repository.getConversationSendData(
+                conversationId = any(),
+                requestedSelfParticipantId = any(),
+            )
+        } returns sendData
+        return repository
+    }
+
+    private fun createGetSendProtocolMock(
+        protocol: ConversationDraftSendProtocol = ConversationDraftSendProtocol.SMS,
+    ): GetConversationDraftSendProtocol {
+        val getSendProtocol = mockk<GetConversationDraftSendProtocol>()
+        every {
+            getSendProtocol.invoke(
+                draft = any(),
+                sendData = any(),
+            )
+        } returns protocol
+        return getSendProtocol
     }
 
     private fun createConversationDraftMessageDataMapperMock(
@@ -206,7 +542,11 @@ class SendConversationDraftImplTest {
     ): ConversationDraftMessageDataMapper {
         val mapper = mockk<ConversationDraftMessageDataMapper>()
         every {
-            mapper.map(any(), any())
+            mapper.map(
+                conversationId = any(),
+                draft = any(),
+                forceMms = any(),
+            )
         } answers {
             failure?.let { exception ->
                 throw exception
@@ -216,9 +556,50 @@ class SendConversationDraftImplTest {
         return mapper
     }
 
+    private fun createSendData(
+        metadata: ConversationMetadata = createMetadata(),
+        participants: ConversationParticipantsData = createParticipantsData(),
+        selfParticipant: ParticipantData? = ParticipantData.getSelfParticipant(SELF_SUB_ID),
+    ): ConversationSendData {
+        return ConversationSendData(
+            metadata = metadata,
+            participants = participants,
+            selfParticipant = selfParticipant,
+        )
+    }
+
+    private fun createMetadata(
+        isGroupConversation: Boolean = false,
+        includeEmailAddress: Boolean = false,
+    ): ConversationMetadata {
+        return ConversationMetadata(
+            conversationName = "Conversation",
+            selfParticipantId = "self-1",
+            isGroupConversation = isGroupConversation,
+            includeEmailAddress = includeEmailAddress,
+            participantCount = 1,
+            otherParticipantDisplayDestination = "Alice",
+            otherParticipantNormalizedDestination = "123",
+            otherParticipantContactLookupKey = null,
+            otherParticipantPhotoUri = null,
+            isArchived = false,
+            composerAvailability = ConversationComposerAvailability.editable(),
+        )
+    }
+
+    private fun createParticipantsData(
+        loaded: Boolean = true,
+        participantList: List<ParticipantData> = emptyList(),
+    ): ConversationParticipantsData {
+        val participants = mockk<ConversationParticipantsData>()
+        every { participants.isLoaded } returns loaded
+        every { participants.iterator() } returns participantList.toMutableList().iterator()
+        return participants
+    }
+
     private fun createMessageData(): MessageData {
         return MessageData.createDraftSmsMessage(
-            "conversation-1",
+            CONVERSATION_ID,
             "self-1",
             "Hello",
         )
