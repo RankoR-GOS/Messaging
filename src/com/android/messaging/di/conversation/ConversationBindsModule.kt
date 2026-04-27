@@ -24,6 +24,8 @@ import com.android.messaging.domain.conversation.usecase.action.CheckConversatio
 import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirementsImpl
 import com.android.messaging.domain.conversation.usecase.action.CreateDefaultSmsRoleRequest
 import com.android.messaging.domain.conversation.usecase.action.CreateDefaultSmsRoleRequestImpl
+import com.android.messaging.domain.conversation.usecase.draft.GetConversationDraftSendProtocol
+import com.android.messaging.domain.conversation.usecase.draft.GetConversationDraftSendProtocolImpl
 import com.android.messaging.domain.conversation.usecase.draft.SendConversationDraft
 import com.android.messaging.domain.conversation.usecase.draft.SendConversationDraftImpl
 import com.android.messaging.domain.conversation.usecase.forward.CreateForwardedMessage
@@ -139,6 +141,12 @@ internal abstract class ConversationBindsModule {
     abstract fun bindCreateForwardedMessage(
         impl: CreateForwardedMessageImpl,
     ): CreateForwardedMessage
+
+    @Binds
+    @Reusable
+    abstract fun bindGetConversationDraftSendProtocol(
+        impl: GetConversationDraftSendProtocolImpl,
+    ): GetConversationDraftSendProtocol
 
     @Binds
     @Reusable

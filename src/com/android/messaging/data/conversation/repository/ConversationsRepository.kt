@@ -232,6 +232,9 @@ internal class ConversationsRepositoryImpl @Inject constructor(
                         ConversationColumns.CURRENT_SELF_ID,
                     ),
                     isGroupConversation = participantCount > 1,
+                    includeEmailAddress = cursor.getInt(
+                        ConversationColumns.INCLUDE_EMAIL_ADDRESS,
+                    ) == 1,
                     participantCount = participantCount,
                     otherParticipantDisplayDestination = otherParticipant
                         ?.displayDestination

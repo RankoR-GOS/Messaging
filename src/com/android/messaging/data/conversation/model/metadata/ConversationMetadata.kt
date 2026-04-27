@@ -4,6 +4,7 @@ internal data class ConversationMetadata(
     val conversationName: String,
     val selfParticipantId: String,
     val isGroupConversation: Boolean,
+    val includeEmailAddress: Boolean,
     val participantCount: Int,
     val otherParticipantDisplayDestination: String?,
     val otherParticipantNormalizedDestination: String?,
