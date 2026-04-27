@@ -12,6 +12,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -341,6 +345,9 @@ private fun ConversationScreenScaffold(
     onExternalUriClick: (String) -> Unit,
 ) {
     var isSimSheetVisible by rememberSaveable { mutableStateOf(value = false) }
+    val snackbarHostState = remember {
+        SnackbarHostState()
+    }
 
     val hasSimSelector = uiState.composer.simSelector.isAvailable
     LaunchedEffect(hasSimSelector) {
@@ -351,6 +358,9 @@ private fun ConversationScreenScaffold(
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        },
         topBar = {
             when {
                 uiState.selection.isSelectionMode -> {
@@ -416,6 +426,7 @@ private fun ConversationScreenScaffold(
             modifier = Modifier.fillMaxSize(),
             conversationId = conversationId,
             uiState = uiState,
+            snackbarHostState = snackbarHostState,
             contentPadding = contentPadding,
             pendingScrollPosition = pendingScrollPosition,
             onPendingScrollPositionConsumed = onPendingScrollPositionConsumed,
@@ -489,6 +500,7 @@ private fun ConversationScreenContent(
     modifier: Modifier = Modifier,
     conversationId: String?,
     uiState: ConversationScreenScaffoldUiState,
+    snackbarHostState: SnackbarHostState,
     contentPadding: PaddingValues,
     pendingScrollPosition: Int?,
     onPendingScrollPositionConsumed: () -> Unit,
@@ -520,6 +532,7 @@ private fun ConversationScreenContent(
                 conversationId = conversationId,
                 messages = messagesState.messages,
                 listState = messagesListState,
+                snackbarHostState = snackbarHostState,
             )
 
             ScrollToTargetMessage(
@@ -592,9 +605,12 @@ private fun AutoScrollToLatestMessage(
     conversationId: String?,
     messages: ImmutableList<ConversationMessageUiModel>,
     listState: LazyListState,
+    snackbarHostState: SnackbarHostState,
 ) {
     val latestMessage = messages.lastOrNull()
     val latestMessageId = latestMessage?.messageId
+    val newMessageText = stringResource(id = R.string.in_conversation_notify_new_message_text)
+    val viewActionLabel = stringResource(id = R.string.in_conversation_notify_new_message_action)
 
     var previousLatestMessageId by remember(conversationId) {
         mutableStateOf(value = latestMessageId)
@@ -617,6 +633,9 @@ private fun AutoScrollToLatestMessage(
             isScrolledToLatestMessage(listState = listState)
         }.collect { isScrolledToLatestMessage ->
             wasScrolledToLatestMessage = isScrolledToLatestMessage
+            if (isScrolledToLatestMessage) {
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
         }
     }
 
@@ -635,6 +654,21 @@ private fun AutoScrollToLatestMessage(
         )
 
         previousLatestMessageId = autoScrollDecision.updatedLatestMessageId
+
+        if (autoScrollDecision.shouldShowNewMessageSnackbar) {
+            val snackbarResult = snackbarHostState.showSnackbar(
+                message = newMessageText,
+                actionLabel = viewActionLabel,
+                duration = SnackbarDuration.Indefinite,
+            )
+
+            if (snackbarResult == SnackbarResult.ActionPerformed) {
+                listState.animateScrollToItem(index = 0)
+            }
+
+            return@LaunchedEffect
+        }
+
         if (!autoScrollDecision.shouldScrollToLatestMessage) {
             return@LaunchedEffect
         }

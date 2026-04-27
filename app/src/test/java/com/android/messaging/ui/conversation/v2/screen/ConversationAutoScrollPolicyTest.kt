@@ -20,6 +20,7 @@ class ConversationAutoScrollPolicyTest {
         assertEquals(
             ConversationAutoScrollDecision(
                 shouldScrollToLatestMessage = false,
+                shouldShowNewMessageSnackbar = false,
                 updatedLatestMessageId = "message-1",
             ),
             decision,
@@ -41,6 +42,7 @@ class ConversationAutoScrollPolicyTest {
         assertEquals(
             ConversationAutoScrollDecision(
                 shouldScrollToLatestMessage = false,
+                shouldShowNewMessageSnackbar = false,
                 updatedLatestMessageId = null,
             ),
             decision,
@@ -48,7 +50,7 @@ class ConversationAutoScrollPolicyTest {
     }
 
     @Test
-    fun evaluateConversationAutoScroll_doesNotScrollForIncomingMessageWhenUserIsAwayFromLatest() {
+    fun evaluateConversationAutoScroll_showsSnackbarForIncomingMessageWhenUserIsAwayFromLatest() {
         val decision = evaluateConversationAutoScroll(
             input = ConversationAutoScrollInput(
                 previousLatestMessageId = "message-1",
@@ -62,6 +64,7 @@ class ConversationAutoScrollPolicyTest {
         assertEquals(
             ConversationAutoScrollDecision(
                 shouldScrollToLatestMessage = false,
+                shouldShowNewMessageSnackbar = true,
                 updatedLatestMessageId = "message-2",
             ),
             decision,
@@ -83,6 +86,7 @@ class ConversationAutoScrollPolicyTest {
         assertEquals(
             ConversationAutoScrollDecision(
                 shouldScrollToLatestMessage = true,
+                shouldShowNewMessageSnackbar = false,
                 updatedLatestMessageId = "message-2",
             ),
             decision,
@@ -104,6 +108,7 @@ class ConversationAutoScrollPolicyTest {
         assertEquals(
             ConversationAutoScrollDecision(
                 shouldScrollToLatestMessage = true,
+                shouldShowNewMessageSnackbar = false,
                 updatedLatestMessageId = "message-2",
             ),
             decision,

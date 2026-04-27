@@ -10,6 +10,7 @@ internal data class ConversationAutoScrollInput(
 
 internal data class ConversationAutoScrollDecision(
     val shouldScrollToLatestMessage: Boolean,
+    val shouldShowNewMessageSnackbar: Boolean,
     val updatedLatestMessageId: String?,
 )
 
@@ -19,23 +20,27 @@ internal fun evaluateConversationAutoScroll(
     return when {
         input.latestMessageId == input.previousLatestMessageId -> ConversationAutoScrollDecision(
             shouldScrollToLatestMessage = false,
+            shouldShowNewMessageSnackbar = false,
             updatedLatestMessageId = input.latestMessageId,
         )
 
         !input.hasLatestMessage -> ConversationAutoScrollDecision(
             shouldScrollToLatestMessage = false,
+            shouldShowNewMessageSnackbar = false,
             updatedLatestMessageId = input.latestMessageId,
         )
 
         input.isLatestMessageIncoming && !input.wasScrolledToLatestMessage -> {
             ConversationAutoScrollDecision(
                 shouldScrollToLatestMessage = false,
+                shouldShowNewMessageSnackbar = true,
                 updatedLatestMessageId = input.latestMessageId,
             )
         }
 
         else -> ConversationAutoScrollDecision(
             shouldScrollToLatestMessage = true,
+            shouldShowNewMessageSnackbar = false,
             updatedLatestMessageId = input.latestMessageId,
         )
     }
