@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.telephony
 
 import com.android.messaging.util.PhoneUtils
 import javax.inject.Inject

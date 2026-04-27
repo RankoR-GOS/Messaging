@@ -2,7 +2,7 @@ package com.android.messaging.ui.conversation.v2.recipientpicker
 
 import androidx.lifecycle.SavedStateHandle
 import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
-import com.android.messaging.data.conversation.repository.ConversationRecipientsPage
+import com.android.messaging.data.conversation.model.recipient.ConversationRecipientsPage
 import com.android.messaging.data.conversation.repository.ConversationRecipientsRepository
 import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGranted
 import com.android.messaging.testutil.MainDispatcherRule

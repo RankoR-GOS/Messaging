@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.forward
 
 import android.content.Context
 import com.android.messaging.R

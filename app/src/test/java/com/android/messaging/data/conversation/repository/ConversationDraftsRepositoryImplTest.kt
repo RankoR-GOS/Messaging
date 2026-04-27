@@ -16,8 +16,10 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.slot
+import io.mockk.unmockkAll
 import io.mockk.unmockkConstructor
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,21 +38,26 @@ class ConversationDraftsRepositoryImplTest {
 
     private lateinit var contentResolver: ContentResolver
     private lateinit var conversationDraftStore: ConversationDraftStore
-    private lateinit var conversationMetadataNotifier: ConversationMetadataNotifier
 
     @Before
     fun setUp() {
         contentResolver = mockk()
         conversationDraftStore = mockk()
-        conversationMetadataNotifier = mockk()
+        mockkStatic(MessagingContentProvider::class)
         every {
-            conversationMetadataNotifier.notifyConversationMetadataChanged(any())
+            MessagingContentProvider.buildConversationMetadataUri(any())
+        } answers {
+            Uri.parse("content://conversation/${firstArg<String>()}/metadata")
+        }
+        every {
+            MessagingContentProvider.notifyConversationMetadataChanged(any())
         } just runs
     }
 
     @After
     fun tearDown() {
         unmockkConstructor(MediaMetadataRetrieverWrapper::class)
+        unmockkAll()
     }
 
     @Test
@@ -61,10 +68,8 @@ class ConversationDraftsRepositoryImplTest {
             val repository = createRepository()
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
-            } returns ConversationDraftConversation(
-                selfParticipantId = "self-1",
-            )
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
+            } returns "self-1"
             every {
                 conversationDraftStore.readDraftMessage(
                     conversationId = CONVERSATION_ID,
@@ -111,10 +116,8 @@ class ConversationDraftsRepositoryImplTest {
             )
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
-            } returns ConversationDraftConversation(
-                selfParticipantId = "self-1",
-            )
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
+            } returns "self-1"
             every {
                 conversationDraftStore.readDraftMessage(
                     conversationId = CONVERSATION_ID,
@@ -154,7 +157,7 @@ class ConversationDraftsRepositoryImplTest {
             val repository = createRepository()
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
             } returns null
             stubObserverRegistration(
                 expectedUri = expectedUri,
@@ -176,7 +179,7 @@ class ConversationDraftsRepositoryImplTest {
             val repository = createRepository()
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
             } throws IllegalStateException("boom")
             stubObserverRegistration(
                 expectedUri = expectedUri,
@@ -211,10 +214,8 @@ class ConversationDraftsRepositoryImplTest {
             } just runs
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
-            } returns ConversationDraftConversation(
-                selfParticipantId = "self-1",
-            )
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
+            } returns "self-1"
             every {
                 conversationDraftStore.readDraftMessage(
                     conversationId = CONVERSATION_ID,
@@ -250,10 +251,8 @@ class ConversationDraftsRepositoryImplTest {
             mockkConstructor(MediaMetadataRetrieverWrapper::class)
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
-            } returns ConversationDraftConversation(
-                selfParticipantId = "self-1",
-            )
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
+            } returns "self-1"
             every {
                 conversationDraftStore.readDraftMessage(
                     conversationId = CONVERSATION_ID,
@@ -283,10 +282,8 @@ class ConversationDraftsRepositoryImplTest {
             val repository = createRepository()
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
-            } returns ConversationDraftConversation(
-                selfParticipantId = "self-1",
-            )
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
+            } returns "self-1"
             every {
                 conversationDraftStore.updateDraftMessage(
                     conversationId = CONVERSATION_ID,
@@ -305,7 +302,7 @@ class ConversationDraftsRepositoryImplTest {
             assertEquals("self-1", updatedMessage.captured.selfId)
             assertEquals("self-1", updatedMessage.captured.participantId)
             verify(exactly = 1) {
-                conversationMetadataNotifier.notifyConversationMetadataChanged(CONVERSATION_ID)
+                MessagingContentProvider.notifyConversationMetadataChanged(CONVERSATION_ID)
             }
         }
     }
@@ -316,7 +313,7 @@ class ConversationDraftsRepositoryImplTest {
             val repository = createRepository()
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
             } returns null
 
             repository.saveDraft(
@@ -331,7 +328,7 @@ class ConversationDraftsRepositoryImplTest {
                 conversationDraftStore.updateDraftMessage(any(), any())
             }
             verify(exactly = 0) {
-                conversationMetadataNotifier.notifyConversationMetadataChanged(any())
+                MessagingContentProvider.notifyConversationMetadataChanged(any())
             }
         }
     }
@@ -343,10 +340,8 @@ class ConversationDraftsRepositoryImplTest {
             val repository = createRepository()
 
             every {
-                conversationDraftStore.getConversation(CONVERSATION_ID)
-            } returns ConversationDraftConversation(
-                selfParticipantId = "self-1",
-            )
+                conversationDraftStore.getSelfParticipantId(CONVERSATION_ID)
+            } returns "self-1"
             every {
                 conversationDraftStore.updateDraftMessage(
                     conversationId = CONVERSATION_ID,
@@ -373,7 +368,6 @@ class ConversationDraftsRepositoryImplTest {
             conversationDraftMessageDataMapper = ConversationDraftMessageDataMapperImpl(),
             conversationMessageDataDraftMapper = ConversationMessageDataDraftMapperImpl(),
             conversationDraftStore = conversationDraftStore,
-            conversationMetadataNotifier = conversationMetadataNotifier,
             ioDispatcher = UnconfinedTestDispatcher(),
         )
     }

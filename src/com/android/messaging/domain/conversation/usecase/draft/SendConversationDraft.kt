@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.draft
 
 import com.android.messaging.data.conversation.mapper.ConversationDraftMessageDataMapper
 import com.android.messaging.data.conversation.model.draft.ConversationDraft

@@ -3,6 +3,7 @@ package com.android.messaging.data.conversation.repository
 import android.content.ContentResolver
 import android.database.ContentObserver
 import android.net.Uri
+import com.android.messaging.data.conversation.model.message.ConversationMessageDetailsData
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.model.metadata.ConversationMetadata
 import com.android.messaging.datamodel.DatabaseHelper.ConversationColumns
@@ -55,12 +56,6 @@ internal interface ConversationsRepository {
 
     fun deleteConversation(conversationId: String)
 }
-
-internal data class ConversationMessageDetailsData(
-    val message: ConversationMessageData,
-    val participants: ConversationParticipantsData,
-    val selfParticipant: ParticipantData?,
-)
 
 internal class ConversationsRepositoryImpl @Inject constructor(
     private val contentResolver: ContentResolver,

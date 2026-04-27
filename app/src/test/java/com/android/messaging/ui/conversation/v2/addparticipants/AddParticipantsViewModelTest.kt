@@ -4,13 +4,13 @@ import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
+import com.android.messaging.data.conversation.model.recipient.ConversationRecipientsPage
 import com.android.messaging.data.conversation.repository.ConversationParticipantsRepository
-import com.android.messaging.data.conversation.repository.ConversationRecipientsPage
 import com.android.messaging.data.conversation.repository.ConversationRecipientsRepository
 import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGranted
-import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceeded
-import com.android.messaging.domain.conversation.usecase.ResolveConversationId
-import com.android.messaging.domain.conversation.usecase.model.ResolveConversationIdResult
+import com.android.messaging.domain.conversation.usecase.participant.IsConversationRecipientLimitExceeded
+import com.android.messaging.domain.conversation.usecase.participant.ResolveConversationId
+import com.android.messaging.domain.conversation.usecase.participant.model.ResolveConversationIdResult
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.addparticipants.model.AddParticipantsEffect
 import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegateImpl

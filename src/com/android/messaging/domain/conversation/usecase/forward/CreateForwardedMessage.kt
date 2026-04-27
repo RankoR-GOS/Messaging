@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.forward
 
 import com.android.messaging.data.conversation.repository.ConversationsRepository
 import com.android.messaging.datamodel.data.MessageData

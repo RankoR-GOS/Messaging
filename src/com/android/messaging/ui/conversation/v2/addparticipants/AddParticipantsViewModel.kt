@@ -7,9 +7,9 @@ import com.android.messaging.R
 import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
 import com.android.messaging.data.conversation.repository.ConversationParticipantsRepository
 import com.android.messaging.di.core.MainDispatcher
-import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceeded
-import com.android.messaging.domain.conversation.usecase.ResolveConversationId
-import com.android.messaging.domain.conversation.usecase.model.ResolveConversationIdResult
+import com.android.messaging.domain.conversation.usecase.participant.IsConversationRecipientLimitExceeded
+import com.android.messaging.domain.conversation.usecase.participant.ResolveConversationId
+import com.android.messaging.domain.conversation.usecase.participant.model.ResolveConversationIdResult
 import com.android.messaging.ui.conversation.v2.addparticipants.model.AddParticipantsEffect
 import com.android.messaging.ui.conversation.v2.addparticipants.model.AddParticipantsUiState
 import com.android.messaging.ui.conversation.v2.recipientpicker.delegate.RecipientPickerDelegate

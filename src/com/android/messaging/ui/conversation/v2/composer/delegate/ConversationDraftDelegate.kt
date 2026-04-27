@@ -8,9 +8,9 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraftPend
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepository
 import com.android.messaging.di.core.ApplicationCoroutineScope
 import com.android.messaging.di.core.DefaultDispatcher
-import com.android.messaging.domain.conversation.usecase.CheckConversationActionRequirements
-import com.android.messaging.domain.conversation.usecase.ConversationActionRequirementsResult
-import com.android.messaging.domain.conversation.usecase.SendConversationDraft
+import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirements
+import com.android.messaging.domain.conversation.usecase.action.ConversationActionRequirementsResult
+import com.android.messaging.domain.conversation.usecase.draft.SendConversationDraft
 import com.android.messaging.ui.conversation.v2.common.ConversationScreenDelegate
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect

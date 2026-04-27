@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.action
 
 internal sealed interface ConversationActionRequirementsResult {
     data object Ready : ConversationActionRequirementsResult

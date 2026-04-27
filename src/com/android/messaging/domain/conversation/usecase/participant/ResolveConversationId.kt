@@ -1,10 +1,10 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.participant
 
 import com.android.messaging.datamodel.action.ActionMonitor
 import com.android.messaging.datamodel.action.GetOrCreateConversationAction
 import com.android.messaging.datamodel.data.ParticipantData
 import com.android.messaging.di.core.MainDispatcher
-import com.android.messaging.domain.conversation.usecase.model.ResolveConversationIdResult
+import com.android.messaging.domain.conversation.usecase.participant.model.ResolveConversationIdResult
 import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineDispatcher

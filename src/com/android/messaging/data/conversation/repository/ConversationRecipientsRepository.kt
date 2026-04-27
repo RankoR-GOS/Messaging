@@ -9,6 +9,7 @@ import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Directory
 import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
+import com.android.messaging.data.conversation.model.recipient.ConversationRecipientsPage
 import com.android.messaging.di.core.IoDispatcher
 import com.android.messaging.util.core.extension.typedFlow
 import javax.inject.Inject

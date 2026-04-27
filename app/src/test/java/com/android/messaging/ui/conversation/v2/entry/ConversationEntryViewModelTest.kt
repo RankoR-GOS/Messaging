@@ -6,9 +6,9 @@ import com.android.messaging.R
 import com.android.messaging.data.conversation.mapper.ConversationMessageDataDraftMapper
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.datamodel.data.MessageData
-import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceeded
-import com.android.messaging.domain.conversation.usecase.ResolveConversationId
-import com.android.messaging.domain.conversation.usecase.model.ResolveConversationIdResult
+import com.android.messaging.domain.conversation.usecase.participant.IsConversationRecipientLimitExceeded
+import com.android.messaging.domain.conversation.usecase.participant.ResolveConversationId
+import com.android.messaging.domain.conversation.usecase.participant.model.ResolveConversationIdResult
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryEffect
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryLaunchRequest

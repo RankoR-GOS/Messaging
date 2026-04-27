@@ -40,7 +40,6 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
     private val conversationDraftMessageDataMapper: ConversationDraftMessageDataMapper,
     private val conversationMessageDataDraftMapper: ConversationMessageDataDraftMapper,
     private val conversationDraftStore: ConversationDraftStore,
-    private val conversationMetadataNotifier: ConversationMetadataNotifier,
     @param:IoDispatcher
     private val ioDispatcher: CoroutineDispatcher,
 ) : ConversationDraftsRepository {
@@ -82,7 +81,7 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
                 message = boundMessage,
             )
 
-            conversationMetadataNotifier.notifyConversationMetadataChanged(
+            notifyConversationMetadataChanged(
                 conversationId = conversationId,
             )
         }
@@ -105,30 +104,34 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun notifyConversationMetadataChanged(conversationId: String) {
+        MessagingContentProvider.notifyConversationMetadataChanged(conversationId)
+    }
+
     private fun loadConversationDraft(conversationId: String): ConversationDraft {
-        val conversation = conversationDraftStore.getConversation(
+        val selfParticipantId = conversationDraftStore.getSelfParticipantId(
             conversationId = conversationId,
         ) ?: return ConversationDraft()
 
         val draftMessage = conversationDraftStore.readDraftMessage(
             conversationId = conversationId,
-            selfParticipantId = conversation.selfParticipantId,
+            selfParticipantId = selfParticipantId,
         )
 
         return createConversationDraft(
-            conversation = conversation,
+            selfParticipantId = selfParticipantId,
             draftMessage = draftMessage,
         )
     }
 
     private fun createConversationDraft(
-        conversation: ConversationDraftConversation,
+        selfParticipantId: String,
         draftMessage: MessageData?,
     ): ConversationDraft {
         return when (draftMessage) {
             null -> {
                 ConversationDraft(
-                    selfParticipantId = conversation.selfParticipantId,
+                    selfParticipantId = selfParticipantId,
                 )
             }
 
@@ -136,7 +139,7 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
                 resolveDraftAttachmentMetadata(
                     draft = conversationMessageDataDraftMapper.map(
                         messageData = draftMessage,
-                        fallbackSelfParticipantId = conversation.selfParticipantId,
+                        fallbackSelfParticipantId = selfParticipantId,
                     ),
                 )
             }
@@ -215,7 +218,7 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
             return message
         }
 
-        val conversation = conversationDraftStore.getConversation(
+        val selfParticipantId = conversationDraftStore.getSelfParticipantId(
             conversationId = conversationId,
         ) ?: run {
             LogUtil.w(
@@ -225,7 +228,6 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
             return null
         }
 
-        val selfParticipantId = conversation.selfParticipantId
         if (message.selfId == null) {
             message.bindSelfId(selfParticipantId)
         }

@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.telephony
 
 import android.telephony.PhoneNumberUtils
 import android.telephony.TelephonyManager

@@ -1,9 +1,9 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.participant
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.messaging.datamodel.action.GetOrCreateConversationAction
 import com.android.messaging.datamodel.data.ParticipantData
-import com.android.messaging.domain.conversation.usecase.model.ResolveConversationIdResult
+import com.android.messaging.domain.conversation.usecase.participant.model.ResolveConversationIdResult
 import com.android.messaging.testutil.MainDispatcherRule
 import io.mockk.every
 import io.mockk.just

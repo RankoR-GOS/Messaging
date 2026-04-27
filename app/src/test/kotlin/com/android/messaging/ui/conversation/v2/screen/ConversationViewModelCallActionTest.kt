@@ -4,10 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.repository.ConversationSubscriptionsRepository
-import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
-import com.android.messaging.domain.conversation.usecase.CreateDefaultSmsRoleRequest
-import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
-import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumber
+import com.android.messaging.domain.conversation.usecase.action.CreateDefaultSmsRoleRequest
+import com.android.messaging.domain.conversation.usecase.participant.CanAddMoreConversationParticipants
+import com.android.messaging.domain.conversation.usecase.telephony.IsDeviceVoiceCapable
+import com.android.messaging.domain.conversation.usecase.telephony.IsEmergencyPhoneNumber
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.audio.delegate.ConversationAudioRecordingDelegate
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState

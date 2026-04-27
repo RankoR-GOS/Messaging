@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.participant
 
 import com.android.messaging.datamodel.data.ContactPickerData
 import io.mockk.every

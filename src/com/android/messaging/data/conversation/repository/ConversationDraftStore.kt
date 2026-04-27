@@ -6,12 +6,8 @@ import com.android.messaging.datamodel.data.ConversationListItemData
 import com.android.messaging.datamodel.data.MessageData
 import javax.inject.Inject
 
-internal data class ConversationDraftConversation(
-    val selfParticipantId: String,
-)
-
 internal interface ConversationDraftStore {
-    fun getConversation(conversationId: String): ConversationDraftConversation?
+    fun getSelfParticipantId(conversationId: String): String?
 
     fun readDraftMessage(
         conversationId: String,
@@ -26,15 +22,13 @@ internal interface ConversationDraftStore {
 
 internal class ConversationDraftStoreImpl @Inject constructor() : ConversationDraftStore {
 
-    override fun getConversation(conversationId: String): ConversationDraftConversation? {
+    override fun getSelfParticipantId(conversationId: String): String? {
         val conversation = ConversationListItemData.getExistingConversation(
             DataModel.get().database,
             conversationId,
         ) ?: return null
 
-        return ConversationDraftConversation(
-            selfParticipantId = conversation.selfId.orEmpty(),
-        )
+        return conversation.selfId.orEmpty()
     }
 
     override fun readDraftMessage(

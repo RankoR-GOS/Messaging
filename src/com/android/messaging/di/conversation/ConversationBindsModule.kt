@@ -8,8 +8,6 @@ import com.android.messaging.data.conversation.repository.ConversationDraftStore
 import com.android.messaging.data.conversation.repository.ConversationDraftStoreImpl
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepository
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepositoryImpl
-import com.android.messaging.data.conversation.repository.ConversationMetadataNotifier
-import com.android.messaging.data.conversation.repository.ConversationMetadataNotifierImpl
 import com.android.messaging.data.conversation.repository.ConversationParticipantsRepository
 import com.android.messaging.data.conversation.repository.ConversationParticipantsRepositoryImpl
 import com.android.messaging.data.conversation.repository.ConversationRecipientsRepository
@@ -22,26 +20,26 @@ import com.android.messaging.data.media.repository.ConversationMediaRepository
 import com.android.messaging.data.media.repository.ConversationMediaRepositoryImpl
 import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGranted
 import com.android.messaging.domain.contacts.usecase.IsReadContactsPermissionGrantedImpl
-import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
-import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipantsImpl
-import com.android.messaging.domain.conversation.usecase.CheckConversationActionRequirements
-import com.android.messaging.domain.conversation.usecase.CheckConversationActionRequirementsImpl
-import com.android.messaging.domain.conversation.usecase.CreateDefaultSmsRoleRequest
-import com.android.messaging.domain.conversation.usecase.CreateDefaultSmsRoleRequestImpl
-import com.android.messaging.domain.conversation.usecase.CreateForwardedMessage
-import com.android.messaging.domain.conversation.usecase.CreateForwardedMessageImpl
-import com.android.messaging.domain.conversation.usecase.ForwardedMessageSubjectFormatter
-import com.android.messaging.domain.conversation.usecase.ForwardedMessageSubjectFormatterImpl
-import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceeded
-import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceededImpl
-import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
-import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapableImpl
-import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumber
-import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumberImpl
-import com.android.messaging.domain.conversation.usecase.ResolveConversationId
-import com.android.messaging.domain.conversation.usecase.ResolveConversationIdImpl
-import com.android.messaging.domain.conversation.usecase.SendConversationDraft
-import com.android.messaging.domain.conversation.usecase.SendConversationDraftImpl
+import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirements
+import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirementsImpl
+import com.android.messaging.domain.conversation.usecase.action.CreateDefaultSmsRoleRequest
+import com.android.messaging.domain.conversation.usecase.action.CreateDefaultSmsRoleRequestImpl
+import com.android.messaging.domain.conversation.usecase.draft.SendConversationDraft
+import com.android.messaging.domain.conversation.usecase.draft.SendConversationDraftImpl
+import com.android.messaging.domain.conversation.usecase.forward.CreateForwardedMessage
+import com.android.messaging.domain.conversation.usecase.forward.CreateForwardedMessageImpl
+import com.android.messaging.domain.conversation.usecase.forward.ForwardedMessageSubjectFormatter
+import com.android.messaging.domain.conversation.usecase.forward.ForwardedMessageSubjectFormatterImpl
+import com.android.messaging.domain.conversation.usecase.participant.CanAddMoreConversationParticipants
+import com.android.messaging.domain.conversation.usecase.participant.CanAddMoreConversationParticipantsImpl
+import com.android.messaging.domain.conversation.usecase.participant.IsConversationRecipientLimitExceeded
+import com.android.messaging.domain.conversation.usecase.participant.IsConversationRecipientLimitExceededImpl
+import com.android.messaging.domain.conversation.usecase.participant.ResolveConversationId
+import com.android.messaging.domain.conversation.usecase.participant.ResolveConversationIdImpl
+import com.android.messaging.domain.conversation.usecase.telephony.IsDeviceVoiceCapable
+import com.android.messaging.domain.conversation.usecase.telephony.IsDeviceVoiceCapableImpl
+import com.android.messaging.domain.conversation.usecase.telephony.IsEmergencyPhoneNumber
+import com.android.messaging.domain.conversation.usecase.telephony.IsEmergencyPhoneNumberImpl
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerAttachmentUiModelMapper
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerAttachmentUiModelMapperImpl
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerUiStateMapper
@@ -87,12 +85,6 @@ internal abstract class ConversationBindsModule {
     abstract fun bindConversationDraftStore(
         impl: ConversationDraftStoreImpl,
     ): ConversationDraftStore
-
-    @Binds
-    @Reusable
-    abstract fun bindConversationMetadataNotifier(
-        impl: ConversationMetadataNotifierImpl,
-    ): ConversationMetadataNotifier
 
     @Binds
     @Reusable

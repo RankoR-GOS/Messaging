@@ -6,9 +6,9 @@ import android.content.ClipboardManager
 import com.android.messaging.R
 import com.android.messaging.data.conversation.repository.ConversationsRepository
 import com.android.messaging.di.core.DefaultDispatcher
-import com.android.messaging.domain.conversation.usecase.CheckConversationActionRequirements
-import com.android.messaging.domain.conversation.usecase.ConversationActionRequirementsResult
-import com.android.messaging.domain.conversation.usecase.CreateForwardedMessage
+import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirements
+import com.android.messaging.domain.conversation.usecase.action.ConversationActionRequirementsResult
+import com.android.messaging.domain.conversation.usecase.forward.CreateForwardedMessage
 import com.android.messaging.ui.conversation.v2.common.ConversationScreenDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel

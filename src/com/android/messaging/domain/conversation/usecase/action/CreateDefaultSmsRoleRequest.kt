@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase
+package com.android.messaging.domain.conversation.usecase.action
 
 import android.app.role.RoleManager
 import android.content.Intent

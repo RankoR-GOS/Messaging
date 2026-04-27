@@ -1,4 +1,4 @@
-package com.android.messaging.domain.conversation.usecase.model
+package com.android.messaging.domain.conversation.usecase.participant.model
 
 internal sealed interface ResolveConversationIdResult {
     data object EmptyDestinations : ResolveConversationIdResult

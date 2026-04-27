@@ -1,6 +1,5 @@
-package com.android.messaging.data.conversation.repository
+package com.android.messaging.data.conversation.model.recipient
 
-import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
 import kotlinx.collections.immutable.ImmutableList
 
 internal data class ConversationRecipientsPage(
