@@ -80,6 +80,9 @@ internal fun previewConversationMessage(
         canDownloadMessage = false,
         canForwardMessage = true,
         canResendMessage = false,
+        canSaveAttachments = parts.any { part ->
+            part is ConversationMessagePartUiModel.Attachment && part.contentUri != null
+        },
         mmsSubject = mmsSubject,
         protocol = protocol,
     )

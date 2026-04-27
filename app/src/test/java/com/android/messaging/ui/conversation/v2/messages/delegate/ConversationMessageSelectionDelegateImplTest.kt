@@ -11,6 +11,8 @@ import com.android.messaging.datamodel.data.ConversationParticipantsData
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.ParticipantData
 import com.android.messaging.domain.conversation.usecase.CreateForwardedMessage
+import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
+import com.android.messaging.ui.conversation.v2.mediapicker.repository.SaveAttachmentsResult
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
@@ -30,6 +32,7 @@ import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -462,6 +465,190 @@ class ConversationMessageSelectionDelegateImplTest {
     }
 
     @Test
+    fun onMessageLongClick_exposesSaveAttachmentActionWhenCanSaveAttachments() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        text = null,
+                        canSaveAttachments = true,
+                        parts = listOf(
+                            createAttachmentPart(
+                                contentType = "image/jpeg",
+                                contentUri = "content://media/image/1",
+                            ),
+                        ),
+                    ),
+                )
+                advanceUntilIdle()
+
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                assertEquals(
+                    persistentSetOf(
+                        ConversationMessageSelectionAction.Delete,
+                        ConversationMessageSelectionAction.SaveAttachment,
+                        ConversationMessageSelectionAction.Details,
+                    ),
+                    harness.delegate.state.value.availableActions,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun saveAttachmentAction_emitsResultEffectAndClearsSelection() {
+        runTest {
+            val harness = createHarness()
+            val attachments = listOf(
+                ConversationAttachmentRepository.AttachmentToSave(
+                    contentType = "image/jpeg",
+                    contentUri = "content://media/image/1",
+                ),
+            )
+            every {
+                harness.conversationAttachmentRepository.saveAttachmentsToMediaStore(
+                    attachments = attachments,
+                )
+            } returns flowOf(
+                SaveAttachmentsResult(
+                    imageCount = 1,
+                    videoCount = 0,
+                    otherCount = 0,
+                    failCount = 0,
+                ),
+            )
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        text = null,
+                        canSaveAttachments = true,
+                        parts = listOf(
+                            createAttachmentPart(
+                                contentType = "image/jpeg",
+                                contentUri = "content://media/image/1",
+                            ),
+                        ),
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.SaveAttachment,
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.ShowSaveAttachmentsResult(
+                            imageCount = 1,
+                            videoCount = 0,
+                            otherCount = 0,
+                            failCount = 0,
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+                verify(exactly = 1) {
+                    @Suppress("UnusedFlow")
+                    harness.conversationAttachmentRepository.saveAttachmentsToMediaStore(
+                        attachments = attachments,
+                    )
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun saveAttachmentAction_skipsAttachmentsWithBlankContentTypeOrNullUri() {
+        runTest {
+            val harness = createHarness()
+            val attachments = listOf(
+                ConversationAttachmentRepository.AttachmentToSave(
+                    contentType = "image/jpeg",
+                    contentUri = "content://media/image/1",
+                ),
+            )
+            every {
+                harness.conversationAttachmentRepository.saveAttachmentsToMediaStore(
+                    attachments = attachments,
+                )
+            } returns flowOf(
+                SaveAttachmentsResult(
+                    imageCount = 1,
+                    videoCount = 0,
+                    otherCount = 0,
+                    failCount = 0,
+                ),
+            )
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        text = null,
+                        canSaveAttachments = true,
+                        parts = listOf(
+                            createAttachmentPart(
+                                contentType = "image/jpeg",
+                                contentUri = "content://media/image/1",
+                            ),
+                            ConversationMessagePartUiModel.Attachment.File(
+                                text = null,
+                                contentType = "",
+                                contentUri = Uri.parse("content://media/blank"),
+                                width = 0,
+                                height = 0,
+                            ),
+                            ConversationMessagePartUiModel.Attachment.File(
+                                text = null,
+                                contentType = "application/pdf",
+                                contentUri = null,
+                                width = 0,
+                                height = 0,
+                            ),
+                        ),
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.onMessageSelectionActionClick(
+                    action = ConversationMessageSelectionAction.SaveAttachment,
+                )
+                advanceUntilIdle()
+
+                verify(exactly = 1) {
+                    @Suppress("UnusedFlow")
+                    harness.conversationAttachmentRepository.saveAttachmentsToMediaStore(
+                        attachments = attachments,
+                    )
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
     fun shareAction_emitsTextShareWhenSelectedMessageHasText() {
         runTest {
             val harness = createHarness()
@@ -555,6 +742,8 @@ class ConversationMessageSelectionDelegateImplTest {
         val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
         val scope = TestScope(dispatcher)
         val clipboardManager = mockk<ClipboardManager>(relaxed = true)
+        val conversationAttachmentRepository =
+            mockk<ConversationAttachmentRepository>(relaxed = true)
         val conversationMessagesDelegate = mockk<ConversationMessagesDelegate>()
         val createForwardedMessage = mockk<CreateForwardedMessage>()
         val conversationsRepository = mockk<ConversationsRepository>(relaxed = true)
@@ -570,6 +759,7 @@ class ConversationMessageSelectionDelegateImplTest {
 
         val delegate = ConversationMessageSelectionDelegateImpl(
             clipboardManager = clipboardManager,
+            conversationAttachmentRepository = conversationAttachmentRepository,
             conversationMessagesDelegate = conversationMessagesDelegate,
             createForwardedMessage = createForwardedMessage,
             conversationsRepository = conversationsRepository,
@@ -583,6 +773,7 @@ class ConversationMessageSelectionDelegateImplTest {
         return DelegateHarness(
             delegate = delegate,
             clipboardManager = clipboardManager,
+            conversationAttachmentRepository = conversationAttachmentRepository,
             conversationIdFlow = conversationIdFlow,
             conversationsRepository = conversationsRepository,
             createForwardedMessage = createForwardedMessage,
@@ -661,6 +852,7 @@ class ConversationMessageSelectionDelegateImplTest {
         canDownloadMessage: Boolean = false,
         canForwardMessage: Boolean = false,
         canResendMessage: Boolean = false,
+        canSaveAttachments: Boolean = false,
     ): ConversationMessageUiModel {
         return ConversationMessageUiModel(
             messageId = messageId,
@@ -681,6 +873,7 @@ class ConversationMessageSelectionDelegateImplTest {
             canDownloadMessage = canDownloadMessage,
             canForwardMessage = canForwardMessage,
             canResendMessage = canResendMessage,
+            canSaveAttachments = canSaveAttachments,
             mmsSubject = null,
             protocol = ConversationMessageUiModel.Protocol.SMS,
         )
@@ -697,6 +890,7 @@ class ConversationMessageSelectionDelegateImplTest {
     private data class DelegateHarness(
         val delegate: ConversationMessageSelectionDelegateImpl,
         val clipboardManager: ClipboardManager,
+        val conversationAttachmentRepository: ConversationAttachmentRepository,
         val conversationIdFlow: MutableStateFlow<String?>,
         val conversationsRepository: ConversationsRepository,
         val createForwardedMessage: CreateForwardedMessage,

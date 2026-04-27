@@ -530,6 +530,51 @@ class ConversationScreenTest {
     }
 
     @Test
+    fun singleSelectionWithSaveAttachment_showsSaveActionInOverflow_andForwardsClick() {
+        val screenModel = createScreenModel()
+        val moreOptionsLabel = composeTestRule.activity.getString(R.string.more_options)
+        val saveAttachmentLabel = composeTestRule.activity.getString(
+            R.string.action_save_attachment,
+        )
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 1,
+                latestMessageId = "message-1",
+                latestMessageIncoming = true,
+            ),
+            selection = ConversationMessageSelectionUiState(
+                selectedMessageIds = persistentSetOf("message-1"),
+                availableActions = persistentSetOf(
+                    ConversationMessageSelectionAction.Delete,
+                    ConversationMessageSelectionAction.SaveAttachment,
+                ),
+            ),
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithText(saveAttachmentLabel)
+            .assertDoesNotExist()
+
+        composeTestRule
+            .onNodeWithContentDescription(moreOptionsLabel)
+            .assertIsDisplayed()
+            .performClick()
+
+        composeTestRule
+            .onNodeWithText(saveAttachmentLabel)
+            .assertIsDisplayed()
+            .performClick()
+
+        verify(exactly = 1) {
+            screenModel.model.onMessageSelectionActionClick(
+                action = ConversationMessageSelectionAction.SaveAttachment,
+            )
+        }
+    }
+
+    @Test
     fun multiSelection_showsOnlyDeleteActionInTopAppBar() {
         val screenModel = createScreenModel()
         val copyLabel = composeTestRule.activity.getString(R.string.message_context_menu_copy_text)
@@ -719,6 +764,7 @@ class ConversationScreenTest {
                 canDownloadMessage = false,
                 canForwardMessage = true,
                 canResendMessage = false,
+                canSaveAttachments = false,
                 mmsSubject = null,
                 protocol = ConversationMessageUiModel.Protocol.SMS,
             )

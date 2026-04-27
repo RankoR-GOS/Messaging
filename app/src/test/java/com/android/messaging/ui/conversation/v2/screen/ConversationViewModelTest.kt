@@ -1006,6 +1006,7 @@ class ConversationViewModelTest {
             canDownloadMessage = false,
             canForwardMessage = false,
             canResendMessage = false,
+            canSaveAttachments = false,
             mmsSubject = null,
             protocol = ConversationMessageUiModel.Protocol.SMS,
         )

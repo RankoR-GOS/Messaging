@@ -38,9 +38,10 @@ class ConversationMessageContentBuilderTest {
         assertTrue(content.isAttachmentOnly)
         assertEquals(1, content.attachmentSections.trailingItems.size)
 
-        val inlineAttachment =
-            (content.attachmentSections.trailingItems.single() as ConversationAttachmentItem.Inline)
-                .attachment as ConversationInlineAttachment.Audio
+        val attachment = content.attachmentSections.trailingItems.single()
+            as ConversationAttachmentItem.Inline
+
+        val inlineAttachment = attachment.attachment as ConversationInlineAttachment.Audio
         assertEquals("content://mms/part/audio-1", inlineAttachment.contentUri)
     }
 
@@ -123,6 +124,7 @@ class ConversationMessageContentBuilderTest {
             canDownloadMessage = false,
             canForwardMessage = true,
             canResendMessage = false,
+            canSaveAttachments = false,
             mmsSubject = null,
             protocol = ConversationMessageUiModel.Protocol.MMS,
         )
