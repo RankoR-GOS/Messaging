@@ -11,12 +11,17 @@ import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirements
 import com.android.messaging.domain.conversation.usecase.action.ConversationActionRequirementsResult
 import com.android.messaging.domain.conversation.usecase.draft.SendConversationDraft
+import com.android.messaging.domain.conversation.usecase.draft.exception.ConversationSimNotReadyException
+import com.android.messaging.domain.conversation.usecase.draft.exception.SendConversationDraftException
+import com.android.messaging.domain.conversation.usecase.draft.exception.TooManyVideoAttachmentsException
+import com.android.messaging.domain.conversation.usecase.draft.exception.UnknownConversationRecipientException
 import com.android.messaging.ui.conversation.v2.common.ConversationScreenDelegate
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.util.LogUtil
 import com.android.messaging.util.core.extension.unitFlow
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -403,6 +408,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
         return runDraftOperationBoundary(
             operationName = "send draft",
             conversationId = sendRequest.conversationId,
+            onFailure = ::handleSendDraftFailure,
         ) {
             sendConversationDraft(
                 conversationId = sendRequest.conversationId,
@@ -416,6 +422,32 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun handleSendDraftFailure(exception: Throwable) {
+        // TODO: Add an extension that properly skip CancellationException manual handling
+
+        val messageResId = when (exception) {
+            is CancellationException -> return
+
+            is ConversationSimNotReadyException -> {
+                R.string.cant_send_message_without_active_subscription
+            }
+
+            is TooManyVideoAttachmentsException -> {
+                R.string.cant_send_message_with_multiple_videos
+            }
+
+            is UnknownConversationRecipientException -> R.string.unknown_sender
+            is SendConversationDraftException -> R.string.send_message_failure
+            else -> R.string.send_message_failure
+        }
+
+        emitEffect(
+            effect = ConversationScreenEffect.ShowMessage(
+                messageResId = messageResId,
+            ),
+        )
     }
 
     private fun createSaveDraftOperationFlow(
@@ -595,6 +627,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
     private fun <T> runDraftOperationBoundary(
         operationName: String,
         conversationId: String?,
+        onFailure: ((Throwable) -> Unit)? = null,
         createFlow: () -> Flow<T>,
     ): Flow<T> {
         return flow {
@@ -605,6 +638,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
                 "Failed to $operationName for conversation $conversationId",
                 exception,
             )
+            onFailure?.invoke(exception)
         }
     }
 

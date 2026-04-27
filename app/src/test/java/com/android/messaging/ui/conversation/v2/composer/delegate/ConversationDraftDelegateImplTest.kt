@@ -8,6 +8,10 @@ import com.android.messaging.data.conversation.repository.ConversationDraftsRepo
 import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirements
 import com.android.messaging.domain.conversation.usecase.action.ConversationActionRequirementsResult
 import com.android.messaging.domain.conversation.usecase.draft.SendConversationDraft
+import com.android.messaging.domain.conversation.usecase.draft.exception.ConversationSimNotReadyException
+import com.android.messaging.domain.conversation.usecase.draft.exception.DraftDispatchFailedException
+import com.android.messaging.domain.conversation.usecase.draft.exception.TooManyVideoAttachmentsException
+import com.android.messaging.domain.conversation.usecase.draft.exception.UnknownConversationRecipientException
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import io.mockk.coEvery
@@ -236,6 +240,58 @@ class ConversationDraftDelegateImplTest {
     }
 
     @Test
+    fun sendValidationFailure_whenRecipientIsUnknown_emitsUnknownSenderMessage() {
+        runTest {
+            assertSendFailureMessage(
+                exception = UnknownConversationRecipientException(
+                    conversationId = CONVERSATION_ID,
+                ),
+                expectedMessageResId = R.string.unknown_sender,
+            )
+        }
+    }
+
+    @Test
+    fun sendValidationFailure_whenSimIsNotReady_emitsNetworkNotReadyMessage() {
+        runTest {
+            assertSendFailureMessage(
+                exception = ConversationSimNotReadyException(
+                    conversationId = CONVERSATION_ID,
+                    selfSubId = 1,
+                    cause = IllegalStateException("SIM unavailable"),
+                ),
+                expectedMessageResId = R.string.cant_send_message_without_active_subscription,
+            )
+        }
+    }
+
+    @Test
+    fun sendValidationFailure_whenTooManyVideos_emitsVideoLimitMessage() {
+        runTest {
+            assertSendFailureMessage(
+                exception = TooManyVideoAttachmentsException(
+                    conversationId = CONVERSATION_ID,
+                    videoAttachmentCount = 2,
+                ),
+                expectedMessageResId = R.string.cant_send_message_with_multiple_videos,
+            )
+        }
+    }
+
+    @Test
+    fun sendValidationFailure_whenDispatchFails_emitsGenericSendFailureMessage() {
+        runTest {
+            assertSendFailureMessage(
+                exception = DraftDispatchFailedException(
+                    conversationId = CONVERSATION_ID,
+                    cause = IllegalStateException("boom"),
+                ),
+                expectedMessageResId = R.string.send_message_failure,
+            )
+        }
+    }
+
+    @Test
     fun sendCancellation_restoresIdleState() {
         runTest {
             val repository = createConversationDraftsRepositoryMock()
@@ -261,6 +317,45 @@ class ConversationDraftDelegateImplTest {
             } finally {
                 harness.cancel()
             }
+        }
+    }
+
+    private suspend fun TestScope.assertSendFailureMessage(
+        exception: Throwable,
+        expectedMessageResId: Int,
+    ) {
+        val repository = createConversationDraftsRepositoryMock()
+        val sendConversationDraft = createSendConversationDraftMock(
+            flowFactory = SendFlowFactory {
+                flow {
+                    throw exception
+                }
+            },
+        )
+        val harness = createBoundLoadedDelegateHarness(
+            repository = repository,
+            sendConversationDraft = sendConversationDraft,
+        )
+
+        try {
+            harness.delegate.onMessageTextChanged(messageText = "Hello")
+
+            harness.delegate.effects.test {
+                harness.delegate.onSendClick()
+                advanceUntilIdle()
+
+                assertFalse(harness.delegate.state.value.draft.isSending)
+                assertEquals("Hello", harness.delegate.state.value.draft.messageText)
+                assertEquals(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = expectedMessageResId,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            harness.cancel()
         }
     }
 

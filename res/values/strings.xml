@@ -577,6 +577,8 @@
     <string name="fail_to_load_attachment">Can\'t load attachment. Try again.</string>
     <!-- Shows when the user attempts to send message when there is no active subscription -->
     <string name="cant_send_message_without_active_subscription">Network is not ready. Try again.</string>
+    <!-- Shows when the user attempts to send a message with more videos than MMS supports -->
+    <string name="cant_send_message_with_multiple_videos">You can only send one video per message.</string>
 
     <string name="chips_text_delete_button_content_description">Delete text</string>
     <string name="numeric_text_keyboard_toggle_button_content_description">Switch between entering text and numbers</string>
