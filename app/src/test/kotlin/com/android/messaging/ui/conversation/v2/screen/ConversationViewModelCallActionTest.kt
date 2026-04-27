@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.repository.ConversationSubscriptionsRepository
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
+import com.android.messaging.domain.conversation.usecase.CreateDefaultSmsRoleRequest
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
 import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumber
 import com.android.messaging.testutil.MainDispatcherRule
@@ -132,6 +133,7 @@ internal class ConversationViewModelCallActionTest {
             ConversationAudioRecordingUiState(),
         )
         every { composerAttachmentsDelegate.state } returns MutableStateFlow(persistentListOf())
+        every { draftDelegate.effects } returns emptyFlow()
         every { draftDelegate.state } returns MutableStateFlow(ConversationDraftState())
         every { messagesDelegate.state } returns
             MutableStateFlow(ConversationMessagesUiState.Loading)
@@ -172,6 +174,9 @@ internal class ConversationViewModelCallActionTest {
             conversationComposerUiStateMapper = ConversationComposerUiStateMapperImpl(),
             conversationSubscriptionsRepository = subscriptionsRepository,
             canAddMoreConversationParticipants = canAddMoreConversationParticipants,
+            createDefaultSmsRoleRequest = CreateDefaultSmsRoleRequest {
+                null
+            },
             isDeviceVoiceCapable = deviceVoiceCapable,
             isEmergencyPhoneNumber = emergencyPhoneNumber,
             defaultDispatcher = mainDispatcherRule.testDispatcher,

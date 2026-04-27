@@ -1,5 +1,6 @@
 package com.android.messaging.di.core
 
+import android.app.role.RoleManager
 import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.content.Context
@@ -58,6 +59,15 @@ internal class CoreProvidesModule {
         context: Context,
     ): ContentResolver {
         return context.contentResolver
+    }
+
+    @Provides
+    @Reusable
+    fun provideRoleManager(
+        @ApplicationContext
+        context: Context,
+    ): RoleManager {
+        return context.getSystemService(RoleManager::class.java)
     }
 
     @Provides

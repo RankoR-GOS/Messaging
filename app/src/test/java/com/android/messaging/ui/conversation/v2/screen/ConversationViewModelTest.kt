@@ -1,15 +1,19 @@
 package com.android.messaging.ui.conversation.v2.screen
 
+import android.app.Activity
+import android.content.Intent
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import app.cash.turbine.test
+import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
 import com.android.messaging.data.conversation.repository.ConversationSubscriptionsRepository
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
+import com.android.messaging.domain.conversation.usecase.CreateDefaultSmsRoleRequest
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
 import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumber
 import com.android.messaging.testutil.MainDispatcherRule
@@ -391,6 +395,210 @@ class ConversationViewModelTest {
     }
 
     @Test
+    fun draftEffects_areExposedAsScreenEffects() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val draftDelegate = createDraftDelegateMock()
+            val viewModel = createViewModel(
+                draftDelegate = draftDelegate.mock,
+            )
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                draftDelegate.effectsFlow.emit(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = 789,
+                    ),
+                )
+
+                assertEquals(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = 789,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRolePromptActionClick_emitsRoleRequestLaunchEffectWhenIntentIsAvailable() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val requestIntent = Intent("request-sms-role")
+            val viewModel = createViewModel(
+                createDefaultSmsRoleRequest = CreateDefaultSmsRoleRequest {
+                    requestIntent
+                },
+            )
+
+            viewModel.effects.test {
+                viewModel.onDefaultSmsRolePromptActionClick()
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationScreenEffect.LaunchDefaultSmsRoleRequest(
+                        intent = requestIntent,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRolePromptActionClick_emitsErrorMessageWhenIntentIsUnavailable() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel(
+                createDefaultSmsRoleRequest = CreateDefaultSmsRoleRequest {
+                    null
+                },
+            )
+
+            viewModel.effects.test {
+                viewModel.onDefaultSmsRolePromptActionClick()
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = R.string.activity_not_found_message,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRoleRequestResult_isHandledByDraftDelegateFirst() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val draftDelegate = createDraftDelegateMock()
+            val messageSelectionDelegate = createMessageSelectionDelegateMock()
+            every {
+                draftDelegate.mock.onDefaultSmsRoleRequestResult(
+                    resultCode = Activity.RESULT_OK,
+                )
+            } returns true
+            val viewModel = createViewModel(
+                draftDelegate = draftDelegate.mock,
+                messageSelectionDelegate = messageSelectionDelegate.mock,
+            )
+
+            viewModel.effects.test {
+                viewModel.onDefaultSmsRoleRequestResult(resultCode = Activity.RESULT_OK)
+                advanceUntilIdle()
+
+                expectNoEvents()
+            }
+
+            verify(exactly = 1) {
+                draftDelegate.mock.onDefaultSmsRoleRequestResult(
+                    resultCode = Activity.RESULT_OK,
+                )
+            }
+            verify(exactly = 0) {
+                messageSelectionDelegate.mock.onDefaultSmsRoleRequestResult(any())
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRoleRequestResult_fallsBackToMessageSelectionDelegate() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val draftDelegate = createDraftDelegateMock()
+            val messageSelectionDelegate = createMessageSelectionDelegateMock()
+            every {
+                draftDelegate.mock.onDefaultSmsRoleRequestResult(
+                    resultCode = Activity.RESULT_OK,
+                )
+            } returns false
+            every {
+                messageSelectionDelegate.mock.onDefaultSmsRoleRequestResult(
+                    resultCode = Activity.RESULT_OK,
+                )
+            } returns true
+            val viewModel = createViewModel(
+                draftDelegate = draftDelegate.mock,
+                messageSelectionDelegate = messageSelectionDelegate.mock,
+            )
+
+            viewModel.effects.test {
+                viewModel.onDefaultSmsRoleRequestResult(resultCode = Activity.RESULT_OK)
+                advanceUntilIdle()
+
+                expectNoEvents()
+            }
+
+            verify(exactly = 1) {
+                draftDelegate.mock.onDefaultSmsRoleRequestResult(
+                    resultCode = Activity.RESULT_OK,
+                )
+            }
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.onDefaultSmsRoleRequestResult(
+                    resultCode = Activity.RESULT_OK,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRoleRequestResult_emitsSuccessToastForUnhandledResultOk() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val draftDelegate = createDraftDelegateMock()
+            val messageSelectionDelegate = createMessageSelectionDelegateMock()
+            every {
+                draftDelegate.mock.onDefaultSmsRoleRequestResult(
+                    resultCode = Activity.RESULT_OK,
+                )
+            } returns false
+            every {
+                messageSelectionDelegate.mock.onDefaultSmsRoleRequestResult(
+                    resultCode = Activity.RESULT_OK,
+                )
+            } returns false
+            val viewModel = createViewModel(
+                draftDelegate = draftDelegate.mock,
+                messageSelectionDelegate = messageSelectionDelegate.mock,
+            )
+
+            viewModel.effects.test {
+                viewModel.onDefaultSmsRoleRequestResult(resultCode = Activity.RESULT_OK)
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = R.string.toast_after_setting_default_sms_app,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRoleRequestLaunchFailed_emitsActivityNotFoundMessage() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+
+            viewModel.effects.test {
+                viewModel.onDefaultSmsRoleRequestLaunchFailed()
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = R.string.activity_not_found_message,
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
     fun onSeedDraft_forwardsToDraftDelegate() {
         runTest(context = mainDispatcherRule.testDispatcher) {
             val draftDelegate = createDraftDelegateMock()
@@ -716,6 +924,9 @@ class ConversationViewModelTest {
         canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
             every { invoke(participantCount = any()) } returns false
         },
+        createDefaultSmsRoleRequest: CreateDefaultSmsRoleRequest = CreateDefaultSmsRoleRequest {
+            null
+        },
         isDeviceVoiceCapable: IsDeviceVoiceCapable = IsDeviceVoiceCapable { false },
         isEmergencyPhoneNumber: IsEmergencyPhoneNumber = IsEmergencyPhoneNumber { false },
         composerUiStateMapper: ConversationComposerUiStateMapper =
@@ -735,6 +946,7 @@ class ConversationViewModelTest {
             conversationComposerUiStateMapper = composerUiStateMapper,
             conversationSubscriptionsRepository = subscriptionsRepository,
             canAddMoreConversationParticipants = canAddMoreConversationParticipants,
+            createDefaultSmsRoleRequest = createDefaultSmsRoleRequest,
             isDeviceVoiceCapable = isDeviceVoiceCapable,
             isEmergencyPhoneNumber = isEmergencyPhoneNumber,
             defaultDispatcher = mainDispatcherRule.testDispatcher,
@@ -758,6 +970,9 @@ class ConversationViewModelTest {
         canAddMoreConversationParticipants: CanAddMoreConversationParticipants = mockk {
             every { invoke(participantCount = any()) } returns false
         },
+        createDefaultSmsRoleRequest: CreateDefaultSmsRoleRequest = CreateDefaultSmsRoleRequest {
+            null
+        },
         isDeviceVoiceCapable: IsDeviceVoiceCapable = IsDeviceVoiceCapable { false },
         isEmergencyPhoneNumber: IsEmergencyPhoneNumber = IsEmergencyPhoneNumber { false },
         composerUiStateMapper: ConversationComposerUiStateMapper =
@@ -780,6 +995,7 @@ class ConversationViewModelTest {
                         metadataDelegate = metadataDelegate,
                         focusDelegate = focusDelegate,
                         canAddMoreConversationParticipants = canAddMoreConversationParticipants,
+                        createDefaultSmsRoleRequest = createDefaultSmsRoleRequest,
                         isDeviceVoiceCapable = isDeviceVoiceCapable,
                         isEmergencyPhoneNumber = isEmergencyPhoneNumber,
                         composerUiStateMapper = composerUiStateMapper,
@@ -859,8 +1075,10 @@ class ConversationViewModelTest {
     private fun createDraftDelegateMock(): DraftDelegateMock {
         val bindCalls = mutableListOf<BindCall<ConversationDraftState>>()
         val stateFlow = MutableStateFlow(ConversationDraftState())
+        val effectsFlow = MutableSharedFlow<ConversationScreenEffect>()
         val mock = mockk<ConversationDraftDelegate>(relaxed = true)
         every { mock.state } returns stateFlow
+        every { mock.effects } returns effectsFlow
         every {
             mock.bind(any(), any())
         } answers {
@@ -872,6 +1090,7 @@ class ConversationViewModelTest {
         return DraftDelegateMock(
             mock = mock,
             stateFlow = stateFlow,
+            effectsFlow = effectsFlow,
             bindCalls = bindCalls,
         )
     }
@@ -1009,6 +1228,7 @@ class ConversationViewModelTest {
     private data class DraftDelegateMock(
         val mock: ConversationDraftDelegate,
         val stateFlow: MutableStateFlow<ConversationDraftState>,
+        val effectsFlow: MutableSharedFlow<ConversationScreenEffect>,
         val bindCalls: List<BindCall<ConversationDraftState>>,
     )
 

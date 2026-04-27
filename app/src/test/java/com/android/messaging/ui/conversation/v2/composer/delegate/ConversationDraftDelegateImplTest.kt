@@ -1,9 +1,15 @@
 package com.android.messaging.ui.conversation.v2.composer.delegate
 
+import android.app.Activity
+import app.cash.turbine.test
+import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepository
+import com.android.messaging.domain.conversation.usecase.CheckConversationActionRequirements
+import com.android.messaging.domain.conversation.usecase.ConversationActionRequirementsResult
 import com.android.messaging.domain.conversation.usecase.SendConversationDraft
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -327,13 +333,180 @@ class ConversationDraftDelegateImplTest {
         }
     }
 
+    @Test
+    fun onSendClick_whenSmsIsNotCapable_emitsSmsDisabledMessage() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val harness = createBoundLoadedDelegateHarness(
+                repository = repository,
+                actionRequirements = createActionRequirementsMock(
+                    initialResult = ConversationActionRequirementsResult.SmsNotCapable,
+                ),
+            )
+
+            try {
+                harness.delegate.onMessageTextChanged(messageText = "Hello")
+
+                harness.delegate.effects.test {
+                    harness.delegate.onSendClick()
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.ShowMessage(
+                            messageResId = R.string.sms_disabled,
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onSendClick_whenPreferredSmsSimIsMissing_emitsNoPreferredSimMessage() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val harness = createBoundLoadedDelegateHarness(
+                repository = repository,
+                actionRequirements = createActionRequirementsMock(
+                    initialResult = ConversationActionRequirementsResult.NoPreferredSmsSim,
+                ),
+            )
+
+            try {
+                harness.delegate.onMessageTextChanged(messageText = "Hello")
+
+                harness.delegate.effects.test {
+                    harness.delegate.onSendClick()
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.ShowMessage(
+                            messageResId = R.string.no_preferred_sim_selected,
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onSendClick_whenDefaultSmsRoleIsMissing_promptsAndSendsAfterRoleRequestSucceeds() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val sendConversationDraft = createSendConversationDraftMock()
+            val actionRequirements = createActionRequirementsMock(
+                initialResult = ConversationActionRequirementsResult.MissingDefaultSmsRole,
+            )
+            val harness = createBoundLoadedDelegateHarness(
+                repository = repository,
+                sendConversationDraft = sendConversationDraft,
+                actionRequirements = actionRequirements,
+            )
+
+            try {
+                harness.delegate.onMessageTextChanged(messageText = "Hello")
+
+                harness.delegate.effects.test {
+                    harness.delegate.onSendClick()
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.RequestDefaultSmsRole(isSending = true),
+                        awaitItem(),
+                    )
+                    assertTrue(sendConversationDraft.requests.isEmpty())
+
+                    actionRequirements.result = ConversationActionRequirementsResult.Ready
+                    assertTrue(
+                        harness.delegate.onDefaultSmsRoleRequestResult(
+                            resultCode = Activity.RESULT_OK,
+                        ),
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(1, sendConversationDraft.requests.size)
+                    assertEquals("Hello", sendConversationDraft.requests.single().messageText)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRoleRequestResult_withoutPendingSend_returnsFalse() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val harness = createBoundLoadedDelegateHarness(repository = repository)
+
+            try {
+                assertFalse(
+                    harness.delegate.onDefaultSmsRoleRequestResult(
+                        resultCode = Activity.RESULT_OK,
+                    ),
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRoleRequestResult_whenCanceled_clearsPendingSendWithoutSending() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val sendConversationDraft = createSendConversationDraftMock()
+            val actionRequirements = createActionRequirementsMock(
+                initialResult = ConversationActionRequirementsResult.MissingDefaultSmsRole,
+            )
+            val harness = createBoundLoadedDelegateHarness(
+                repository = repository,
+                sendConversationDraft = sendConversationDraft,
+                actionRequirements = actionRequirements,
+            )
+
+            try {
+                harness.delegate.onMessageTextChanged(messageText = "Hello")
+
+                harness.delegate.effects.test {
+                    harness.delegate.onSendClick()
+                    advanceUntilIdle()
+                    awaitItem()
+
+                    assertFalse(
+                        harness.delegate.onDefaultSmsRoleRequestResult(
+                            resultCode = Activity.RESULT_CANCELED,
+                        ),
+                    )
+                    advanceUntilIdle()
+
+                    assertTrue(sendConversationDraft.requests.isEmpty())
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
     private suspend fun TestScope.createBoundLoadedDelegateHarness(
         repository: RepositoryMock,
         sendConversationDraft: SendConversationDraftMock = createSendConversationDraftMock(),
+        actionRequirements: ActionRequirementsMock = createActionRequirementsMock(),
     ): DelegateHarness {
         val harness = createDelegateHarness(
             repository = repository,
             sendConversationDraft = sendConversationDraft,
+            actionRequirements = actionRequirements,
         )
         harness.conversationIdFlow.value = CONVERSATION_ID
         repository.emitDraft(
@@ -348,12 +521,14 @@ class ConversationDraftDelegateImplTest {
     private fun TestScope.createDelegateHarness(
         repository: RepositoryMock,
         sendConversationDraft: SendConversationDraftMock,
+        actionRequirements: ActionRequirementsMock = createActionRequirementsMock(),
     ): DelegateHarness {
         val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
         val applicationScope = TestScope(dispatcher)
         val delegateScope = TestScope(dispatcher)
         val delegate = ConversationDraftDelegateImpl(
             applicationScope = applicationScope,
+            checkConversationActionRequirements = actionRequirements.mock,
             conversationDraftsRepository = repository.mock,
             sendConversationDraft = sendConversationDraft.mock,
             defaultDispatcher = dispatcher,
@@ -371,6 +546,19 @@ class ConversationDraftDelegateImplTest {
             delegateScope = delegateScope,
             applicationScope = applicationScope,
         )
+    }
+
+    private fun createActionRequirementsMock(
+        initialResult: ConversationActionRequirementsResult =
+            ConversationActionRequirementsResult.Ready,
+    ): ActionRequirementsMock {
+        val mock = mockk<CheckConversationActionRequirements>()
+        val result = ActionRequirementsMock(
+            mock = mock,
+            result = initialResult,
+        )
+        every { mock.invoke() } answers { result.result }
+        return result
     }
 
     private fun createConversationDraftsRepositoryMock(
@@ -484,6 +672,11 @@ class ConversationDraftDelegateImplTest {
     private data class SendConversationDraftMock(
         val mock: SendConversationDraft,
         val requests: MutableList<ConversationDraft>,
+    )
+
+    private data class ActionRequirementsMock(
+        val mock: CheckConversationActionRequirements,
+        var result: ConversationActionRequirementsResult,
     )
 
     private fun interface SendFlowFactory {

@@ -1,15 +1,19 @@
 package com.android.messaging.ui.conversation.v2.messages.delegate
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.net.Uri
 import app.cash.turbine.test
+import com.android.messaging.R
 import com.android.messaging.data.conversation.repository.ConversationMessageDetailsData
 import com.android.messaging.data.conversation.repository.ConversationsRepository
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.ConversationParticipantsData
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.ParticipantData
+import com.android.messaging.domain.conversation.usecase.CheckConversationActionRequirements
+import com.android.messaging.domain.conversation.usecase.ConversationActionRequirementsResult
 import com.android.messaging.domain.conversation.usecase.CreateForwardedMessage
 import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import com.android.messaging.ui.conversation.v2.mediapicker.repository.SaveAttachmentsResult
@@ -38,7 +42,9 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -359,6 +365,199 @@ class ConversationMessageSelectionDelegateImplTest {
                     ConversationMessageSelectionUiState(),
                     harness.delegate.state.value,
                 )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun resendAction_whenSmsIsNotCapable_emitsSmsDisabledMessage() {
+        runTest {
+            val harness = createHarness(
+                actionRequirements = createActionRequirementsMock(
+                    initialResult = ConversationActionRequirementsResult.SmsNotCapable,
+                ),
+            )
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        canResendMessage = true,
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.Resend,
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.ShowMessage(
+                            messageResId = R.string.sms_disabled,
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun resendAction_whenPreferredSmsSimIsMissing_emitsNoPreferredSimMessage() {
+        runTest {
+            val harness = createHarness(
+                actionRequirements = createActionRequirementsMock(
+                    initialResult = ConversationActionRequirementsResult.NoPreferredSmsSim,
+                ),
+            )
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        canResendMessage = true,
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.Resend,
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.ShowMessage(
+                            messageResId = R.string.no_preferred_sim_selected,
+                        ),
+                        awaitItem(),
+                    )
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun resendAction_whenDefaultSmsRoleIsMissing_promptsAndResendsAfterRoleRequestSucceeds() {
+        runTest {
+            val actionRequirements = createActionRequirementsMock(
+                initialResult = ConversationActionRequirementsResult.MissingDefaultSmsRole,
+            )
+            val harness = createHarness(actionRequirements = actionRequirements)
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        canResendMessage = true,
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.Resend,
+                    )
+                    advanceUntilIdle()
+
+                    assertEquals(
+                        ConversationScreenEffect.RequestDefaultSmsRole(isSending = true),
+                        awaitItem(),
+                    )
+                    verify(exactly = 0) {
+                        harness.conversationsRepository.resendMessage(any())
+                    }
+
+                    actionRequirements.result = ConversationActionRequirementsResult.Ready
+                    assertTrue(
+                        harness.delegate.onDefaultSmsRoleRequestResult(
+                            resultCode = Activity.RESULT_OK,
+                        ),
+                    )
+                    advanceUntilIdle()
+
+                    verify(exactly = 1) {
+                        harness.conversationsRepository.resendMessage(messageId = "message-1")
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRoleRequestResult_withoutPendingResend_returnsFalse() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                assertFalse(
+                    harness.delegate.onDefaultSmsRoleRequestResult(
+                        resultCode = Activity.RESULT_OK,
+                    ),
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onDefaultSmsRoleRequestResult_whenCanceled_clearsPendingResend() {
+        runTest {
+            val actionRequirements = createActionRequirementsMock(
+                initialResult = ConversationActionRequirementsResult.MissingDefaultSmsRole,
+            )
+            val harness = createHarness(actionRequirements = actionRequirements)
+
+            try {
+                harness.messagesStateFlow.value = createMessagesUiState(
+                    createMessageUiModel(
+                        messageId = "message-1",
+                        canResendMessage = true,
+                    ),
+                )
+                advanceUntilIdle()
+                harness.delegate.onMessageLongClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                harness.delegate.effects.test {
+                    harness.delegate.onMessageSelectionActionClick(
+                        action = ConversationMessageSelectionAction.Resend,
+                    )
+                    advanceUntilIdle()
+                    awaitItem()
+
+                    assertTrue(
+                        harness.delegate.onDefaultSmsRoleRequestResult(
+                            resultCode = Activity.RESULT_CANCELED,
+                        ),
+                    )
+                    advanceUntilIdle()
+
+                    verify(exactly = 0) {
+                        harness.conversationsRepository.resendMessage(any())
+                    }
+                    cancelAndIgnoreRemainingEvents()
+                }
             } finally {
                 harness.cancel()
             }
@@ -738,7 +937,9 @@ class ConversationMessageSelectionDelegateImplTest {
         }
     }
 
-    private fun TestScope.createHarness(): DelegateHarness {
+    private fun TestScope.createHarness(
+        actionRequirements: ActionRequirementsMock = createActionRequirementsMock(),
+    ): DelegateHarness {
         val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
         val scope = TestScope(dispatcher)
         val clipboardManager = mockk<ClipboardManager>(relaxed = true)
@@ -758,6 +959,7 @@ class ConversationMessageSelectionDelegateImplTest {
         } returns null
 
         val delegate = ConversationMessageSelectionDelegateImpl(
+            checkConversationActionRequirements = actionRequirements.mock,
             clipboardManager = clipboardManager,
             conversationAttachmentRepository = conversationAttachmentRepository,
             conversationMessagesDelegate = conversationMessagesDelegate,
@@ -780,6 +982,19 @@ class ConversationMessageSelectionDelegateImplTest {
             messagesStateFlow = messagesStateFlow,
             scope = scope,
         )
+    }
+
+    private fun createActionRequirementsMock(
+        initialResult: ConversationActionRequirementsResult =
+            ConversationActionRequirementsResult.Ready,
+    ): ActionRequirementsMock {
+        val mock = mockk<CheckConversationActionRequirements>()
+        val result = ActionRequirementsMock(
+            mock = mock,
+            result = initialResult,
+        )
+        every { mock.invoke() } answers { result.result }
+        return result
     }
 
     private fun createAttachmentPart(
@@ -901,4 +1116,9 @@ class ConversationMessageSelectionDelegateImplTest {
             scope.cancel()
         }
     }
+
+    private data class ActionRequirementsMock(
+        val mock: CheckConversationActionRequirements,
+        var result: ConversationActionRequirementsResult,
+    )
 }
