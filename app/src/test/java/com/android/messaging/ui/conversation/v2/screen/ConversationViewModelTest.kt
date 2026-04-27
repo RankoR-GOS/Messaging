@@ -11,6 +11,7 @@ import com.android.messaging.data.conversation.repository.ConversationSubscripti
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
+import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumber
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.audio.delegate.ConversationAudioRecordingDelegate
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
@@ -269,6 +270,68 @@ class ConversationViewModelTest {
                 advanceUntilIdle()
                 assertEquals(false, awaitItem().canAddPeople)
                 cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun scaffoldUiState_checksEmergencyPhoneNumberBeforeEnablingCallAction() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val metadataDelegate = createMetadataDelegateMock()
+            val isEmergencyPhoneNumber = mockk<IsEmergencyPhoneNumber>()
+            every { isEmergencyPhoneNumber.invoke(phoneNumber = "+15551234567") } returns false
+            val viewModel = createViewModel(
+                metadataDelegate = metadataDelegate.mock,
+                isDeviceVoiceCapable = IsDeviceVoiceCapable { true },
+                isEmergencyPhoneNumber = isEmergencyPhoneNumber,
+            )
+
+            metadataDelegate.stateFlow.value = oneOnOneMetadataState(
+                phoneNumber = "+15551234567",
+            )
+
+            viewModel.scaffoldUiState.test {
+                assertEquals(false, awaitItem().canCall)
+                advanceUntilIdle()
+                assertEquals(true, awaitItem().canCall)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            verify(exactly = 1) {
+                isEmergencyPhoneNumber.invoke(phoneNumber = "+15551234567")
+            }
+        }
+    }
+
+    @Test
+    fun onCallClick_checksEmergencyPhoneNumberBeforeEmittingCallEffect() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val metadataDelegate = createMetadataDelegateMock()
+            metadataDelegate.stateFlow.value = oneOnOneMetadataState(
+                phoneNumber = "+15551234567",
+            )
+            val isEmergencyPhoneNumber = mockk<IsEmergencyPhoneNumber>()
+            every { isEmergencyPhoneNumber.invoke(phoneNumber = "+15551234567") } returns false
+            val viewModel = createViewModel(
+                metadataDelegate = metadataDelegate.mock,
+                isEmergencyPhoneNumber = isEmergencyPhoneNumber,
+            )
+
+            viewModel.effects.test {
+                viewModel.onCallClick()
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationScreenEffect.PlacePhoneCall(
+                        phoneNumber = "+15551234567",
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            verify(exactly = 1) {
+                isEmergencyPhoneNumber.invoke(phoneNumber = "+15551234567")
             }
         }
     }
@@ -654,6 +717,7 @@ class ConversationViewModelTest {
             every { invoke(participantCount = any()) } returns false
         },
         isDeviceVoiceCapable: IsDeviceVoiceCapable = IsDeviceVoiceCapable { false },
+        isEmergencyPhoneNumber: IsEmergencyPhoneNumber = IsEmergencyPhoneNumber { false },
         composerUiStateMapper: ConversationComposerUiStateMapper =
             createComposerUiStateMapperMock(mappedUiState = ConversationComposerUiState()),
         subscriptionsRepository: ConversationSubscriptionsRepository =
@@ -672,6 +736,7 @@ class ConversationViewModelTest {
             conversationSubscriptionsRepository = subscriptionsRepository,
             canAddMoreConversationParticipants = canAddMoreConversationParticipants,
             isDeviceVoiceCapable = isDeviceVoiceCapable,
+            isEmergencyPhoneNumber = isEmergencyPhoneNumber,
             defaultDispatcher = mainDispatcherRule.testDispatcher,
             savedStateHandle = SavedStateHandle(),
         )
@@ -694,6 +759,7 @@ class ConversationViewModelTest {
             every { invoke(participantCount = any()) } returns false
         },
         isDeviceVoiceCapable: IsDeviceVoiceCapable = IsDeviceVoiceCapable { false },
+        isEmergencyPhoneNumber: IsEmergencyPhoneNumber = IsEmergencyPhoneNumber { false },
         composerUiStateMapper: ConversationComposerUiStateMapper =
             createComposerUiStateMapperMock(mappedUiState = ConversationComposerUiState()),
         subscriptionsRepository: ConversationSubscriptionsRepository =
@@ -715,12 +781,27 @@ class ConversationViewModelTest {
                         focusDelegate = focusDelegate,
                         canAddMoreConversationParticipants = canAddMoreConversationParticipants,
                         isDeviceVoiceCapable = isDeviceVoiceCapable,
+                        isEmergencyPhoneNumber = isEmergencyPhoneNumber,
                         composerUiStateMapper = composerUiStateMapper,
                         subscriptionsRepository = subscriptionsRepository,
                     ) as T
                 }
             },
         )[ConversationViewModel::class.java]
+    }
+
+    private fun oneOnOneMetadataState(phoneNumber: String): ConversationMetadataUiState.Present {
+        return ConversationMetadataUiState.Present(
+            title = "Alice",
+            selfParticipantId = "self-1",
+            avatar = ConversationMetadataUiState.Avatar.Single(photoUri = null),
+            participantCount = 1,
+            otherParticipantDisplayDestination = phoneNumber,
+            otherParticipantPhoneNumber = phoneNumber,
+            otherParticipantContactLookupKey = null,
+            isArchived = false,
+            composerAvailability = ConversationComposerAvailability.editable(),
+        )
     }
 
     private fun createComposerAttachmentsDelegateMock(): ComposerAttachmentsDelegateMock {

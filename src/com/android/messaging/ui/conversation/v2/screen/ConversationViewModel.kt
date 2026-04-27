@@ -10,6 +10,7 @@ import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.domain.conversation.usecase.CanAddMoreConversationParticipants
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
+import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumber
 import com.android.messaging.ui.conversation.v2.audio.delegate.ConversationAudioRecordingDelegate
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationComposerAttachmentsDelegate
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
@@ -126,6 +127,7 @@ internal class ConversationViewModel @Inject constructor(
     private val conversationSubscriptionsRepository: ConversationSubscriptionsRepository,
     private val canAddMoreConversationParticipants: CanAddMoreConversationParticipants,
     private val isDeviceVoiceCapable: IsDeviceVoiceCapable,
+    private val isEmergencyPhoneNumber: IsEmergencyPhoneNumber,
     @param:DefaultDispatcher
     private val defaultDispatcher: CoroutineDispatcher,
     private val savedStateHandle: SavedStateHandle,
@@ -342,11 +344,16 @@ internal class ConversationViewModel @Inject constructor(
     private fun canCall(
         metadataState: ConversationMetadataUiState,
     ): Boolean {
-        val isOneOnOne = metadataState is ConversationMetadataUiState.Present &&
-            metadataState.participantCount == 1 &&
-            metadataState.otherParticipantPhoneNumber != null
+        if (metadataState !is ConversationMetadataUiState.Present) {
+            return false
+        }
 
-        return isOneOnOne && isDeviceVoiceCapable()
+        val phoneNumber = metadataState.otherParticipantPhoneNumber
+        if (metadataState.participantCount != 1 || phoneNumber == null) {
+            return false
+        }
+
+        return isDeviceVoiceCapable() && !isEmergencyPhoneNumber(phoneNumber = phoneNumber)
     }
 
     private fun canAddContact(
@@ -448,6 +455,7 @@ internal class ConversationViewModel @Inject constructor(
                 ConversationMetadataUiState.Present
             )
             ?.otherParticipantPhoneNumber
+            ?.takeUnless(isEmergencyPhoneNumber::invoke)
             ?: return
 
         viewModelScope.launch(defaultDispatcher) {

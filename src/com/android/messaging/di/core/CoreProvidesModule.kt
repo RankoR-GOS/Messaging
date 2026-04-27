@@ -3,6 +3,7 @@ package com.android.messaging.di.core
 import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.content.Context
+import android.telephony.TelephonyManager
 import dagger.Module
 import dagger.Provides
 import dagger.Reusable
@@ -66,5 +67,14 @@ internal class CoreProvidesModule {
         context: Context,
     ): ClipboardManager {
         return context.getSystemService(ClipboardManager::class.java)
+    }
+
+    @Provides
+    @Reusable
+    fun provideTelephonyManager(
+        @ApplicationContext
+        context: Context,
+    ): TelephonyManager {
+        return context.getSystemService(TelephonyManager::class.java)
     }
 }

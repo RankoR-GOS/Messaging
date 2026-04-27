@@ -32,6 +32,8 @@ import com.android.messaging.domain.conversation.usecase.IsConversationRecipient
 import com.android.messaging.domain.conversation.usecase.IsConversationRecipientLimitExceededImpl
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapable
 import com.android.messaging.domain.conversation.usecase.IsDeviceVoiceCapableImpl
+import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumber
+import com.android.messaging.domain.conversation.usecase.IsEmergencyPhoneNumberImpl
 import com.android.messaging.domain.conversation.usecase.ResolveConversationId
 import com.android.messaging.domain.conversation.usecase.ResolveConversationIdImpl
 import com.android.messaging.domain.conversation.usecase.SendConversationDraft
@@ -117,6 +119,12 @@ internal abstract class ConversationBindsModule {
     abstract fun bindIsDeviceVoiceCapable(
         impl: IsDeviceVoiceCapableImpl,
     ): IsDeviceVoiceCapable
+
+    @Binds
+    @Reusable
+    abstract fun bindIsEmergencyPhoneNumber(
+        impl: IsEmergencyPhoneNumberImpl,
+    ): IsEmergencyPhoneNumber
 
     @Binds
     @Reusable
