@@ -54,6 +54,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -135,7 +136,7 @@ class ConversationScreenTest {
             .assertIsDisplayed()
             .performClick()
 
-        org.junit.Assert.assertEquals(1, addPeopleClicks)
+        assertEquals(1, addPeopleClicks)
     }
 
     @Test
@@ -264,8 +265,8 @@ class ConversationScreenTest {
                 startupAttachment = pendingAttachment,
             )
         }
-        org.junit.Assert.assertEquals(1, draftConsumedCount)
-        org.junit.Assert.assertEquals(1, attachmentConsumedCount)
+        assertEquals(1, draftConsumedCount)
+        assertEquals(1, attachmentConsumedCount)
     }
 
     @Test
@@ -670,9 +671,86 @@ class ConversationScreenTest {
         }
     }
 
+    @Test
+    fun pendingScrollPosition_anchorsTargetMessage_andInvokesConsumed() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 50,
+                latestMessageId = "message-50",
+                latestMessageIncoming = false,
+            ),
+        )
+        var consumedCount = 0
+
+        setScreenContent(
+            screenModel = screenModel.model,
+            pendingScrollPosition = 5,
+            onPendingScrollPositionConsumed = { consumedCount += 1 },
+        )
+
+        composeTestRule.waitForIdle()
+
+        composeTestRule
+            .onNodeWithTag(conversationMessageItemTestTag(messageId = "message-6"))
+            .assertIsDisplayed()
+        assertEquals(1, consumedCount)
+    }
+
+    @Test
+    fun pendingScrollPosition_clampsToNewest_whenPositionExceedsSize() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 8,
+                latestMessageId = "message-8",
+                latestMessageIncoming = false,
+            ),
+        )
+        var consumedCount = 0
+
+        setScreenContent(
+            screenModel = screenModel.model,
+            pendingScrollPosition = 999,
+            onPendingScrollPositionConsumed = { consumedCount += 1 },
+        )
+
+        composeTestRule.waitForIdle()
+
+        composeTestRule
+            .onNodeWithTag(conversationMessageItemTestTag(messageId = "message-8"))
+            .assertIsDisplayed()
+        assertEquals(1, consumedCount)
+    }
+
+    @Test
+    fun nullPendingScrollPosition_doesNotInvokeConsumed() {
+        val screenModel = createScreenModel()
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = createMessages(
+                count = 8,
+                latestMessageId = "message-8",
+                latestMessageIncoming = false,
+            ),
+        )
+        var consumedCount = 0
+
+        setScreenContent(
+            screenModel = screenModel.model,
+            pendingScrollPosition = null,
+            onPendingScrollPositionConsumed = { consumedCount += 1 },
+        )
+
+        composeTestRule.waitForIdle()
+
+        assertEquals(0, consumedCount)
+    }
+
     private fun setScreenContent(
         screenModel: ConversationScreenModel,
         onAddPeopleClick: () -> Unit = {},
+        pendingScrollPosition: Int? = null,
+        onPendingScrollPositionConsumed: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             AppTheme {
@@ -682,6 +760,8 @@ class ConversationScreenTest {
                     onAddPeopleClick = onAddPeopleClick,
                     onConversationDetailsClick = {},
                     onNavigateBack = {},
+                    pendingScrollPosition = pendingScrollPosition,
+                    onPendingScrollPositionConsumed = onPendingScrollPositionConsumed,
                     screenModel = screenModel,
                 )
             }

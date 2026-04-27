@@ -54,6 +54,58 @@ class ConversationActivityTest {
     }
 
     @Test
+    fun launch_parsesMessagePositionExtraAndConsumesIt() {
+        val scenario = ActivityScenario.launch<ConversationActivity>(
+            createConversationIntent().apply {
+                putExtra(UIIntents.UI_INTENT_EXTRA_CONVERSATION_ID, "conversation-1")
+                putExtra(UIIntents.UI_INTENT_EXTRA_MESSAGE_POSITION, 42)
+            },
+        )
+
+        scenario.use { scenario ->
+            scenario.onActivity { activity ->
+                val launchRequest = activity.getLaunchRequest()
+
+                assertEquals(42, launchRequest?.messagePosition)
+                assertFalse(
+                    activity.intent.hasExtra(UIIntents.UI_INTENT_EXTRA_MESSAGE_POSITION),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun launch_treatsAbsentMessagePositionExtraAsNull() {
+        val scenario = ActivityScenario.launch<ConversationActivity>(
+            createConversationIntent().apply {
+                putExtra(UIIntents.UI_INTENT_EXTRA_CONVERSATION_ID, "conversation-1")
+            },
+        )
+
+        scenario.use { scenario ->
+            scenario.onActivity { activity ->
+                assertNull(activity.getLaunchRequest()?.messagePosition)
+            }
+        }
+    }
+
+    @Test
+    fun launch_treatsNegativeMessagePositionExtraAsNull() {
+        val scenario = ActivityScenario.launch<ConversationActivity>(
+            createConversationIntent().apply {
+                putExtra(UIIntents.UI_INTENT_EXTRA_CONVERSATION_ID, "conversation-1")
+                putExtra(UIIntents.UI_INTENT_EXTRA_MESSAGE_POSITION, -1)
+            },
+        )
+
+        scenario.use { scenario ->
+            scenario.onActivity { activity ->
+                assertNull(activity.getLaunchRequest()?.messagePosition)
+            }
+        }
+    }
+
+    @Test
     fun launch_treatsBlankAttachmentExtrasAsAbsent() {
         val scenario = ActivityScenario.launch<ConversationActivity>(
             createConversationIntent().apply {

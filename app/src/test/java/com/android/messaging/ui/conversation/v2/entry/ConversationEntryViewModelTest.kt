@@ -220,6 +220,7 @@ class ConversationEntryViewModelTest {
                 draftData = draftData,
                 startupAttachmentUri = "content://media/image/1",
                 startupAttachmentType = "image/jpeg",
+                messagePosition = 12,
             ),
         )
 
@@ -233,7 +234,9 @@ class ConversationEntryViewModelTest {
             ),
             viewModel.uiState.value.pendingStartupAttachment,
         )
+        assertEquals(12, viewModel.uiState.value.pendingScrollPosition)
         assertEquals(draftData, savedStateHandle[PENDING_DRAFT_DATA_KEY])
+        assertEquals(12, savedStateHandle[PENDING_SCROLL_POSITION_KEY])
         assertEquals(3, savedStateHandle[PROCESSED_LAUNCH_GENERATION_KEY])
         assertEquals("conversation-1", savedStateHandle[CONVERSATION_ID_KEY])
         verify(exactly = 1) {
@@ -262,10 +265,13 @@ class ConversationEntryViewModelTest {
                     "self-1",
                     "Hello",
                 ),
+                messagePosition = 4,
             ),
         )
 
         assertEquals("conversation-existing", viewModel.uiState.value.conversationId)
+        assertNull(viewModel.uiState.value.pendingScrollPosition)
+        assertNull(savedStateHandle[PENDING_SCROLL_POSITION_KEY])
         verify(exactly = 0) {
             conversationMessageDataDraftMapper.map(messageData = any())
         }
@@ -294,6 +300,7 @@ class ConversationEntryViewModelTest {
                 IS_CREATING_GROUP_KEY to true,
                 LEGACY_IS_RESOLVING_CONVERSATION_KEY to true,
                 PENDING_DRAFT_DATA_KEY to draftData,
+                PENDING_SCROLL_POSITION_KEY to 17,
                 PENDING_STARTUP_ATTACHMENT_URI_KEY to "content://media/image/2",
                 PENDING_STARTUP_ATTACHMENT_TYPE_KEY to "image/png",
                 SELECTED_GROUP_RECIPIENT_DESTINATIONS_KEY to arrayListOf(
@@ -314,6 +321,7 @@ class ConversationEntryViewModelTest {
             viewModel.uiState.value.isResolvingConversationIndicatorVisible,
         )
         assertEquals(mappedDraft, viewModel.uiState.value.pendingDraft)
+        assertEquals(17, viewModel.uiState.value.pendingScrollPosition)
         assertEquals(
             ConversationEntryStartupAttachment(
                 contentType = "image/png",
@@ -576,6 +584,28 @@ class ConversationEntryViewModelTest {
     }
 
     @Test
+    fun onScrollPositionConsumed_clearsOnlyMatchingConversationPosition() = runTest(
+        context = mainDispatcherRule.testDispatcher,
+    ) {
+        val savedStateHandle = SavedStateHandle(
+            mapOf(
+                CONVERSATION_ID_KEY to "conversation-6",
+                PENDING_SCROLL_POSITION_KEY to 9,
+            ),
+        )
+        val viewModel = createViewModel(savedStateHandle = savedStateHandle)
+
+        viewModel.onScrollPositionConsumed(conversationId = "other")
+        assertEquals(9, viewModel.uiState.value.pendingScrollPosition)
+        assertEquals(9, savedStateHandle[PENDING_SCROLL_POSITION_KEY])
+
+        viewModel.onScrollPositionConsumed(conversationId = "conversation-6")
+
+        assertNull(viewModel.uiState.value.pendingScrollPosition)
+        assertNull(savedStateHandle[PENDING_SCROLL_POSITION_KEY])
+    }
+
+    @Test
     fun onStartupAttachmentConsumed_clearsOnlyMatchingConversationAttachment() = runTest(
         context = mainDispatcherRule.testDispatcher,
     ) {
@@ -634,6 +664,7 @@ class ConversationEntryViewModelTest {
         private const val LEGACY_IS_RESOLVING_CONVERSATION_KEY = "is_resolving_conversation"
         private const val LAUNCH_GENERATION_KEY = "launch_generation"
         private const val PENDING_DRAFT_DATA_KEY = "pending_draft_data"
+        private const val PENDING_SCROLL_POSITION_KEY = "pending_scroll_position"
         private const val PENDING_STARTUP_ATTACHMENT_TYPE_KEY = "pending_startup_attachment_type"
         private const val PENDING_STARTUP_ATTACHMENT_URI_KEY = "pending_startup_attachment_uri"
         private const val PROCESSED_LAUNCH_GENERATION_KEY = "processed_launch_generation"
