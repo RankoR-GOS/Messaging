@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.tooling.preview.Preview
+import com.android.messaging.domain.conversation.usecase.draft.model.ConversationDraftSendProtocol
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.core.AppTheme
@@ -21,6 +22,7 @@ internal fun ConversationComposerSection(
     audioRecording: ConversationAudioRecordingUiState,
     attachments: ImmutableList<ComposerAttachmentUiModel>,
     messageText: String,
+    sendProtocol: ConversationDraftSendProtocol,
     isMessageFieldEnabled: Boolean,
     isAttachmentActionEnabled: Boolean,
     isRecordActionEnabled: Boolean,
@@ -53,6 +55,7 @@ internal fun ConversationComposerSection(
         ConversationComposeBar(
             audioRecording = audioRecording,
             messageText = messageText,
+            sendProtocol = sendProtocol,
             isMessageFieldEnabled = isMessageFieldEnabled,
             isAttachmentActionEnabled = isAttachmentActionEnabled,
             isRecordActionEnabled = isRecordActionEnabled,
@@ -81,6 +84,7 @@ private fun ConversationComposerSectionEmptyPreview() {
                 audioRecording = ConversationAudioRecordingUiState(),
                 attachments = persistentListOf(),
                 messageText = "",
+                sendProtocol = ConversationDraftSendProtocol.SMS,
                 isMessageFieldEnabled = true,
                 isAttachmentActionEnabled = true,
                 isRecordActionEnabled = true,
@@ -128,6 +132,7 @@ private fun ConversationComposerSectionWithAttachmentsPreview() {
                     ),
                 ),
                 messageText = "Check out these attachments!",
+                sendProtocol = ConversationDraftSendProtocol.MMS,
                 isMessageFieldEnabled = true,
                 isAttachmentActionEnabled = true,
                 isRecordActionEnabled = true,

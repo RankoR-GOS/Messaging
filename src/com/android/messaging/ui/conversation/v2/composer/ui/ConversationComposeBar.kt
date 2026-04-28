@@ -62,16 +62,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
 import com.android.messaging.R
+import com.android.messaging.domain.conversation.usecase.draft.model.ConversationDraftSendProtocol
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_AUDIO_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_COMPOSE_BAR_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_MMS_INDICATOR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_TEXT_FIELD_TEST_TAG
@@ -97,6 +100,7 @@ internal fun ConversationComposeBar(
     modifier: Modifier = Modifier,
     audioRecording: ConversationAudioRecordingUiState,
     messageText: String,
+    sendProtocol: ConversationDraftSendProtocol,
     isMessageFieldEnabled: Boolean,
     isAttachmentActionEnabled: Boolean,
     isRecordActionEnabled: Boolean,
@@ -136,6 +140,7 @@ internal fun ConversationComposeBar(
         ConversationComposeInputContent(
             audioRecording = audioRecording,
             messageText = messageText,
+            sendProtocol = sendProtocol,
             isMessageFieldEnabled = isMessageFieldEnabled,
             isAttachmentActionEnabled = isAttachmentActionEnabled,
             isRecordActionEnabled = isRecordActionEnabled,
@@ -219,6 +224,7 @@ private fun conversationComposeBarTextFieldColors(): TextFieldColors {
 private fun ConversationComposeInputContent(
     audioRecording: ConversationAudioRecordingUiState,
     messageText: String,
+    sendProtocol: ConversationDraftSendProtocol,
     isMessageFieldEnabled: Boolean,
     isAttachmentActionEnabled: Boolean,
     isRecordActionEnabled: Boolean,
@@ -260,6 +266,7 @@ private fun ConversationComposeInputContent(
         ConversationComposeMessageRecordingContent(
             modifier = Modifier.weight(weight = 1f),
             messageText = messageText,
+            sendProtocol = sendProtocol,
             durationMillis = audioRecording.durationMillis,
             inputState = inputState,
             isMessageFieldEnabled = isMessageFieldEnabled,
@@ -348,6 +355,7 @@ private fun conversationComposeInputState(
 private fun ConversationComposeMessageRecordingContent(
     modifier: Modifier = Modifier,
     messageText: String,
+    sendProtocol: ConversationDraftSendProtocol,
     durationMillis: Long,
     inputState: ConversationComposeInputState,
     isMessageFieldEnabled: Boolean,
@@ -372,6 +380,7 @@ private fun ConversationComposeMessageRecordingContent(
                 }
             },
             enabled = isMessageFieldEnabled,
+            sendProtocol = sendProtocol,
             isVisuallyHidden = inputState.isActiveRecording,
             messageFieldFocusRequester = messageFieldFocusRequester,
             presentation = presentation,
@@ -445,6 +454,7 @@ private fun ConversationComposeMessageField(
     modifier: Modifier = Modifier,
     value: String,
     enabled: Boolean,
+    sendProtocol: ConversationDraftSendProtocol,
     isVisuallyHidden: Boolean,
     messageFieldFocusRequester: FocusRequester?,
     presentation: ConversationComposeBarPresentation,
@@ -469,11 +479,23 @@ private fun ConversationComposeMessageField(
         else -> Modifier
     }
 
+    val mmsText = stringResource(id = R.string.mms_text)
+    val sendProtocolSemanticsModifier = when (sendProtocol) {
+        ConversationDraftSendProtocol.MMS -> {
+            Modifier.semantics {
+                stateDescription = mmsText
+            }
+        }
+
+        ConversationDraftSendProtocol.SMS -> Modifier
+    }
+
     TextField(
         modifier = modifier
             .then(focusRequesterModifier)
             .testTag(CONVERSATION_TEXT_FIELD_TEST_TAG)
             .heightIn(min = 56.dp)
+            .then(sendProtocolSemanticsModifier)
             .then(recordingVisibilityModifier),
         value = value,
         onValueChange = onValueChange,
@@ -491,8 +513,30 @@ private fun ConversationComposeMessageField(
                 onAudioAttachClick = onAudioAttachClick,
             )
         },
+        trailingIcon = when (sendProtocol) {
+            ConversationDraftSendProtocol.MMS -> {
+                {
+                    MmsIndicator()
+                }
+            }
+
+            ConversationDraftSendProtocol.SMS -> null
+        },
         minLines = 1,
         maxLines = 4,
+    )
+}
+
+@Composable
+private fun MmsIndicator() {
+    Text(
+        modifier = Modifier
+            .padding(end = 12.dp)
+            .clearAndSetSemantics {}
+            .testTag(CONVERSATION_MMS_INDICATOR_TEST_TAG),
+        text = stringResource(id = R.string.mms_text),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.tertiary,
     )
 }
 
@@ -714,6 +758,7 @@ private data class ConversationComposeBarPreviewState(
     val label: String,
     val audioRecording: ConversationAudioRecordingUiState = ConversationAudioRecordingUiState(),
     val messageText: String = "",
+    val sendProtocol: ConversationDraftSendProtocol = ConversationDraftSendProtocol.SMS,
     val isMessageFieldEnabled: Boolean = true,
     val isAttachmentActionEnabled: Boolean = true,
     val isRecordActionEnabled: Boolean = true,
@@ -738,6 +783,13 @@ private val conversationComposeBarPreviewStates = persistentListOf(
     ConversationComposeBarPreviewState(
         label = "Send enabled",
         messageText = "See you there",
+        isSendActionEnabled = true,
+        shouldShowRecordAction = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "MMS draft",
+        messageText = "Photo attached",
+        sendProtocol = ConversationDraftSendProtocol.MMS,
         isSendActionEnabled = true,
         shouldShowRecordAction = false,
     ),
@@ -902,6 +954,7 @@ private fun ConversationComposeBarPreviewContent(
     ConversationComposeInputContent(
         audioRecording = previewState.audioRecording,
         messageText = previewState.messageText,
+        sendProtocol = previewState.sendProtocol,
         isMessageFieldEnabled = previewState.isMessageFieldEnabled,
         isAttachmentActionEnabled = previewState.isAttachmentActionEnabled,
         isRecordActionEnabled = previewState.isRecordActionEnabled,

@@ -4,19 +4,25 @@ import android.app.Activity
 import app.cash.turbine.test
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
+import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
+import com.android.messaging.data.conversation.model.send.ConversationSendData
 import com.android.messaging.data.conversation.repository.ConversationDraftsRepository
+import com.android.messaging.data.conversation.repository.ConversationsRepository
 import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirements
 import com.android.messaging.domain.conversation.usecase.action.ConversationActionRequirementsResult
+import com.android.messaging.domain.conversation.usecase.draft.GetConversationDraftSendProtocol
 import com.android.messaging.domain.conversation.usecase.draft.SendConversationDraft
 import com.android.messaging.domain.conversation.usecase.draft.exception.ConversationSimNotReadyException
 import com.android.messaging.domain.conversation.usecase.draft.exception.DraftDispatchFailedException
 import com.android.messaging.domain.conversation.usecase.draft.exception.TooManyVideoAttachmentsException
 import com.android.messaging.domain.conversation.usecase.draft.exception.UnknownConversationRecipientException
+import com.android.messaging.domain.conversation.usecase.draft.model.ConversationDraftSendProtocol
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -81,14 +87,178 @@ class ConversationDraftDelegateImplTest {
             try {
                 harness.delegate.onMessageTextChanged(messageText = "Hello")
 
-                advanceTimeBy(299)
+                advanceTimeBy(299.milliseconds)
                 assertTrue(repository.savedDrafts.isEmpty())
 
-                advanceTimeBy(1)
+                advanceTimeBy(1.milliseconds)
                 advanceUntilIdle()
 
                 assertEquals(1, repository.savedDrafts.size)
                 assertEquals("Hello", repository.savedDrafts.single().draft.messageText)
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onMessageTextChanged_resolvesDraftSendProtocolAfterDebounce() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val conversationsRepository = createConversationsRepositoryMock()
+            val getDraftSendProtocol = createDraftSendProtocolMock(
+                initialResult = ConversationDraftSendProtocol.MMS,
+            )
+            val harness = createBoundLoadedDelegateHarness(
+                repository = repository,
+                conversationsRepository = conversationsRepository,
+                getDraftSendProtocol = getDraftSendProtocol,
+            )
+
+            try {
+                harness.delegate.onMessageTextChanged(messageText = "Hello")
+
+                advanceTimeBy(249.milliseconds)
+
+                assertEquals(0, conversationsRepository.sendDataRequests.size)
+                assertEquals(
+                    ConversationDraftSendProtocol.SMS,
+                    harness.delegate.state.value.sendProtocol,
+                )
+
+                advanceTimeBy(1.milliseconds)
+                advanceUntilIdle()
+
+                assertEquals(1, conversationsRepository.sendDataRequests.size)
+                assertEquals(
+                    ConversationSendDataRequest(
+                        conversationId = CONVERSATION_ID,
+                        selfParticipantId = "",
+                    ),
+                    conversationsRepository.sendDataRequests.single(),
+                )
+                assertEquals("Hello", getDraftSendProtocol.requests.single().messageText)
+                assertEquals(
+                    ConversationDraftSendProtocol.MMS,
+                    harness.delegate.state.value.sendProtocol,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onMessageTextChanged_debouncesDraftSendProtocolUntilTypingSettles() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val conversationsRepository = createConversationsRepositoryMock()
+            val getDraftSendProtocol = createDraftSendProtocolMock(
+                initialResult = ConversationDraftSendProtocol.MMS,
+            )
+            val harness = createBoundLoadedDelegateHarness(
+                repository = repository,
+                conversationsRepository = conversationsRepository,
+                getDraftSendProtocol = getDraftSendProtocol,
+            )
+
+            try {
+                harness.delegate.onMessageTextChanged(messageText = "H")
+                advanceTimeBy(100.milliseconds)
+                harness.delegate.onMessageTextChanged(messageText = "He")
+                advanceTimeBy(100.milliseconds)
+                harness.delegate.onMessageTextChanged(messageText = "Hel")
+                advanceTimeBy(249.milliseconds)
+
+                assertEquals(0, conversationsRepository.sendDataRequests.size)
+                assertTrue(getDraftSendProtocol.requests.isEmpty())
+
+                advanceTimeBy(1.milliseconds)
+                advanceUntilIdle()
+
+                assertEquals(1, conversationsRepository.sendDataRequests.size)
+                assertEquals(1, getDraftSendProtocol.requests.size)
+                assertEquals("Hel", getDraftSendProtocol.requests.single().messageText)
+                assertEquals(
+                    ConversationDraftSendProtocol.MMS,
+                    harness.delegate.state.value.sendProtocol,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun onMessageTextChanged_whenDraftBecomesEmpty_resetsDraftSendProtocolToSms() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val conversationsRepository = createConversationsRepositoryMock()
+            val getDraftSendProtocol = createDraftSendProtocolMock(
+                initialResult = ConversationDraftSendProtocol.MMS,
+            )
+            val harness = createBoundLoadedDelegateHarness(
+                repository = repository,
+                conversationsRepository = conversationsRepository,
+                getDraftSendProtocol = getDraftSendProtocol,
+            )
+
+            try {
+                harness.delegate.onMessageTextChanged(messageText = "Hello")
+                advanceTimeBy(250.milliseconds)
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationDraftSendProtocol.MMS,
+                    harness.delegate.state.value.sendProtocol,
+                )
+
+                harness.delegate.onMessageTextChanged(messageText = "")
+
+                assertEquals(
+                    ConversationDraftSendProtocol.SMS,
+                    harness.delegate.state.value.sendProtocol,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
+    fun addAttachments_whenSendDataIsUnavailable_fallsBackToMmsDraftProtocol() {
+        runTest {
+            val repository = createConversationDraftsRepositoryMock()
+            val conversationsRepository = createConversationsRepositoryMock(
+                sendData = null,
+            )
+            val getDraftSendProtocol = createDraftSendProtocolMock(
+                initialResult = ConversationDraftSendProtocol.SMS,
+            )
+            val harness = createBoundLoadedDelegateHarness(
+                repository = repository,
+                conversationsRepository = conversationsRepository,
+                getDraftSendProtocol = getDraftSendProtocol,
+            )
+
+            try {
+                harness.delegate.addAttachments(
+                    attachments = listOf(
+                        ConversationDraftAttachment(
+                            contentType = "image/jpeg",
+                            contentUri = "content://images/1",
+                        ),
+                    ),
+                )
+                advanceTimeBy(250.milliseconds)
+                advanceUntilIdle()
+
+                assertEquals(1, conversationsRepository.sendDataRequests.size)
+                assertTrue(getDraftSendProtocol.requests.isEmpty())
+                assertEquals(
+                    ConversationDraftSendProtocol.MMS,
+                    harness.delegate.state.value.sendProtocol,
+                )
             } finally {
                 harness.cancel()
             }
@@ -199,7 +369,7 @@ class ConversationDraftDelegateImplTest {
                 assertEquals("", harness.delegate.state.value.draft.messageText)
 
                 harness.delegate.onMessageTextChanged(messageText = "Next")
-                advanceTimeBy(300)
+                advanceTimeBy(300.milliseconds)
                 advanceUntilIdle()
 
                 assertEquals(1, repository.savedDrafts.size)
@@ -215,7 +385,7 @@ class ConversationDraftDelegateImplTest {
         runTest {
             val repository = createConversationDraftsRepositoryMock()
             val sendConversationDraft = createSendConversationDraftMock(
-                flowFactory = SendFlowFactory {
+                flowFactory = {
                     flow {
                         throw IllegalStateException("boom")
                     }
@@ -296,7 +466,7 @@ class ConversationDraftDelegateImplTest {
         runTest {
             val repository = createConversationDraftsRepositoryMock()
             val sendConversationDraft = createSendConversationDraftMock(
-                flowFactory = SendFlowFactory {
+                flowFactory = {
                     flow {
                         throw CancellationException("cancelled")
                     }
@@ -326,7 +496,7 @@ class ConversationDraftDelegateImplTest {
     ) {
         val repository = createConversationDraftsRepositoryMock()
         val sendConversationDraft = createSendConversationDraftMock(
-            flowFactory = SendFlowFactory {
+            flowFactory = {
                 flow {
                     throw exception
                 }
@@ -365,7 +535,7 @@ class ConversationDraftDelegateImplTest {
             val repository = createConversationDraftsRepositoryMock()
             val sendGate = CompletableDeferred<Unit>()
             val sendConversationDraft = createSendConversationDraftMock(
-                flowFactory = SendFlowFactory {
+                flowFactory = {
                     flow {
                         sendGate.await()
                         emit(Unit)
@@ -390,7 +560,7 @@ class ConversationDraftDelegateImplTest {
                 assertFalse(harness.delegate.state.value.draft.isSending)
                 assertEquals("Next", harness.delegate.state.value.draft.messageText)
 
-                advanceTimeBy(300)
+                advanceTimeBy(300.milliseconds)
                 advanceUntilIdle()
 
                 assertEquals(1, repository.savedDrafts.size)
@@ -406,7 +576,7 @@ class ConversationDraftDelegateImplTest {
         runTest {
             val repository = createConversationDraftsRepositoryMock()
             val sendConversationDraft = createSendConversationDraftMock(
-                flowFactory = SendFlowFactory {
+                flowFactory = {
                     emptyFlow()
                 },
             )
@@ -597,11 +767,15 @@ class ConversationDraftDelegateImplTest {
         repository: RepositoryMock,
         sendConversationDraft: SendConversationDraftMock = createSendConversationDraftMock(),
         actionRequirements: ActionRequirementsMock = createActionRequirementsMock(),
+        conversationsRepository: ConversationsRepositoryMock = createConversationsRepositoryMock(),
+        getDraftSendProtocol: DraftSendProtocolMock = createDraftSendProtocolMock(),
     ): DelegateHarness {
         val harness = createDelegateHarness(
             repository = repository,
             sendConversationDraft = sendConversationDraft,
             actionRequirements = actionRequirements,
+            conversationsRepository = conversationsRepository,
+            getDraftSendProtocol = getDraftSendProtocol,
         )
         harness.conversationIdFlow.value = CONVERSATION_ID
         repository.emitDraft(
@@ -617,6 +791,8 @@ class ConversationDraftDelegateImplTest {
         repository: RepositoryMock,
         sendConversationDraft: SendConversationDraftMock,
         actionRequirements: ActionRequirementsMock = createActionRequirementsMock(),
+        conversationsRepository: ConversationsRepositoryMock = createConversationsRepositoryMock(),
+        getDraftSendProtocol: DraftSendProtocolMock = createDraftSendProtocolMock(),
     ): DelegateHarness {
         val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
         val applicationScope = TestScope(dispatcher)
@@ -625,8 +801,11 @@ class ConversationDraftDelegateImplTest {
             applicationScope = applicationScope,
             checkConversationActionRequirements = actionRequirements.mock,
             conversationDraftsRepository = repository.mock,
+            conversationsRepository = conversationsRepository.mock,
+            getConversationDraftSendProtocol = getDraftSendProtocol.mock,
             sendConversationDraft = sendConversationDraft.mock,
             defaultDispatcher = dispatcher,
+            ioDispatcher = dispatcher,
         )
         val conversationIdFlow = MutableStateFlow<String?>(null)
 
@@ -702,6 +881,50 @@ class ConversationDraftDelegateImplTest {
         return result
     }
 
+    private fun createConversationsRepositoryMock(
+        sendData: ConversationSendData? = mockk(relaxed = true),
+    ): ConversationsRepositoryMock {
+        val mock = mockk<ConversationsRepository>(relaxed = true)
+        val sendDataRequests = mutableListOf<ConversationSendDataRequest>()
+
+        every {
+            mock.getConversationSendData(any(), any())
+        } answers {
+            sendDataRequests += ConversationSendDataRequest(
+                conversationId = firstArg(),
+                selfParticipantId = secondArg(),
+            )
+            sendData
+        }
+
+        return ConversationsRepositoryMock(
+            mock = mock,
+            sendDataRequests = sendDataRequests,
+        )
+    }
+
+    private fun createDraftSendProtocolMock(
+        initialResult: ConversationDraftSendProtocol = ConversationDraftSendProtocol.SMS,
+    ): DraftSendProtocolMock {
+        val mock = mockk<GetConversationDraftSendProtocol>()
+        val requests = mutableListOf<ConversationDraft>()
+        val result = DraftSendProtocolMock(
+            mock = mock,
+            requests = requests,
+            protocol = initialResult,
+        )
+
+        every {
+            mock.invoke(any(), any())
+        } answers {
+            val draft = firstArg<ConversationDraft>()
+            requests += draft
+            result.protocol
+        }
+
+        return result
+    }
+
     private fun createSendConversationDraftMock(
         flowFactory: SendFlowFactory = createDefaultSendFlowFactory(),
     ): SendConversationDraftMock {
@@ -731,6 +954,11 @@ class ConversationDraftDelegateImplTest {
     private data class SaveDraftCall(
         val conversationId: String,
         val draft: ConversationDraft,
+    )
+
+    private data class ConversationSendDataRequest(
+        val conversationId: String,
+        val selfParticipantId: String,
     )
 
     private data class DelegateHarness(
@@ -763,6 +991,17 @@ class ConversationDraftDelegateImplTest {
             }.emit(draft)
         }
     }
+
+    private data class ConversationsRepositoryMock(
+        val mock: ConversationsRepository,
+        val sendDataRequests: MutableList<ConversationSendDataRequest>,
+    )
+
+    private data class DraftSendProtocolMock(
+        val mock: GetConversationDraftSendProtocol,
+        val requests: MutableList<ConversationDraft>,
+        var protocol: ConversationDraftSendProtocol,
+    )
 
     private data class SendConversationDraftMock(
         val mock: SendConversationDraft,

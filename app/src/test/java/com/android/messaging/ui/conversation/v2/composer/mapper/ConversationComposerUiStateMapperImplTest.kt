@@ -6,6 +6,7 @@ import com.android.messaging.data.conversation.model.metadata.ConversationCompos
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerDisabledReason
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscription
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscriptionLabel
+import com.android.messaging.domain.conversation.usecase.draft.model.ConversationDraftSendProtocol
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
@@ -107,6 +108,40 @@ class ConversationComposerUiStateMapperImplTest {
 
         assertFalse(unavailableUiState.isMessageFieldEnabled)
         assertTrue(availableUiState.isMessageFieldEnabled)
+    }
+
+    @Test
+    fun map_preservesSendProtocolForWorkingDraft() {
+        val uiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
+            draftState = ConversationDraftState(
+                draft = ConversationDraft(
+                    messageText = "Hello",
+                ),
+                sendProtocol = ConversationDraftSendProtocol.MMS,
+            ),
+            attachments = persistentListOf(),
+            composerAvailability = ConversationComposerAvailability.editable(),
+            subscriptions = persistentListOf(),
+        )
+
+        assertEquals(ConversationDraftSendProtocol.MMS, uiState.sendProtocol)
+    }
+
+    @Test
+    fun map_resetsSendProtocolToSmsForEmptyDraft() {
+        val uiState = mapper.map(
+            audioRecording = ConversationAudioRecordingUiState(),
+            draftState = ConversationDraftState(
+                draft = ConversationDraft(),
+                sendProtocol = ConversationDraftSendProtocol.MMS,
+            ),
+            attachments = persistentListOf(),
+            composerAvailability = ConversationComposerAvailability.editable(),
+            subscriptions = persistentListOf(),
+        )
+
+        assertEquals(ConversationDraftSendProtocol.SMS, uiState.sendProtocol)
     }
 
     @Test

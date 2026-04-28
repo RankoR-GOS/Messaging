@@ -13,6 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -31,12 +32,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.messaging.R
+import com.android.messaging.domain.conversation.usecase.draft.model.ConversationDraftSendProtocol
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_AUDIO_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_BAR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG
+import com.android.messaging.ui.conversation.v2.CONVERSATION_MMS_INDICATOR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_TEXT_FIELD_TEST_TAG
@@ -113,6 +116,45 @@ class ConversationComposeBarTest {
     }
 
     @Test
+    fun mmsSendProtocol_showsMmsIndicatorAndStateDescription() {
+        setComposeBarContent(
+            messageText = "Hello",
+            sendProtocol = ConversationDraftSendProtocol.MMS,
+        )
+
+        composeTestRule
+            .onNodeWithTag(
+                testTag = CONVERSATION_MMS_INDICATOR_TEST_TAG,
+                useUnmergedTree = true,
+            )
+            .assertIsDisplayed()
+
+        composeTestRule
+            .onNodeWithTag(CONVERSATION_TEXT_FIELD_TEST_TAG)
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.StateDescription,
+                    getString(id = R.string.mms_text),
+                ),
+            )
+    }
+
+    @Test
+    fun smsSendProtocol_hidesMmsIndicator() {
+        setComposeBarContent(
+            messageText = "Hello",
+            sendProtocol = ConversationDraftSendProtocol.SMS,
+        )
+
+        composeTestRule
+            .onAllNodesWithTag(
+                testTag = CONVERSATION_MMS_INDICATOR_TEST_TAG,
+                useUnmergedTree = true,
+            )
+            .assertCountEquals(expectedSize = 0)
+    }
+
+    @Test
     fun enabledState_andCallbacks_areWiredCorrectly() {
         var messageText = ""
         var sendClicks = 0
@@ -126,6 +168,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = ConversationAudioRecordingUiState(),
                     messageText = currentMessageText,
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = false,
                     isRecordActionEnabled = true,
@@ -173,6 +216,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = ConversationAudioRecordingUiState(),
                     messageText = "Hello",
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = false,
                     isRecordActionEnabled = true,
@@ -209,6 +253,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = ConversationAudioRecordingUiState(),
                     messageText = "",
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = false,
                     isAttachmentActionEnabled = false,
                     isRecordActionEnabled = true,
@@ -242,6 +287,7 @@ class ConversationComposeBarTest {
                     ConversationComposeBar(
                         audioRecording = ConversationAudioRecordingUiState(),
                         messageText = "",
+                        sendProtocol = ConversationDraftSendProtocol.SMS,
                         isMessageFieldEnabled = true,
                         isAttachmentActionEnabled = true,
                         isRecordActionEnabled = true,
@@ -298,6 +344,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = ConversationAudioRecordingUiState(),
                     messageText = "",
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = true,
                     isRecordActionEnabled = true,
@@ -342,6 +389,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = ConversationAudioRecordingUiState(),
                     messageText = "Message with text",
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = true,
                     isRecordActionEnabled = true,
@@ -386,6 +434,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = ConversationAudioRecordingUiState(),
                     messageText = "",
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = true,
                     isRecordActionEnabled = true,
@@ -549,6 +598,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = audioRecording,
                     messageText = "",
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = false,
                     isRecordActionEnabled = true,
@@ -606,6 +656,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = audioRecording,
                     messageText = "",
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = false,
                     isRecordActionEnabled = true,
@@ -673,6 +724,7 @@ class ConversationComposeBarTest {
                     ConversationComposeBar(
                         audioRecording = audioRecording,
                         messageText = "",
+                        sendProtocol = ConversationDraftSendProtocol.SMS,
                         isMessageFieldEnabled = true,
                         isAttachmentActionEnabled = false,
                         isRecordActionEnabled = true,
@@ -774,6 +826,7 @@ class ConversationComposeBarTest {
                 ConversationComposeBar(
                     audioRecording = audioRecording,
                     messageText = "",
+                    sendProtocol = ConversationDraftSendProtocol.SMS,
                     isMessageFieldEnabled = true,
                     isAttachmentActionEnabled = false,
                     isRecordActionEnabled = true,
@@ -840,6 +893,7 @@ class ConversationComposeBarTest {
     private fun setComposeBarContent(
         audioRecording: ConversationAudioRecordingUiState = ConversationAudioRecordingUiState(),
         messageText: String,
+        sendProtocol: ConversationDraftSendProtocol = ConversationDraftSendProtocol.SMS,
         isSendActionEnabled: Boolean = true,
         isAttachmentActionEnabled: Boolean = false,
         isRecordActionEnabled: Boolean = true,
@@ -855,6 +909,7 @@ class ConversationComposeBarTest {
                     ConversationComposeBar(
                         audioRecording = audioRecording,
                         messageText = messageText,
+                        sendProtocol = sendProtocol,
                         isMessageFieldEnabled = true,
                         isAttachmentActionEnabled = isAttachmentActionEnabled,
                         isRecordActionEnabled = isRecordActionEnabled,
