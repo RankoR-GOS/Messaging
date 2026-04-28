@@ -1,5 +1,6 @@
 package com.android.messaging.ui.conversation.v2.composer.ui
 
+import android.content.res.Configuration
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -11,12 +12,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -34,6 +36,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldColors
@@ -76,6 +79,8 @@ import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRec
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
 import com.android.messaging.ui.conversation.v2.conversationShape
 import com.android.messaging.ui.core.AppTheme
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 internal val AUDIO_RECORD_CANCEL_THRESHOLD = 96.dp
 internal val AUDIO_RECORD_LOCK_THRESHOLD = 72.dp
@@ -705,69 +710,235 @@ private data class ConversationComposeInputState(
     val isRecordingControlEnabled: Boolean,
 )
 
+private data class ConversationComposeBarPreviewState(
+    val label: String,
+    val audioRecording: ConversationAudioRecordingUiState = ConversationAudioRecordingUiState(),
+    val messageText: String = "",
+    val isMessageFieldEnabled: Boolean = true,
+    val isAttachmentActionEnabled: Boolean = true,
+    val isRecordActionEnabled: Boolean = true,
+    val isSendActionEnabled: Boolean = false,
+    val shouldShowRecordAction: Boolean = true,
+    val cancelProgress: Float = 0f,
+    val lockProgress: Float = 0f,
+)
+
+private val conversationComposeBarPreviewStates = persistentListOf(
+    ConversationComposeBarPreviewState(
+        label = "Empty record mode",
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Attachments disabled",
+        isAttachmentActionEnabled = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Record disabled",
+        isRecordActionEnabled = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Send enabled",
+        messageText = "See you there",
+        isSendActionEnabled = true,
+        shouldShowRecordAction = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Multiline draft",
+        messageText = "Can you bring the invoice?\nAlso, please check the last address.",
+        isSendActionEnabled = true,
+        shouldShowRecordAction = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Send disabled",
+        messageText = "Waiting for service",
+        isSendActionEnabled = false,
+        shouldShowRecordAction = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Composer disabled",
+        isMessageFieldEnabled = false,
+        isAttachmentActionEnabled = false,
+        isRecordActionEnabled = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Finalizing audio",
+        audioRecording = ConversationAudioRecordingUiState(
+            phase = ConversationAudioRecordingPhase.Finalizing,
+            durationMillis = 12_400L,
+        ),
+        isRecordActionEnabled = false,
+        shouldShowRecordAction = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Recording",
+        audioRecording = ConversationAudioRecordingUiState(
+            phase = ConversationAudioRecordingPhase.Recording,
+            durationMillis = 8_400L,
+        ),
+        shouldShowRecordAction = false,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Recording cancel drag",
+        audioRecording = ConversationAudioRecordingUiState(
+            phase = ConversationAudioRecordingPhase.Recording,
+            durationMillis = 14_250L,
+        ),
+        shouldShowRecordAction = false,
+        cancelProgress = 0.62f,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Recording cancel armed",
+        audioRecording = ConversationAudioRecordingUiState(
+            phase = ConversationAudioRecordingPhase.Recording,
+            durationMillis = 19_800L,
+        ),
+        shouldShowRecordAction = false,
+        cancelProgress = 1f,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Recording lock drag",
+        audioRecording = ConversationAudioRecordingUiState(
+            phase = ConversationAudioRecordingPhase.Recording,
+            durationMillis = 23_100L,
+        ),
+        shouldShowRecordAction = false,
+        lockProgress = 0.72f,
+    ),
+    ConversationComposeBarPreviewState(
+        label = "Recording locked",
+        audioRecording = ConversationAudioRecordingUiState(
+            phase = ConversationAudioRecordingPhase.Recording,
+            durationMillis = 31_000L,
+            isLocked = true,
+        ),
+        shouldShowRecordAction = false,
+        lockProgress = 1f,
+    ),
+)
+
 @Composable
-private fun ConversationComposeBarPreviewContainer(
-    content: @Composable () -> Unit,
+private fun ConversationComposeBarPreviewGrid(
+    modifier: Modifier = Modifier,
+    previewStates: ImmutableList<ConversationComposeBarPreviewState>,
 ) {
     AppTheme {
-        Box(
-            modifier = Modifier
-                .background(color = MaterialTheme.colorScheme.background)
-                .padding(vertical = 24.dp),
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.background,
         ) {
-            content()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(all = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(space = 12.dp),
+            ) {
+                previewStates
+                    .chunked(size = 2)
+                    .forEach { rowStates ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(space = 12.dp),
+                        ) {
+                            rowStates.forEach { previewState ->
+                                ConversationComposeBarPreviewItem(
+                                    modifier = Modifier.weight(weight = 1f),
+                                    previewState = previewState,
+                                )
+                            }
+
+                            if (rowStates.size == 1) {
+                                Box(modifier = Modifier.weight(weight = 1f))
+                            }
+                        }
+                    }
+            }
         }
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-private fun ConversationComposeBarSendDisabledPreview() {
-    ConversationComposeBarPreviewContainer {
-        ConversationComposeBar(
-            audioRecording = ConversationAudioRecordingUiState(),
-            messageText = "",
-            isMessageFieldEnabled = true,
-            isAttachmentActionEnabled = false,
-            isRecordActionEnabled = true,
-            isSendActionEnabled = false,
-            shouldShowRecordAction = true,
-            messageFieldFocusRequester = null,
-            onContactAttachClick = {},
-            onMediaPickerClick = {},
-            onLockedAudioRecordingStartRequest = {},
-            onMessageTextChange = {},
-            onAudioRecordingStartRequest = {},
-            onAudioRecordingFinish = {},
-            onAudioRecordingLock = { false },
-            onAudioRecordingCancel = {},
-            onSendClick = {},
-        )
+private fun ConversationComposeBarPreviewItem(
+    modifier: Modifier = Modifier,
+    previewState: ConversationComposeBarPreviewState,
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(size = 20.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(all = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(space = 8.dp),
+        ) {
+            Text(
+                text = previewState.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(height = 156.dp),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                ConversationComposeBarPreviewContent(previewState = previewState)
+            }
+        }
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-private fun ConversationComposeBarSendEnabledPreview() {
-    ConversationComposeBarPreviewContainer {
-        ConversationComposeBar(
-            audioRecording = ConversationAudioRecordingUiState(),
-            messageText = "See you there",
-            isMessageFieldEnabled = true,
-            isAttachmentActionEnabled = false,
-            isRecordActionEnabled = true,
-            isSendActionEnabled = true,
-            shouldShowRecordAction = false,
-            messageFieldFocusRequester = null,
-            onContactAttachClick = {},
-            onMediaPickerClick = {},
-            onLockedAudioRecordingStartRequest = {},
-            onMessageTextChange = {},
-            onAudioRecordingStartRequest = {},
-            onAudioRecordingFinish = {},
-            onAudioRecordingLock = { false },
-            onAudioRecordingCancel = {},
-            onSendClick = {},
-        )
-    }
+private fun ConversationComposeBarPreviewContent(
+    previewState: ConversationComposeBarPreviewState,
+) {
+    val presentation = rememberConversationComposeBarPresentation()
+    val cancelDragDistancePx = with(LocalDensity.current) {
+        AUDIO_RECORD_CANCEL_THRESHOLD.toPx()
+    } * previewState.cancelProgress
+    val lockDragDistancePx = with(LocalDensity.current) {
+        AUDIO_RECORD_LOCK_THRESHOLD.toPx()
+    } * previewState.lockProgress
+
+    ConversationComposeInputContent(
+        audioRecording = previewState.audioRecording,
+        messageText = previewState.messageText,
+        isMessageFieldEnabled = previewState.isMessageFieldEnabled,
+        isAttachmentActionEnabled = previewState.isAttachmentActionEnabled,
+        isRecordActionEnabled = previewState.isRecordActionEnabled,
+        isSendActionEnabled = previewState.isSendActionEnabled,
+        shouldShowRecordAction = previewState.shouldShowRecordAction,
+        recordingGestureState = ConversationSendActionButtonGestureState(
+            cancelDragDistancePx = cancelDragDistancePx,
+            lockDragDistancePx = lockDragDistancePx,
+        ),
+        messageFieldFocusRequester = null,
+        presentation = presentation,
+        onContactAttachClick = {},
+        onMediaPickerClick = {},
+        onLockedAudioRecordingStartRequest = {},
+        onMessageTextChange = {},
+        onAudioRecordingStartRequest = {},
+        onAudioRecordingDrag = {},
+        onAudioRecordingLock = { false },
+        onAudioRecordingFinish = {},
+        onSendClick = {},
+    )
+}
+
+@Preview(
+    name = "Compose Bar States - Light",
+    showBackground = true,
+    widthDp = 920,
+)
+@Preview(
+    name = "Compose Bar States - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    widthDp = 920,
+)
+@Composable
+private fun ConversationComposeBarStatesPreview() {
+    ConversationComposeBarPreviewGrid(
+        previewStates = conversationComposeBarPreviewStates,
+    )
 }

@@ -1,5 +1,6 @@
 package com.android.messaging.ui.conversation.v2.composer.ui
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -15,6 +16,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,8 +36,10 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -44,12 +48,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_BAR_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_CANCEL_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_AUDIO_RECORDING_LOCK_AFFORDANCE_TEST_TAG
 import com.android.messaging.ui.conversation.v2.audio.formatConversationAudioDuration
+import com.android.messaging.ui.core.AppTheme
 
 private const val AUDIO_RECORDING_COLOR_ANIMATION_THRESHOLD = 0.7f
 
@@ -380,3 +386,126 @@ private data class AudioRecordingBarVisualState(
     val deleteIconTint: Color,
     val hintAlpha: Float,
 )
+
+@Immutable
+private data class ConversationAudioRecordingBarPreviewState(
+    val label: String,
+    val durationMillis: Long,
+    val cancelProgress: Float,
+    val isCancellationArmed: Boolean,
+)
+
+private val conversationAudioRecordingBarPreviewStates = listOf(
+    ConversationAudioRecordingBarPreviewState(
+        label = "Recording started",
+        durationMillis = 3_000L,
+        cancelProgress = 0f,
+        isCancellationArmed = false,
+    ),
+    ConversationAudioRecordingBarPreviewState(
+        label = "Cancel drag 25%",
+        durationMillis = 12_000L,
+        cancelProgress = 0.25f,
+        isCancellationArmed = false,
+    ),
+    ConversationAudioRecordingBarPreviewState(
+        label = "Cancel drag 50%",
+        durationMillis = 38_000L,
+        cancelProgress = 0.5f,
+        isCancellationArmed = false,
+    ),
+    ConversationAudioRecordingBarPreviewState(
+        label = "Cancel threshold",
+        durationMillis = 65_000L,
+        cancelProgress = AUDIO_RECORDING_COLOR_ANIMATION_THRESHOLD,
+        isCancellationArmed = false,
+    ),
+    ConversationAudioRecordingBarPreviewState(
+        label = "Cancel armed",
+        durationMillis = 72_000L,
+        cancelProgress = 1f,
+        isCancellationArmed = true,
+    ),
+    ConversationAudioRecordingBarPreviewState(
+        label = "Long duration",
+        durationMillis = 3_665_000L,
+        cancelProgress = 0f,
+        isCancellationArmed = false,
+    ),
+)
+
+@Preview(
+    name = "Audio Recording Bar States - Light",
+    showBackground = true,
+    widthDp = 840,
+)
+@Preview(
+    name = "Audio Recording Bar States - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    widthDp = 840,
+)
+@Composable
+private fun ConversationAudioRecordingBarStatesPreview() {
+    ConversationAudioRecordingBarPreviewGrid()
+}
+
+@Composable
+private fun ConversationAudioRecordingBarPreviewGrid() {
+    AppTheme {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(all = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(space = 16.dp),
+            ) {
+                conversationAudioRecordingBarPreviewStates
+                    .chunked(size = 2)
+                    .forEach { rowStates ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(space = 16.dp),
+                        ) {
+                            rowStates.forEach { previewState ->
+                                ConversationAudioRecordingBarPreviewItem(
+                                    modifier = Modifier.weight(weight = 1f),
+                                    previewState = previewState,
+                                )
+                            }
+
+                            if (rowStates.size == 1) {
+                                Spacer(modifier = Modifier.weight(weight = 1f))
+                            }
+                        }
+                    }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationAudioRecordingBarPreviewItem(
+    modifier: Modifier = Modifier,
+    previewState: ConversationAudioRecordingBarPreviewState,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(space = 8.dp),
+    ) {
+        Text(
+            text = previewState.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        ConversationAudioRecordingBar(
+            durationMillis = previewState.durationMillis,
+            cancelProgress = previewState.cancelProgress,
+            isCancellationArmed = previewState.isCancellationArmed,
+        )
+    }
+}
