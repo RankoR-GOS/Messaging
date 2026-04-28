@@ -1,6 +1,8 @@
 package com.android.messaging.ui.conversation.v2.composer.ui
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -20,16 +22,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
@@ -37,6 +47,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
@@ -50,8 +61,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.messaging.R
+import com.android.messaging.ui.core.AppTheme
 
 @Immutable
 internal enum class ConversationSendActionButtonMode {
@@ -71,6 +84,39 @@ private data class ConversationSendActionButtonVisualState(
     val buttonScale: Float,
     val containerColor: Color,
     val contentColor: Color,
+)
+
+private val SEND_ACTION_BUTTON_PULSE_SCALE_ANIMATION_SPEC = infiniteRepeatable<Float>(
+    animation = tween(
+        durationMillis = 1000,
+        easing = FastOutSlowInEasing,
+    ),
+    repeatMode = RepeatMode.Reverse,
+)
+
+private val SEND_ACTION_BUTTON_BASE_SCALE_ANIMATION_SPEC = tween<Float>(durationMillis = 180)
+private val SEND_ACTION_BUTTON_COLOR_ANIMATION_SPEC = tween<Color>(durationMillis = 220)
+private val SEND_ACTION_BUTTON_ICON_ENTER_ANIMATION_SPEC = tween<Float>(durationMillis = 150)
+private val SEND_ACTION_BUTTON_ICON_EXIT_ANIMATION_SPEC = tween<Float>(durationMillis = 120)
+
+private val SEND_ACTION_BUTTON_BACKDROP_PULSE_ANIMATION_SPEC = infiniteRepeatable<Float>(
+    animation = tween(
+        durationMillis = 2100,
+        easing = FastOutSlowInEasing,
+    ),
+    repeatMode = RepeatMode.Restart,
+)
+
+private val SEND_ACTION_BUTTON_BACKDROP_DELAYED_PULSE_ANIMATION_SPEC = infiniteRepeatable<Float>(
+    animation = tween(
+        durationMillis = 2100,
+        easing = FastOutSlowInEasing,
+    ),
+    repeatMode = RepeatMode.Restart,
+    initialStartOffset = StartOffset(
+        offsetMillis = 1050,
+        offsetType = StartOffsetType.FastForward,
+    ),
 )
 
 @Composable
@@ -144,13 +190,7 @@ private fun animateConversationSendActionButtonVisualState(
     val pulseScale by pulseAnimation.animateFloat(
         initialValue = 1f,
         targetValue = 1.1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 1000,
-                easing = FastOutSlowInEasing,
-            ),
-            repeatMode = RepeatMode.Reverse,
-        ),
+        animationSpec = SEND_ACTION_BUTTON_PULSE_SCALE_ANIMATION_SPEC,
         label = "conversation_send_action_pulse_scale",
     )
 
@@ -160,7 +200,7 @@ private fun animateConversationSendActionButtonVisualState(
             isRecordGestureActive -> 0.95f
             else -> 1f
         },
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = SEND_ACTION_BUTTON_BASE_SCALE_ANIMATION_SPEC,
         label = "conversation_send_action_base_scale",
     )
 
@@ -174,7 +214,7 @@ private fun animateConversationSendActionButtonVisualState(
             isRecordingActive -> MaterialTheme.colorScheme.error
             else -> MaterialTheme.colorScheme.primary
         },
-        animationSpec = tween(durationMillis = 220),
+        animationSpec = SEND_ACTION_BUTTON_COLOR_ANIMATION_SPEC,
         label = "conversation_send_action_container_color",
     )
 
@@ -183,7 +223,7 @@ private fun animateConversationSendActionButtonVisualState(
             isRecordingActive -> MaterialTheme.colorScheme.onError
             else -> MaterialTheme.colorScheme.onPrimary
         },
-        animationSpec = tween(durationMillis = 220),
+        animationSpec = SEND_ACTION_BUTTON_COLOR_ANIMATION_SPEC,
         label = "conversation_send_action_content_color",
     )
 
@@ -509,19 +549,7 @@ private fun ConversationSendActionButtonIcon(mode: ConversationSendActionButtonM
     AnimatedContent(
         targetState = mode,
         transitionSpec = {
-            (
-                fadeIn(animationSpec = tween(durationMillis = 150)) +
-                    scaleIn(
-                        animationSpec = tween(durationMillis = 150),
-                        initialScale = 0.88f,
-                    )
-                ).togetherWith(
-                fadeOut(animationSpec = tween(durationMillis = 120)) +
-                    scaleOut(
-                        animationSpec = tween(durationMillis = 120),
-                        targetScale = 1.08f,
-                    ),
-            )
+            conversationSendActionButtonIconContentTransform()
         },
         label = "conversation_send_action_icon",
     ) { currentMode ->
@@ -537,7 +565,7 @@ private fun ConversationSendActionButtonIcon(mode: ConversationSendActionButtonM
 
             ConversationSendActionButtonMode.Record -> {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_mp_audio_mic),
+                    imageVector = Icons.Rounded.Mic,
                     contentDescription = stringResource(
                         id = R.string.audio_record_view_content_description,
                     ),
@@ -556,6 +584,28 @@ private fun ConversationSendActionButtonIcon(mode: ConversationSendActionButtonM
     }
 }
 
+private fun conversationSendActionButtonIconContentTransform(): ContentTransform {
+    val fadeInTransition = fadeIn(
+        animationSpec = SEND_ACTION_BUTTON_ICON_ENTER_ANIMATION_SPEC,
+    )
+    val scaleInTransition = scaleIn(
+        animationSpec = SEND_ACTION_BUTTON_ICON_ENTER_ANIMATION_SPEC,
+        initialScale = 0.9f,
+    )
+    val enterTransition = fadeInTransition + scaleInTransition
+
+    val fadeOutTransition = fadeOut(
+        animationSpec = SEND_ACTION_BUTTON_ICON_EXIT_ANIMATION_SPEC,
+    )
+    val scaleOutTransition = scaleOut(
+        animationSpec = SEND_ACTION_BUTTON_ICON_EXIT_ANIMATION_SPEC,
+        targetScale = 1.1f,
+    )
+    val exitTransition = fadeOutTransition + scaleOutTransition
+
+    return enterTransition.togetherWith(exitTransition)
+}
+
 @Composable
 private fun ConversationSendActionButtonPulseBackdrop(
     isVisible: Boolean,
@@ -571,60 +621,28 @@ private fun ConversationSendActionButtonPulseBackdrop(
     val outerPulseScale by pulseTransition.animateFloat(
         initialValue = 1f,
         targetValue = 2.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 2100,
-                easing = FastOutSlowInEasing,
-            ),
-            repeatMode = RepeatMode.Restart,
-        ),
+        animationSpec = SEND_ACTION_BUTTON_BACKDROP_PULSE_ANIMATION_SPEC,
         label = "conversation_send_action_outer_pulse_scale",
     )
 
     val outerPulseAlpha by pulseTransition.animateFloat(
         initialValue = 0.2f,
         targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 2100,
-                easing = FastOutSlowInEasing,
-            ),
-            repeatMode = RepeatMode.Restart,
-        ),
+        animationSpec = SEND_ACTION_BUTTON_BACKDROP_PULSE_ANIMATION_SPEC,
         label = "conversation_send_action_outer_pulse_alpha",
     )
 
     val innerPulseScale by pulseTransition.animateFloat(
         initialValue = 1f,
         targetValue = 2.5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 2100,
-                easing = FastOutSlowInEasing,
-            ),
-            repeatMode = RepeatMode.Restart,
-            initialStartOffset = StartOffset(
-                offsetMillis = 1050,
-                offsetType = StartOffsetType.FastForward,
-            ),
-        ),
+        animationSpec = SEND_ACTION_BUTTON_BACKDROP_DELAYED_PULSE_ANIMATION_SPEC,
         label = "conversation_send_action_inner_pulse_scale",
     )
 
     val innerPulseAlpha by pulseTransition.animateFloat(
         initialValue = 0.15f,
         targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 2100,
-                easing = FastOutSlowInEasing,
-            ),
-            repeatMode = RepeatMode.Restart,
-            initialStartOffset = StartOffset(
-                offsetMillis = 1050,
-                offsetType = StartOffsetType.FastForward,
-            ),
-        ),
+        animationSpec = SEND_ACTION_BUTTON_BACKDROP_DELAYED_PULSE_ANIMATION_SPEC,
         label = "conversation_send_action_inner_pulse_alpha",
     )
 
@@ -654,4 +672,134 @@ private fun ConversationSendActionPulseCircle(
                 shape = CircleShape,
             ),
     )
+}
+
+@Immutable
+private data class ConversationSendActionButtonPreviewState(
+    val label: String,
+    val enabled: Boolean,
+    val mode: ConversationSendActionButtonMode,
+    val isRecordingActive: Boolean = false,
+    val isRecordingLocked: Boolean = false,
+)
+
+private val CONVERSATION_SEND_ACTION_BUTTON_PREVIEW_STATES = listOf(
+    ConversationSendActionButtonPreviewState(
+        label = "Send enabled",
+        enabled = true,
+        mode = ConversationSendActionButtonMode.Send,
+    ),
+    ConversationSendActionButtonPreviewState(
+        label = "Send disabled",
+        enabled = false,
+        mode = ConversationSendActionButtonMode.Send,
+    ),
+    ConversationSendActionButtonPreviewState(
+        label = "Record enabled",
+        enabled = true,
+        mode = ConversationSendActionButtonMode.Record,
+    ),
+    ConversationSendActionButtonPreviewState(
+        label = "Record disabled",
+        enabled = false,
+        mode = ConversationSendActionButtonMode.Record,
+    ),
+    ConversationSendActionButtonPreviewState(
+        label = "Recording",
+        enabled = true,
+        mode = ConversationSendActionButtonMode.Record,
+        isRecordingActive = true,
+    ),
+    ConversationSendActionButtonPreviewState(
+        label = "Locked stop",
+        enabled = true,
+        mode = ConversationSendActionButtonMode.Stop,
+        isRecordingActive = true,
+        isRecordingLocked = true,
+    ),
+)
+
+@Preview(
+    name = "Send Action States - Light",
+    showBackground = true,
+    widthDp = 640,
+)
+@Preview(
+    name = "Send Action States - Dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    widthDp = 640,
+)
+@Composable
+private fun ConversationSendActionButtonStatesPreview() {
+    ConversationSendActionButtonPreviewGrid()
+}
+
+@Composable
+private fun ConversationSendActionButtonPreviewGrid() {
+    AppTheme {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(all = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(space = 16.dp),
+            ) {
+                CONVERSATION_SEND_ACTION_BUTTON_PREVIEW_STATES
+                    .chunked(size = 3)
+                    .forEach { rowStates ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(space = 16.dp),
+                        ) {
+                            rowStates.forEach { previewState ->
+                                ConversationSendActionButtonPreviewItem(
+                                    modifier = Modifier.weight(weight = 1f),
+                                    previewState = previewState,
+                                )
+                            }
+                        }
+                    }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationSendActionButtonPreviewItem(
+    modifier: Modifier = Modifier,
+    previewState: ConversationSendActionButtonPreviewState,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(space = 8.dp),
+    ) {
+        Box(
+            modifier = Modifier.size(size = 168.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            ConversationSendActionButton(
+                enabled = previewState.enabled,
+                mode = previewState.mode,
+                isRecordingActive = previewState.isRecordingActive,
+                isRecordingLocked = previewState.isRecordingLocked,
+                onClick = {},
+                onLockedStopClick = {},
+                onRecordGestureStart = {},
+                onRecordGestureMove = {},
+                onRecordGestureLock = { true },
+                onRecordGestureFinish = {},
+            )
+        }
+
+        Text(
+            text = previewState.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
