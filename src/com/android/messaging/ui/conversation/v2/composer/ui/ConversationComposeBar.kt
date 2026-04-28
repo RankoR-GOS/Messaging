@@ -3,6 +3,8 @@ package com.android.messaging.ui.conversation.v2.composer.ui
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -57,6 +59,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_AUDIO_MENU_ITEM_TEST_TAG
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_BUTTON_TEST_TAG
@@ -73,6 +76,13 @@ import com.android.messaging.ui.core.AppTheme
 
 internal val AUDIO_RECORD_CANCEL_THRESHOLD = 96.dp
 internal val AUDIO_RECORD_LOCK_THRESHOLD = 72.dp
+
+private const val CONTENT_SWAP_ENTER_FADE_DURATION_MILLIS = 160
+private const val CONTENT_SWAP_ENTER_SLIDE_DURATION_MILLIS = 220
+private const val CONTENT_SWAP_ENTER_SLIDE_OFFSET_DIVISOR = 10
+private const val CONTENT_SWAP_EXIT_FADE_DURATION_MILLIS = 120
+private const val CONTENT_SWAP_EXIT_SLIDE_DURATION_MILLIS = 180
+private const val CONTENT_SWAP_EXIT_SLIDE_OFFSET_DIVISOR = 12
 
 @Composable
 internal fun ConversationComposeBar(
@@ -374,23 +384,36 @@ private fun ConversationComposePlaceholder() {
 }
 
 private fun contentSwapTransition(): ContentTransform {
-    return (
-        fadeIn(animationSpec = tween(durationMillis = 160)) +
-            slideInHorizontally(
-                animationSpec = tween(durationMillis = 220),
-                initialOffsetX = { fullWidth ->
-                    fullWidth / 10
-                },
-            )
-        ).togetherWith(
-        fadeOut(animationSpec = tween(durationMillis = 120)) +
-            slideOutHorizontally(
-                animationSpec = tween(durationMillis = 180),
-                targetOffsetX = { fullWidth ->
-                    -(fullWidth / 12)
-                },
-            ),
+    val enterTransition = contentSwapEnterTransition()
+    val exitTransition = contentSwapExitTransition()
+
+    return enterTransition.togetherWith(exitTransition)
+}
+
+private fun contentSwapEnterTransition(): EnterTransition {
+    return fadeIn(
+        animationSpec = tween(durationMillis = CONTENT_SWAP_ENTER_FADE_DURATION_MILLIS),
+    ) + slideInHorizontally(
+        animationSpec = tween(durationMillis = CONTENT_SWAP_ENTER_SLIDE_DURATION_MILLIS),
+        initialOffsetX = ::contentSwapEnterOffset,
     )
+}
+
+private fun contentSwapExitTransition(): ExitTransition {
+    return fadeOut(
+        animationSpec = tween(durationMillis = CONTENT_SWAP_EXIT_FADE_DURATION_MILLIS),
+    ) + slideOutHorizontally(
+        animationSpec = tween(durationMillis = CONTENT_SWAP_EXIT_SLIDE_DURATION_MILLIS),
+        targetOffsetX = ::contentSwapExitOffset,
+    )
+}
+
+private fun contentSwapEnterOffset(fullWidth: Int): Int {
+    return fullWidth / CONTENT_SWAP_ENTER_SLIDE_OFFSET_DIVISOR
+}
+
+private fun contentSwapExitOffset(fullWidth: Int): Int {
+    return -(fullWidth / CONTENT_SWAP_EXIT_SLIDE_OFFSET_DIVISOR)
 }
 
 @Composable
@@ -443,6 +466,9 @@ private fun ConversationComposeAttachmentMenu(
             offset = DpOffset(
                 x = 0.dp,
                 y = (-8).dp,
+            ),
+            properties = PopupProperties(
+                focusable = false,
             ),
         ) {
             ConversationComposeAttachmentMenuItem(
