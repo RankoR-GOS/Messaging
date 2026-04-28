@@ -74,6 +74,7 @@ internal fun ConversationMessage(
     onExternalUriClick: (String) -> Unit = {},
     onMessageClick: () -> Unit = {},
     onMessageLongClick: () -> Unit = {},
+    onMessageResendClick: () -> Unit = {},
 ) {
     BoxWithConstraints(
         modifier = modifier
@@ -99,6 +100,7 @@ internal fun ConversationMessage(
                 onExternalUriClick = onExternalUriClick,
                 onMessageClick = onMessageClick,
                 onMessageLongClick = onMessageLongClick,
+                onMessageResendClick = onMessageResendClick,
             )
         }
     }
@@ -234,6 +236,7 @@ private fun ConversationMessageContent(
     onExternalUriClick: (String) -> Unit,
     onMessageClick: () -> Unit,
     onMessageLongClick: () -> Unit,
+    onMessageResendClick: () -> Unit,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val bubbleInteractionModifier = Modifier
@@ -244,9 +247,15 @@ private fun ConversationMessageContent(
         .combinedClickable(
             enabled = true,
             onClick = {
-                if (isSelectionMode) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
-                    onMessageClick()
+                when {
+                    isSelectionMode -> {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        onMessageClick()
+                    }
+
+                    message.canResendMessage -> {
+                        onMessageResendClick()
+                    }
                 }
             },
             onLongClick = {
@@ -272,6 +281,10 @@ private fun ConversationMessageContent(
                         onMessageClick()
                     }
 
+                    message.canResendMessage -> {
+                        onMessageResendClick()
+                    }
+
                     else -> {
                         onAttachmentClick(contentType, contentUri)
                     }
@@ -281,6 +294,10 @@ private fun ConversationMessageContent(
                 when {
                     isSelectionMode -> {
                         onMessageClick()
+                    }
+
+                    message.canResendMessage -> {
+                        onMessageResendClick()
                     }
 
                     else -> {
@@ -802,8 +819,10 @@ private fun messageStatusTextResourceId(status: Status): Int? {
         Status.Outgoing.Sending -> R.string.message_status_sending
         Status.Outgoing.Resending -> R.string.message_status_send_retrying
         Status.Outgoing.AwaitingRetry -> R.string.message_status_failed
-        Status.Outgoing.Failed -> R.string.message_status_failed
-        Status.Outgoing.FailedEmergencyNumber -> R.string.message_status_failed
+        Status.Outgoing.Failed -> R.string.message_status_send_failed
+        Status.Outgoing.FailedEmergencyNumber -> {
+            R.string.message_status_send_failed_emergency_number
+        }
         Status.Incoming.YetToManualDownload -> R.string.message_status_download
         Status.Incoming.RetryingManualDownload -> R.string.message_status_downloading
         Status.Incoming.ManualDownloading -> R.string.message_status_downloading

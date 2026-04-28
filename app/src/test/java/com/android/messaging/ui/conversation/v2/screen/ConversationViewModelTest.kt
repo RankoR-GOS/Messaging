@@ -719,6 +719,7 @@ class ConversationViewModelTest {
 
             viewModel.onMessageClick(messageId = "message-1")
             viewModel.onMessageLongClick(messageId = "message-2")
+            viewModel.onMessageResendClick(messageId = "message-3")
             viewModel.onMessageSelectionActionClick(
                 action = ConversationMessageSelectionAction.Delete,
             )
@@ -739,6 +740,9 @@ class ConversationViewModelTest {
             }
             verify(exactly = 1) {
                 messageSelectionDelegate.mock.onMessageLongClick(messageId = "message-2")
+            }
+            verify(exactly = 1) {
+                messageSelectionDelegate.mock.onMessageResendClick(messageId = "message-3")
             }
             verify(exactly = 1) {
                 messageSelectionDelegate.mock.onMessageSelectionActionClick(

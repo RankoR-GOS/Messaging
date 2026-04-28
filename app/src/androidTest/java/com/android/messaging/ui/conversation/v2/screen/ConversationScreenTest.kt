@@ -477,6 +477,50 @@ class ConversationScreenTest {
     }
 
     @Test
+    fun clickingFailedMessage_forwardsResendClickToScreenModel() {
+        val screenModel = createScreenModel()
+        val failedStatusText = composeTestRule.activity.getString(
+            R.string.message_status_send_failed,
+        )
+        val messages = createMessages(
+            count = 3,
+            latestMessageId = "message-3",
+            latestMessageIncoming = false,
+        ).map { message ->
+            when (message.messageId) {
+                "message-2" -> {
+                    message.copy(
+                        status = ConversationMessageUiModel.Status.Outgoing.Failed,
+                        canResendMessage = true,
+                    )
+                }
+
+                else -> message
+            }
+        }
+
+        screenModel.scaffoldUiStateFlow.value = createPresentUiState(
+            messages = messages,
+        )
+
+        setScreenContent(screenModel = screenModel.model)
+
+        composeTestRule
+            .onNodeWithText(failedStatusText, substring = true)
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("Message 2")
+            .performClick()
+
+        verify(exactly = 1) {
+            screenModel.model.onMessageResendClick(messageId = "message-2")
+        }
+        verify(exactly = 0) {
+            screenModel.model.onMessageClick(messageId = "message-2")
+        }
+    }
+
+    @Test
     fun singleSelection_showsCopyAndDeleteInTopAppBar_andForwardsActionClicks() {
         val screenModel = createScreenModel()
         val copyLabel = composeTestRule.activity.getString(R.string.message_context_menu_copy_text)

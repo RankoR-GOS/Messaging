@@ -372,6 +372,28 @@ class ConversationMessageSelectionDelegateImplTest {
     }
 
     @Test
+    fun onMessageResendClick_resendsMessageWithoutSelection() {
+        runTest {
+            val harness = createHarness()
+
+            try {
+                harness.delegate.onMessageResendClick(messageId = "message-1")
+                advanceUntilIdle()
+
+                verify(exactly = 1) {
+                    harness.conversationsRepository.resendMessage(messageId = "message-1")
+                }
+                assertEquals(
+                    ConversationMessageSelectionUiState(),
+                    harness.delegate.state.value,
+                )
+            } finally {
+                harness.cancel()
+            }
+        }
+    }
+
+    @Test
     fun resendAction_whenSmsIsNotCapable_emitsSmsDisabledMessage() {
         runTest {
             val harness = createHarness(
