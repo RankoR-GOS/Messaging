@@ -5,8 +5,8 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraftAtta
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.MessagePartData
 import com.android.messaging.util.LogUtil
-import javax.inject.Inject
 import kotlinx.collections.immutable.toImmutableList
+import javax.inject.Inject
 
 internal interface ConversationMessageDataDraftMapper {
     fun map(
@@ -44,6 +44,11 @@ internal class ConversationMessageDataDraftMapperImpl @Inject constructor() :
         val contentUri = part.contentUri?.toString()?.takeIf { it.isNotBlank() }
 
         return when {
+            contentUri?.isPhotoPickerUri == true -> {
+                LogUtil.w(TAG, "Dropping draft attachment backed by photo picker URI")
+                null
+            }
+
             contentType != null && contentUri != null -> {
                 ConversationDraftAttachment(
                     contentType = contentType,
@@ -69,7 +74,13 @@ internal class ConversationMessageDataDraftMapperImpl @Inject constructor() :
         return size.takeIf { it != MessagePartData.UNSPECIFIED_SIZE }
     }
 
+    private val String.isPhotoPickerUri: Boolean
+        get() {
+            return startsWith(prefix = PHOTO_PICKER_URI_PREFIX)
+        }
+
     private companion object {
         private const val TAG = "ConversationMsgDataDraftMapper"
+        private const val PHOTO_PICKER_URI_PREFIX = "content://media/picker/"
     }
 }

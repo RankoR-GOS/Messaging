@@ -160,6 +160,30 @@ class ConversationMessageDataDraftMapperImplTest {
         )
     }
 
+    @Test
+    fun map_dropsAttachmentsBackedByPhotoPickerUris() {
+        val messageData = MessageData.createDraftSmsMessage(
+            "conversation-1",
+            "self-1",
+            "Hello",
+        )
+        messageData.addPart(
+            MessagePartData.createMediaMessagePart(
+                "image/jpeg",
+                Uri.parse(
+                    "content://media/picker/0/" +
+                        "com.android.providers.media.photopicker/media/1",
+                ),
+                320,
+                240,
+            ),
+        )
+
+        val draft = mapper.map(messageData = messageData)
+
+        assertEquals(emptyList<ConversationDraftAttachment>(), draft.attachments)
+    }
+
     private fun createAttachment(
         contentType: String,
         contentUri: String,

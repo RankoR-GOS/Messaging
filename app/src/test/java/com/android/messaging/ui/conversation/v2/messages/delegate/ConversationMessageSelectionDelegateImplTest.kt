@@ -15,6 +15,7 @@ import com.android.messaging.datamodel.data.ParticipantData
 import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirements
 import com.android.messaging.domain.conversation.usecase.action.ConversationActionRequirementsResult
 import com.android.messaging.domain.conversation.usecase.forward.CreateForwardedMessage
+import com.android.messaging.ui.conversation.v2.mediapicker.model.AttachmentToSave
 import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import com.android.messaging.ui.conversation.v2.mediapicker.repository.SaveAttachmentsResult
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
@@ -728,7 +729,7 @@ class ConversationMessageSelectionDelegateImplTest {
         runTest {
             val harness = createHarness()
             val attachments = listOf(
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "image/jpeg",
                     contentUri = "content://media/image/1",
                 ),
@@ -802,7 +803,7 @@ class ConversationMessageSelectionDelegateImplTest {
         runTest {
             val harness = createHarness()
             val attachments = listOf(
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "image/jpeg",
                     contentUri = "content://media/image/1",
                 ),

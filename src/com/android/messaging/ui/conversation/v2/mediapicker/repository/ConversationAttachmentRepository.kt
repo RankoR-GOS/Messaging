@@ -2,6 +2,8 @@ package com.android.messaging.ui.conversation.v2.mediapicker.repository
 
 import android.content.ContentResolver
 import android.content.ContentValues
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Environment
 import android.provider.ContactsContract.Contacts
@@ -12,19 +14,27 @@ import androidx.core.net.toUri
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
 import com.android.messaging.datamodel.MediaScratchFileProvider
 import com.android.messaging.di.core.IoDispatcher
+import com.android.messaging.ui.conversation.v2.mediapicker.model.AttachmentToSave
+import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachment
+import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachmentResult
 import com.android.messaging.util.ContentType
 import com.android.messaging.util.LogUtil
 import com.android.messaging.util.core.extension.typedFlow
 import com.android.messaging.util.core.extension.unitFlow
-import java.io.IOException
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import java.io.IOException
+import javax.inject.Inject
 
 internal interface ConversationAttachmentRepository {
+    fun createDraftAttachmentsFromPhotoPicker(
+        contentUris: List<String>,
+    ): Flow<PhotoPickerDraftAttachmentResult>
+
     fun createDraftAttachmentFromContact(
         contactUri: String,
     ): Flow<ConversationDraftAttachment?>
@@ -36,11 +46,6 @@ internal interface ConversationAttachmentRepository {
     fun saveAttachmentsToMediaStore(
         attachments: List<AttachmentToSave>,
     ): Flow<SaveAttachmentsResult>
-
-    data class AttachmentToSave(
-        val contentType: String,
-        val contentUri: String,
-    )
 }
 
 internal class ConversationAttachmentRepositoryImpl @Inject constructor(
@@ -48,6 +53,39 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
     @param:IoDispatcher
     private val ioDispatcher: CoroutineDispatcher,
 ) : ConversationAttachmentRepository {
+
+    override fun createDraftAttachmentsFromPhotoPicker(
+        contentUris: List<String>,
+    ): Flow<PhotoPickerDraftAttachmentResult> {
+        return flow {
+            for (contentUri in contentUris) {
+                val attachment = try {
+                    createDraftAttachmentFromPhotoPicker(contentUri = contentUri)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    LogUtil.w(TAG, "Failed to resolve photo picker attachment $contentUri", e)
+                    null
+                }
+
+                val result = when (attachment) {
+                    null -> {
+                        PhotoPickerDraftAttachmentResult.Failed(
+                            sourceContentUri = contentUri,
+                        )
+                    }
+
+                    else -> {
+                        PhotoPickerDraftAttachmentResult.Resolved(
+                            photoPickerDraftAttachment = attachment,
+                        )
+                    }
+                }
+
+                emit(result)
+            }
+        }.flowOn(ioDispatcher)
+    }
 
     override fun createDraftAttachmentFromContact(
         contactUri: String,
@@ -85,7 +123,7 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
     }
 
     override fun saveAttachmentsToMediaStore(
-        attachments: List<ConversationAttachmentRepository.AttachmentToSave>,
+        attachments: List<AttachmentToSave>,
     ): Flow<SaveAttachmentsResult> {
         return typedFlow {
             saveAttachments(attachments = attachments)
@@ -93,7 +131,7 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
     }
 
     private fun saveAttachments(
-        attachments: List<ConversationAttachmentRepository.AttachmentToSave>,
+        attachments: List<AttachmentToSave>,
     ): SaveAttachmentsResult {
         var imageCount = 0
         var videoCount = 0
@@ -128,6 +166,61 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
             otherCount = otherCount,
             failCount = failCount,
         )
+    }
+
+    private fun createDraftAttachmentFromPhotoPicker(
+        contentUri: String,
+    ): PhotoPickerDraftAttachment? {
+        val prepared = preparePhotoPickerContent(contentUri = contentUri)
+            ?: return null
+
+        val metadata = resolveVisualAttachmentMetadata(
+            uri = prepared.scratchUri,
+            contentType = prepared.contentType,
+        )
+
+        return PhotoPickerDraftAttachment(
+            sourceContentUri = contentUri,
+            draftAttachment = ConversationDraftAttachment(
+                contentType = prepared.contentType,
+                contentUri = prepared.scratchUri.toString(),
+                width = metadata.width,
+                height = metadata.height,
+                durationMillis = metadata.durationMillis,
+            ),
+        )
+    }
+
+    private fun preparePhotoPickerContent(
+        contentUri: String,
+    ): PreparedPhotoPickerContent? {
+        if (contentUri.isBlank()) {
+            return null
+        }
+
+        val sourceUri = contentUri.toUri()
+        val contentType = resolvePickerContentType(uri = sourceUri)
+        val isVisualContent = ContentType.isImageType(contentType) ||
+            ContentType.isVideoType(contentType)
+
+        return when {
+            !isVisualContent -> {
+                LogUtil.w(TAG, "Dropping unsupported photo picker attachment $contentUri")
+                null
+            }
+
+            else -> {
+                copyPhotoPickerContentToScratchSpace(
+                    sourceUri = sourceUri,
+                    contentType = contentType,
+                )?.let { scratchUri ->
+                    PreparedPhotoPickerContent(
+                        scratchUri = scratchUri,
+                        contentType = contentType,
+                    )
+                }
+            }
+        }
     }
 
     private fun saveOne(
@@ -178,12 +271,11 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
         pendingUri: Uri,
     ): Boolean {
         return try {
-            contentResolver.openInputStream(sourceUri)?.use { source ->
-                contentResolver.openOutputStream(pendingUri)?.use { sink ->
-                    source.copyTo(sink)
-                    true
-                }
-            } ?: false
+            copyUriContentOrThrow(
+                sourceUri = sourceUri,
+                targetUri = pendingUri,
+            )
+            true
         } catch (e: IOException) {
             LogUtil.e(TAG, "Copy to MediaStore failed for $sourceUri", e)
             false
@@ -239,6 +331,153 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
         runCatching { contentResolver.update(pendingUri, values, null, null) }
     }
 
+    private fun copyPhotoPickerContentToScratchSpace(
+        sourceUri: Uri,
+        contentType: String,
+    ): Uri? {
+        val scratchUri = createScratchUri(contentType = contentType)
+        val isCopied = copyPhotoPickerContent(
+            sourceUri = sourceUri,
+            scratchUri = scratchUri,
+        )
+
+        return when {
+            isCopied -> scratchUri
+
+            else -> {
+                deleteScratchContent(scratchUri = scratchUri)
+                null
+            }
+        }
+    }
+
+    private fun createScratchUri(contentType: String): Uri {
+        return MimeTypeMap
+            .getSingleton()
+            .getExtensionFromMimeType(contentType)
+            .let(MediaScratchFileProvider::buildMediaScratchSpaceUri)
+    }
+
+    private fun copyPhotoPickerContent(sourceUri: Uri, scratchUri: Uri): Boolean {
+        return try {
+            copyUriContentOrThrow(
+                sourceUri = sourceUri,
+                targetUri = scratchUri,
+            )
+
+            true
+        } catch (e: IOException) {
+            LogUtil.w(TAG, "Failed to copy photo picker content $sourceUri", e)
+            false
+        } catch (e: SecurityException) {
+            LogUtil.w(TAG, "Permission denied while copying photo picker content $sourceUri", e)
+            false
+        }
+    }
+
+    private fun copyUriContentOrThrow(sourceUri: Uri, targetUri: Uri) {
+        val sourceStream = contentResolver.openInputStream(sourceUri)
+            ?: throw IOException("Unable to open input stream for $sourceUri")
+
+        sourceStream.use { source ->
+            val targetStream = contentResolver.openOutputStream(targetUri)
+                ?: throw IOException("Unable to open output stream for $targetUri")
+
+            targetStream.use(source::copyTo)
+        }
+    }
+
+    private fun deleteScratchContent(scratchUri: Uri) {
+        runCatching {
+            contentResolver.delete(scratchUri, null, null)
+        }
+    }
+
+    private fun resolvePickerContentType(uri: Uri): String {
+        val contentType = contentResolver
+            .getType(uri)
+            ?.takeIf { it.isNotBlank() }
+
+        if (contentType != null) {
+            return contentType
+        }
+
+        val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+        val extensionContentType = MimeTypeMap
+            .getSingleton()
+            .getMimeTypeFromExtension(extension)
+            ?.takeIf { it.isNotBlank() }
+
+        return when {
+            extensionContentType != null -> extensionContentType
+            else -> ContentType.IMAGE_UNSPECIFIED
+        }
+    }
+
+    private fun resolveVisualAttachmentMetadata(
+        uri: Uri,
+        contentType: String,
+    ): VisualAttachmentMetadata {
+        return when {
+            ContentType.isVideoType(contentType) -> resolveVideoAttachmentMetadata(uri = uri)
+            else -> resolveImageAttachmentMetadata(uri = uri)
+        }
+    }
+
+    private fun resolveImageAttachmentMetadata(uri: Uri): VisualAttachmentMetadata {
+        val decodeBoundsOptions = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+
+        try {
+            contentResolver.openInputStream(uri)?.use { inputStream ->
+                BitmapFactory.decodeStream(inputStream, null, decodeBoundsOptions)
+            }
+        } catch (e: Exception) {
+            LogUtil.w(TAG, "Failed to decode photo picker image bounds for $uri", e)
+        }
+
+        return VisualAttachmentMetadata(
+            width = decodeBoundsOptions.outWidth.takeIf { it > 0 },
+            height = decodeBoundsOptions.outHeight.takeIf { it > 0 },
+            durationMillis = null,
+        )
+    }
+
+    private fun resolveVideoAttachmentMetadata(uri: Uri): VisualAttachmentMetadata {
+        val retriever = MediaMetadataRetriever()
+
+        return try {
+            contentResolver.openAssetFileDescriptor(uri, "r")?.use { fileDescriptor ->
+                retriever.setDataSource(fileDescriptor.fileDescriptor)
+            }
+
+            VisualAttachmentMetadata(
+                width = retriever
+                    .extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
+                    ?.toIntOrNull()
+                    ?.takeIf { it > 0 },
+                height = retriever
+                    .extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+                    ?.toIntOrNull()
+                    ?.takeIf { it > 0 },
+                durationMillis = retriever
+                    .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull()
+                    ?.takeIf { it > 0 },
+            )
+        } catch (e: Exception) {
+            LogUtil.w(TAG, "Failed to decode photo picker video metadata for $uri", e)
+            VisualAttachmentMetadata()
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {
+                LogUtil.w(TAG, "Failed to release media metadata retriever", e)
+            }
+        }
+    }
+
     private fun queryDraftAttachmentFromContact(
         contactUri: String,
     ): ConversationDraftAttachment? {
@@ -279,6 +518,17 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
         private const val SAVED_ATTACHMENTS_FOLDER = "Messaging"
     }
 }
+
+private data class PreparedPhotoPickerContent(
+    val scratchUri: Uri,
+    val contentType: String,
+)
+
+private data class VisualAttachmentMetadata(
+    val width: Int? = null,
+    val height: Int? = null,
+    val durationMillis: Long? = null,
+)
 
 private enum class MediaKind { Image, Video, Audio, Other }
 

@@ -10,6 +10,7 @@ import com.android.messaging.domain.conversation.usecase.action.CheckConversatio
 import com.android.messaging.domain.conversation.usecase.action.ConversationActionRequirementsResult
 import com.android.messaging.domain.conversation.usecase.forward.CreateForwardedMessage
 import com.android.messaging.ui.conversation.v2.common.ConversationScreenDelegate
+import com.android.messaging.ui.conversation.v2.mediapicker.model.AttachmentToSave
 import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
@@ -368,7 +369,7 @@ internal class ConversationMessageSelectionDelegateImpl @Inject constructor(
                     null -> null
 
                     else -> {
-                        ConversationAttachmentRepository.AttachmentToSave(
+                        AttachmentToSave(
                             contentType = attachment.contentType,
                             contentUri = contentUri.toString(),
                         )

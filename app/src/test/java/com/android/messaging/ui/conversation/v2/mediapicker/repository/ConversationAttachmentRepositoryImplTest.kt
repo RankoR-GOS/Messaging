@@ -10,14 +10,16 @@ import android.provider.MediaStore
 import app.cash.turbine.test
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
 import com.android.messaging.datamodel.MediaScratchFileProvider
+import com.android.messaging.ui.conversation.v2.mediapicker.model.AttachmentToSave
+import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachment
+import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachmentResult
 import com.android.messaging.util.ContentType
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.slot
+import io.mockk.unmockkStatic
 import io.mockk.verify
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
@@ -25,9 +27,89 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
 class ConversationAttachmentRepositoryImplTest {
+
+    @Test
+    fun createDraftAttachmentsFromPhotoPicker_resolvesImageAttachment() = runTest {
+        val imageUri = Uri.parse("content://picker/image")
+        val scratchUri = Uri.parse("content://${MediaScratchFileProvider.AUTHORITY}/scratch-image")
+        val scratchBytes = ByteArrayOutputStream()
+        val contentResolver = createContentResolverForPhotoPicker(
+            uri = imageUri,
+            contentType = "image/png",
+            bytes = onePixelPngBytes,
+            scratchUri = scratchUri,
+            scratchSink = scratchBytes,
+        )
+        val repository = ConversationAttachmentRepositoryImpl(
+            contentResolver = contentResolver,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+
+        mockkStatic(MediaScratchFileProvider::class)
+        try {
+            every {
+                MediaScratchFileProvider.buildMediaScratchSpaceUri("png")
+            } returns scratchUri
+
+            repository.createDraftAttachmentsFromPhotoPicker(
+                contentUris = listOf(imageUri.toString()),
+            ).test {
+                assertEquals(
+                    PhotoPickerDraftAttachmentResult.Resolved(
+                        photoPickerDraftAttachment = PhotoPickerDraftAttachment(
+                            sourceContentUri = imageUri.toString(),
+                            draftAttachment = ConversationDraftAttachment(
+                                contentType = "image/png",
+                                contentUri = scratchUri.toString(),
+                                width = 1,
+                                height = 1,
+                            ),
+                        ),
+                    ),
+                    awaitItem(),
+                )
+                awaitComplete()
+            }
+
+            assertArrayEquals(onePixelPngBytes, scratchBytes.toByteArray())
+            verify(exactly = 1) {
+                contentResolver.openOutputStream(scratchUri)
+            }
+        } finally {
+            unmockkStatic(MediaScratchFileProvider::class)
+        }
+    }
+
+    @Test
+    fun createDraftAttachmentsFromPhotoPicker_dropsUnsupportedAttachment() = runTest {
+        val contentResolver = createContentResolverForPhotoPicker(
+            uri = Uri.parse("content://picker/file"),
+            contentType = "application/pdf",
+            bytes = ByteArray(0),
+        )
+        val repository = ConversationAttachmentRepositoryImpl(
+            contentResolver = contentResolver,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+
+        repository.createDraftAttachmentsFromPhotoPicker(
+            contentUris = listOf("content://picker/file"),
+        ).test {
+            assertEquals(
+                PhotoPickerDraftAttachmentResult.Failed(
+                    sourceContentUri = "content://picker/file",
+                ),
+                awaitItem(),
+            )
+            awaitComplete()
+        }
+    }
 
     @Test
     fun createDraftAttachmentFromContact_returnsVCardAttachmentForResolvedLookupKey() = runTest {
@@ -156,7 +238,7 @@ class ConversationAttachmentRepositoryImplTest {
 
         repository.saveAttachmentsToMediaStore(
             attachments = listOf(
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "image/jpeg",
                     contentUri = "content://source/image.jpg",
                 ),
@@ -220,7 +302,7 @@ class ConversationAttachmentRepositoryImplTest {
 
         repository.saveAttachmentsToMediaStore(
             attachments = listOf(
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "video/mp4",
                     contentUri = "content://source/video.mp4",
                 ),
@@ -262,7 +344,7 @@ class ConversationAttachmentRepositoryImplTest {
 
         repository.saveAttachmentsToMediaStore(
             attachments = listOf(
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "audio/mpeg",
                     contentUri = "content://source/audio.mp3",
                 ),
@@ -304,7 +386,7 @@ class ConversationAttachmentRepositoryImplTest {
 
         repository.saveAttachmentsToMediaStore(
             attachments = listOf(
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "image/jpeg",
                     contentUri = "content://source/image.jpg",
                 ),
@@ -341,7 +423,7 @@ class ConversationAttachmentRepositoryImplTest {
 
         repository.saveAttachmentsToMediaStore(
             attachments = listOf(
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "image/jpeg",
                     contentUri = "content://source/image.jpg",
                 ),
@@ -378,11 +460,11 @@ class ConversationAttachmentRepositoryImplTest {
 
         repository.saveAttachmentsToMediaStore(
             attachments = listOf(
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "image/jpeg",
                     contentUri = "content://source/image.jpg",
                 ),
-                ConversationAttachmentRepository.AttachmentToSave(
+                AttachmentToSave(
                     contentType = "video/mp4",
                     contentUri = "content://source/video.mp4",
                 ),
@@ -417,6 +499,22 @@ class ConversationAttachmentRepositoryImplTest {
         return contentResolver
     }
 
+    private fun createContentResolverForPhotoPicker(
+        uri: Uri,
+        contentType: String,
+        bytes: ByteArray,
+        scratchUri: Uri = Uri.parse("content://${MediaScratchFileProvider.AUTHORITY}/scratch"),
+        scratchSink: ByteArrayOutputStream = ByteArrayOutputStream(),
+    ): ContentResolver {
+        val contentResolver = mockk<ContentResolver>()
+        every { contentResolver.getType(uri) } returns contentType
+        every { contentResolver.openInputStream(uri) } returns ByteArrayInputStream(bytes)
+        every { contentResolver.openInputStream(scratchUri) } returns ByteArrayInputStream(bytes)
+        every { contentResolver.openOutputStream(scratchUri) } returns scratchSink
+        every { contentResolver.delete(scratchUri, null, null) } returns 1
+        return contentResolver
+    }
+
     private fun createContentResolver(
         contactCursor: MatrixCursor,
     ): ContentResolver {
@@ -445,5 +543,75 @@ class ConversationAttachmentRepositoryImplTest {
 
     private companion object {
         private const val CONTACT_URI = "content://contacts/lookup/1"
+
+        private val onePixelPngBytes = byteArrayOf(
+            0x89.toByte(),
+            0x50,
+            0x4E,
+            0x47,
+            0x0D,
+            0x0A,
+            0x1A,
+            0x0A,
+            0x00,
+            0x00,
+            0x00,
+            0x0D,
+            0x49,
+            0x48,
+            0x44,
+            0x52,
+            0x00,
+            0x00,
+            0x00,
+            0x01,
+            0x00,
+            0x00,
+            0x00,
+            0x01,
+            0x08,
+            0x06,
+            0x00,
+            0x00,
+            0x00,
+            0x1F,
+            0x15,
+            0xC4.toByte(),
+            0x89.toByte(),
+            0x00,
+            0x00,
+            0x00,
+            0x0A,
+            0x49,
+            0x44,
+            0x41,
+            0x54,
+            0x78,
+            0x9C.toByte(),
+            0x63,
+            0x00,
+            0x01,
+            0x00,
+            0x00,
+            0x05,
+            0x00,
+            0x01,
+            0x0D,
+            0x0A,
+            0x2D,
+            0xB4.toByte(),
+            0x00,
+            0x00,
+            0x00,
+            0x00,
+            0x49,
+            0x45,
+            0x4E,
+            0x44,
+            0xAE.toByte(),
+            0x42,
+            0x60,
+            0x82.toByte(),
+        )
     }
 }
