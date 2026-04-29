@@ -63,6 +63,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -532,8 +533,9 @@ private fun MmsIndicator() {
     Text(
         modifier = Modifier
             .padding(end = 12.dp)
-            .clearAndSetSemantics {}
-            .testTag(CONVERSATION_MMS_INDICATOR_TEST_TAG),
+            .clearAndSetSemantics {
+                testTag = CONVERSATION_MMS_INDICATOR_TEST_TAG
+            },
         text = stringResource(id = R.string.mms_text),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.tertiary,
