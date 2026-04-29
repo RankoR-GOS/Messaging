@@ -15,11 +15,15 @@ naming:
       - Composable
 
 style:
+  ForbiddenComment:
+    active: false
+
   MagicNumber:
     ignoreCompanionObjectPropertyDeclaration: true
     ignorePropertyDeclaration: true
     ignoreAnnotated:
       - Composable
+
   UnusedPrivateFunction:
     ignoreAnnotated:
       - Preview
