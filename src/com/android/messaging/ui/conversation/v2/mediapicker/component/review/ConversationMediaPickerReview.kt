@@ -51,8 +51,8 @@ import com.android.messaging.ui.conversation.v2.mediapicker.component.PickerOver
 import com.android.messaging.ui.core.AppTheme
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 
 private const val PICKER_REVIEW_PAGE_ASPECT_RATIO = 0.8f
 private const val PICKER_REVIEW_PAGE_MAX_HEIGHT_FRACTION = 0.95f
@@ -86,7 +86,7 @@ internal fun ConversationMediaReviewScene(
         initiallyReviewedContentUri = initiallyReviewedContentUri,
         reviewRequestSequence = reviewRequestSequence,
         photoPickerSourceContentUriByAttachmentContentUri =
-            photoPickerSourceContentUriByAttachmentContentUri,
+        photoPickerSourceContentUriByAttachmentContentUri,
     )
 
     val imeBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()

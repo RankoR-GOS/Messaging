@@ -117,15 +117,26 @@ internal fun ConversationTopAppBar(
             )
         },
         navigationIcon = {
-            ConversationTopAppBarNavigationIcon(
-                onNavigateBack = onNavigateBack,
-            )
+            IconButton(
+                onClick = onNavigateBack,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(id = R.string.back),
+                )
+            }
         },
         actions = {
             if (isCallVisible) {
-                ConversationTopAppBarCallAction(
-                    onCallClick = onCallClick,
-                )
+                IconButton(
+                    modifier = Modifier.testTag(CONVERSATION_CALL_BUTTON_TEST_TAG),
+                    onClick = onCallClick,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Call,
+                        contentDescription = stringResource(id = R.string.action_call),
+                    )
+                }
             }
             val isSimSelectorVisible = simSelector.isAvailable
 
@@ -254,35 +265,6 @@ private fun ConversationTopAppBarText(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-    }
-}
-
-@Composable
-private fun ConversationTopAppBarNavigationIcon(
-    onNavigateBack: () -> Unit,
-) {
-    IconButton(
-        onClick = onNavigateBack,
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-            contentDescription = stringResource(id = R.string.back),
-        )
-    }
-}
-
-@Composable
-private fun ConversationTopAppBarCallAction(
-    onCallClick: () -> Unit,
-) {
-    IconButton(
-        modifier = Modifier.testTag(CONVERSATION_CALL_BUTTON_TEST_TAG),
-        onClick = onCallClick,
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.Call,
-            contentDescription = stringResource(id = R.string.action_call),
-        )
     }
 }
 
@@ -495,18 +477,6 @@ private fun conversationTitle(
                 .title
                 .takeIf { it.isNotBlank() }
                 ?: stringResource(id = R.string.app_name)
-        }
-    }
-}
-
-private fun conversationIsGroup(
-    metadata: ConversationMetadataUiState,
-): Boolean {
-    return when (metadata) {
-        ConversationMetadataUiState.Loading -> false
-        ConversationMetadataUiState.Unavailable -> false
-        is ConversationMetadataUiState.Present -> {
-            metadata.avatar is ConversationMetadataUiState.Avatar.Group
         }
     }
 }

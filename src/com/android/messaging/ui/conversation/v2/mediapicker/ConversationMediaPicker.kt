@@ -173,7 +173,7 @@ internal fun ConversationMediaPicker(
         onAttachmentCaptionChange = onAttachmentCaptionChange,
         onAttachmentRemove = onPickerBackedAttachmentRemove,
         photoPickerSourceContentUriByAttachmentContentUri =
-            photoPickerSourceContentUriByAttachmentContentUri,
+        photoPickerSourceContentUriByAttachmentContentUri,
         onRequestAudioPermission = onRequestAudioPermission,
         onRequestCameraPermission = onRequestCameraPermission,
         onCapturedMediaReady = onCapturedMediaReady,

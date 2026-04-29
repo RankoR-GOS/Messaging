@@ -36,7 +36,7 @@ internal fun rememberConversationMediaReviewPagerState(
         attachments = attachments,
         initiallyReviewedContentUri = initiallyReviewedContentUri,
         photoPickerSourceContentUriByAttachmentContentUri =
-            photoPickerSourceContentUriByAttachmentContentUri,
+        photoPickerSourceContentUriByAttachmentContentUri,
     )
 
     val pagerState = rememberPagerState(
@@ -67,7 +67,7 @@ internal fun rememberConversationMediaReviewPagerState(
             initiallyReviewedContentUri = initiallyReviewedContentUri,
             reviewRequestSequence = reviewRequestSequence,
             photoPickerSourceContentUriByAttachmentContentUri =
-                photoPickerSourceContentUriByAttachmentContentUri,
+            photoPickerSourceContentUriByAttachmentContentUri,
             pagerState = pagerState,
         )
     }
@@ -108,7 +108,7 @@ private class ConversationMediaReviewPagerCoordinator(
             attachments = attachments,
             requestedReviewContentUri = pendingRequestedReviewContentUri,
             photoPickerSourceContentUriByAttachmentContentUri =
-                photoPickerSourceContentUriByAttachmentContentUri,
+            photoPickerSourceContentUriByAttachmentContentUri,
         )
 
         val targetPage = requestedAttachmentPage ?: clampAttachmentPage(
@@ -169,7 +169,7 @@ private fun resolveInitialReviewPage(
         .indexOfFirst { attachment ->
             attachment.contentUri == initiallyReviewedContentUri ||
                 photoPickerSourceContentUriByAttachmentContentUri[attachment.contentUri] ==
-                    initiallyReviewedContentUri
+                initiallyReviewedContentUri
         }
         .takeIf { it >= 0 }
         ?: attachments.lastIndex

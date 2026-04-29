@@ -34,6 +34,7 @@ import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessage
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -44,7 +45,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 internal interface ConversationScreenModel {
     val effects: Flow<ConversationScreenEffect>
@@ -262,7 +262,7 @@ internal class ConversationViewModel @Inject constructor(
             conversationTitle = conversationTitle,
             isSendActionEnabled = composerUiState.isSendEnabled,
             photoPickerSourceContentUriByAttachmentContentUri =
-                photoPickerSourceContentUriByAttachmentContentUri,
+            photoPickerSourceContentUriByAttachmentContentUri,
         )
     }.stateIn(
         scope = viewModelScope,

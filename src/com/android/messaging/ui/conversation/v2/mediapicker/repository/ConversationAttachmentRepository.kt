@@ -21,14 +21,14 @@ import com.android.messaging.util.ContentType
 import com.android.messaging.util.LogUtil
 import com.android.messaging.util.core.extension.typedFlow
 import com.android.messaging.util.core.extension.unitFlow
+import java.io.IOException
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import java.io.IOException
-import javax.inject.Inject
 
 internal interface ConversationAttachmentRepository {
     fun createDraftAttachmentsFromPhotoPicker(

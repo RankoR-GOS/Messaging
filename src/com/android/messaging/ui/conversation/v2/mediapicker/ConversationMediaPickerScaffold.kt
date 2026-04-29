@@ -83,7 +83,7 @@ internal fun ConversationMediaPickerScaffold(
             onAttachmentCaptionChange = onAttachmentCaptionChange,
             onAttachmentRemove = onAttachmentRemove,
             photoPickerSourceContentUriByAttachmentContentUri =
-                photoPickerSourceContentUriByAttachmentContentUri,
+            photoPickerSourceContentUriByAttachmentContentUri,
             onRequestAudioPermission = onRequestAudioPermission,
             onRequestCameraPermission = onRequestCameraPermission,
             onCapturedMediaReady = onCapturedMediaReady,
@@ -159,7 +159,7 @@ private fun ConversationMediaPickerOverlayHost(
                     reviewRequestSequence = reviewRequestSequence,
                     isSendActionEnabled = isSendActionEnabled,
                     photoPickerSourceContentUriByAttachmentContentUri =
-                        photoPickerSourceContentUriByAttachmentContentUri,
+                    photoPickerSourceContentUriByAttachmentContentUri,
                     onAttachmentPreviewClick = onAttachmentPreviewClick,
                     onCaptionChange = onAttachmentCaptionChange,
                     onAttachmentRemove = onAttachmentRemove,

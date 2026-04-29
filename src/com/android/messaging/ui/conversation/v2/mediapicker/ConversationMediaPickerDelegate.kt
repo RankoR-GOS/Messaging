@@ -10,6 +10,10 @@ import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDra
 import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.util.LogUtil
+import javax.inject.Inject
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -26,10 +30,6 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.toPersistentMap
-import javax.inject.Inject
 
 internal interface ConversationMediaPickerDelegate {
     val effects: Flow<ConversationScreenEffect>

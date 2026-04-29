@@ -4,8 +4,8 @@ import androidx.compose.runtime.Immutable
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 
 @Immutable
 internal data class ConversationMediaPickerOverlayUiState(

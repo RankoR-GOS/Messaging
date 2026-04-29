@@ -1183,7 +1183,7 @@ class ConversationViewModelTest {
             mock = mock,
             effectsFlow = effectsFlow,
             photoPickerSourceContentUriByAttachmentContentUriFlow =
-                photoPickerSourceContentUriByAttachmentContentUriFlow,
+            photoPickerSourceContentUriByAttachmentContentUriFlow,
             bindCalls = bindCalls,
         )
     }

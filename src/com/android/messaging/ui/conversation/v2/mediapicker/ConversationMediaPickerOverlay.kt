@@ -94,7 +94,7 @@ internal fun ConversationMediaPickerOverlay(
             onAttachmentCaptionChange = onAttachmentCaptionChange,
             onAttachmentRemove = onAttachmentRemove,
             photoPickerSourceContentUriByAttachmentContentUri =
-                photoPickerSourceContentUriByAttachmentContentUri,
+            photoPickerSourceContentUriByAttachmentContentUri,
             onPhotoPickerMediaSelected = onPhotoPickerMediaSelected,
             onPhotoPickerMediaDeselected = onPhotoPickerMediaDeselected,
             onRequestAudioPermission = {

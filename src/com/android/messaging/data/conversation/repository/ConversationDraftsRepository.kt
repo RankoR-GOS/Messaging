@@ -214,20 +214,28 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
         conversationId: String,
         message: MessageData,
     ): MessageData? {
-        if (message.selfId != null && message.participantId != null) {
+        if (hasDraftParticipants(message = message)) {
             return message
         }
 
-        val selfParticipantId = conversationDraftStore.getSelfParticipantId(
-            conversationId = conversationId,
-        ) ?: run {
-            LogUtil.w(
-                TAG,
-                "Conversation $conversationId was deleted before saving draft ${message.messageId}",
-            )
-            return null
-        }
+        return conversationDraftStore
+            .getSelfParticipantId(conversationId)
+            ?.let { selfParticipantId ->
+                bindMissingDraftParticipants(
+                    message = message,
+                    selfParticipantId = selfParticipantId,
+                )
+            }
+    }
 
+    private fun hasDraftParticipants(message: MessageData): Boolean {
+        return message.selfId != null && message.participantId != null
+    }
+
+    private fun bindMissingDraftParticipants(
+        message: MessageData,
+        selfParticipantId: String,
+    ): MessageData {
         if (message.selfId == null) {
             message.bindSelfId(selfParticipantId)
         }

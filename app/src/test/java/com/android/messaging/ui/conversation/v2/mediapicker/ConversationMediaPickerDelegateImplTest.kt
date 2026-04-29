@@ -384,7 +384,9 @@ class ConversationMediaPickerDelegateImplTest {
                 }
                 verify(exactly = 1) {
                     @Suppress("UnusedFlow")
-                    attachmentRepository.deleteTemporaryAttachment(contentUri = "content://scratch/1")
+                    attachmentRepository.deleteTemporaryAttachment(
+                        contentUri = "content://scratch/1"
+                    )
                 }
             } finally {
                 boundScope.cancel()
