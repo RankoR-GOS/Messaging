@@ -4,7 +4,6 @@ import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.android.messaging.data.conversation.model.metadata.ConversationComposerAvailability
 import com.android.messaging.data.conversation.repository.ConversationSubscriptionsRepository
-import com.android.messaging.domain.conversation.usecase.action.CreateDefaultSmsRoleRequest
 import com.android.messaging.domain.conversation.usecase.participant.CanAddMoreConversationParticipants
 import com.android.messaging.domain.conversation.usecase.telephony.IsDeviceVoiceCapable
 import com.android.messaging.domain.conversation.usecase.telephony.IsEmergencyPhoneNumber
@@ -17,7 +16,6 @@ import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComp
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.focus.delegate.ConversationFocusDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerUiState
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegate
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState
@@ -28,6 +26,7 @@ import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenE
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -142,8 +141,9 @@ internal class ConversationViewModelCallActionTest {
             ConversationMessageSelectionUiState(),
         )
         every { mediaPickerDelegate.effects } returns emptyFlow()
-        every { mediaPickerDelegate.state } returns
-            MutableStateFlow(ConversationMediaPickerUiState())
+        every {
+            mediaPickerDelegate.photoPickerSourceContentUriByAttachmentContentUri
+        } returns MutableStateFlow(persistentMapOf())
         every { metadataDelegate.effects } returns emptyFlow()
         every { metadataDelegate.isDeleteConversationConfirmationVisible } returns
             MutableStateFlow(false)
@@ -174,9 +174,7 @@ internal class ConversationViewModelCallActionTest {
             conversationComposerUiStateMapper = ConversationComposerUiStateMapperImpl(),
             conversationSubscriptionsRepository = subscriptionsRepository,
             canAddMoreConversationParticipants = canAddMoreConversationParticipants,
-            createDefaultSmsRoleRequest = CreateDefaultSmsRoleRequest {
-                null
-            },
+            createDefaultSmsRoleRequest = { null },
             isDeviceVoiceCapable = deviceVoiceCapable,
             isEmergencyPhoneNumber = emergencyPhoneNumber,
             defaultDispatcher = mainDispatcherRule.testDispatcher,

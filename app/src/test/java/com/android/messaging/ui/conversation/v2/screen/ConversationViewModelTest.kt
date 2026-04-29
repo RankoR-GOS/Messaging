@@ -28,7 +28,6 @@ import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraft
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
 import com.android.messaging.ui.conversation.v2.focus.delegate.ConversationFocusDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerUiState
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegate
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
@@ -43,7 +42,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CoroutineScope
@@ -55,7 +56,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -207,6 +207,59 @@ class ConversationViewModelTest {
                 assertEquals(messagesState, mappedState.messages)
                 assertEquals(composerUiState, mappedState.composer)
                 assertEquals(selectionState, mappedState.selection)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun mediaPickerOverlayUiState_combinesComposerMetadataAndPhotoPickerSourceUris() {
+        runTest(context = mainDispatcherRule.testDispatcher) {
+            val photoPickerSourceUris = persistentMapOf(
+                "content://scratch/1" to "content://picker/1",
+            )
+            val composerUiState = ConversationComposerUiState(
+                isSendEnabled = true,
+            )
+            val mediaPickerDelegate = createMediaPickerDelegateMock()
+            val metadataDelegate = createMetadataDelegateMock()
+            val viewModel = createViewModel(
+                mediaPickerDelegate = mediaPickerDelegate.mock,
+                metadataDelegate = metadataDelegate.mock,
+                composerUiStateMapper = createComposerUiStateMapperMock(
+                    mappedUiState = composerUiState,
+                ),
+            )
+
+            viewModel.mediaPickerOverlayUiState.test {
+                awaitItem()
+
+                mediaPickerDelegate.photoPickerSourceContentUriByAttachmentContentUriFlow.value =
+                    photoPickerSourceUris
+                awaitItem()
+
+                metadataDelegate.stateFlow.value = ConversationMetadataUiState.Present(
+                    title = "Weekend plan",
+                    selfParticipantId = "self-1",
+                    avatar = ConversationMetadataUiState.Avatar.Single(
+                        photoUri = null,
+                    ),
+                    participantCount = 2,
+                    otherParticipantDisplayDestination = null,
+                    otherParticipantPhoneNumber = null,
+                    otherParticipantContactLookupKey = null,
+                    isArchived = false,
+                    composerAvailability = ConversationComposerAvailability.editable(),
+                )
+
+                val overlayState = awaitItem()
+
+                assertEquals("Weekend plan", overlayState.conversationTitle)
+                assertEquals(true, overlayState.isSendActionEnabled)
+                assertEquals(
+                    photoPickerSourceUris,
+                    overlayState.photoPickerSourceContentUriByAttachmentContentUri,
+                )
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -728,7 +781,8 @@ class ConversationViewModelTest {
             viewModel.onLockedAudioRecordingStart()
             viewModel.onAudioRecordingFinish()
             viewModel.onAudioRecordingCancel()
-            viewModel.onGalleryVisibilityChanged(isVisible = true)
+            viewModel.onPhotoPickerMediaSelected(contentUris = listOf("content://picker/1"))
+            viewModel.onPhotoPickerMediaDeselected(contentUris = listOf("content://picker/2"))
             viewModel.onSendClick()
             viewModel.dismissDeleteMessageConfirmation()
             viewModel.dismissMessageSelection()
@@ -765,7 +819,14 @@ class ConversationViewModelTest {
                 audioRecordingDelegate.mock.cancelRecording()
             }
             verify(exactly = 1) {
-                mediaPickerDelegate.mock.onGalleryVisibilityChanged(isVisible = true)
+                mediaPickerDelegate.mock.onPhotoPickerMediaSelected(
+                    contentUris = listOf("content://picker/1"),
+                )
+            }
+            verify(exactly = 1) {
+                mediaPickerDelegate.mock.onPhotoPickerMediaDeselected(
+                    contentUris = listOf("content://picker/2"),
+                )
             }
             verify(exactly = 1) {
                 draftDelegate.mock.onSendClick()
@@ -1100,12 +1161,16 @@ class ConversationViewModelTest {
     }
 
     private fun createMediaPickerDelegateMock(): MediaPickerDelegateMock {
-        val bindCalls = mutableListOf<BindCall<ConversationMediaPickerUiState>>()
-        val stateFlow = MutableStateFlow(ConversationMediaPickerUiState())
+        val bindCalls = mutableListOf<BindCall<Unit>>()
         val effectsFlow = MutableSharedFlow<ConversationScreenEffect>()
+        val photoPickerSourceContentUriByAttachmentContentUriFlow:
+            MutableStateFlow<ImmutableMap<String, String>> =
+            MutableStateFlow(persistentMapOf<String, String>())
         val mock = mockk<ConversationMediaPickerDelegate>(relaxed = true)
-        every { mock.state } returns stateFlow
         every { mock.effects } returns effectsFlow
+        every {
+            mock.photoPickerSourceContentUriByAttachmentContentUri
+        } returns photoPickerSourceContentUriByAttachmentContentUriFlow
         every {
             mock.bind(any(), any())
         } answers {
@@ -1116,8 +1181,9 @@ class ConversationViewModelTest {
         }
         return MediaPickerDelegateMock(
             mock = mock,
-            stateFlow = stateFlow,
             effectsFlow = effectsFlow,
+            photoPickerSourceContentUriByAttachmentContentUriFlow =
+                photoPickerSourceContentUriByAttachmentContentUriFlow,
             bindCalls = bindCalls,
         )
     }
@@ -1255,9 +1321,10 @@ class ConversationViewModelTest {
 
     private data class MediaPickerDelegateMock(
         val mock: ConversationMediaPickerDelegate,
-        val stateFlow: MutableStateFlow<ConversationMediaPickerUiState>,
         val effectsFlow: MutableSharedFlow<ConversationScreenEffect>,
-        val bindCalls: List<BindCall<ConversationMediaPickerUiState>>,
+        val photoPickerSourceContentUriByAttachmentContentUriFlow:
+        MutableStateFlow<ImmutableMap<String, String>>,
+        val bindCalls: List<BindCall<Unit>>,
     )
 
     private data class MessagesDelegateMock(

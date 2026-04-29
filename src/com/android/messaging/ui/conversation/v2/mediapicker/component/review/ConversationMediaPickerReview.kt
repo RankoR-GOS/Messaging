@@ -46,6 +46,8 @@ import com.android.messaging.ui.conversation.v2.composer.ui.ConversationSendActi
 import com.android.messaging.ui.conversation.v2.mediapicker.component.PickerOverlayIconButton
 import com.android.messaging.ui.core.AppTheme
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentListOf
 
 private const val PICKER_REVIEW_PAGE_ASPECT_RATIO = 0.8f
@@ -61,6 +63,8 @@ internal fun ConversationMediaReviewScene(
     initiallyReviewedContentUri: String?,
     reviewRequestSequence: Int,
     isSendActionEnabled: Boolean,
+    photoPickerSourceContentUriByAttachmentContentUri: ImmutableMap<String, String> =
+        persistentMapOf(),
     onAttachmentPreviewClick: (ComposerAttachmentUiModel.Resolved.VisualMedia) -> Unit,
     onCaptionChange: (String, String) -> Unit,
     onAttachmentRemove: (String) -> Unit,
@@ -77,6 +81,8 @@ internal fun ConversationMediaReviewScene(
         attachments = attachments,
         initiallyReviewedContentUri = initiallyReviewedContentUri,
         reviewRequestSequence = reviewRequestSequence,
+        photoPickerSourceContentUriByAttachmentContentUri =
+            photoPickerSourceContentUriByAttachmentContentUri,
     )
 
     val imeBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()

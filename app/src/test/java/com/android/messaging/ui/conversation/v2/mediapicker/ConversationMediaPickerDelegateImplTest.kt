@@ -1,17 +1,20 @@
 package com.android.messaging.ui.conversation.v2.mediapicker
 
+import app.cash.turbine.test
+import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
-import com.android.messaging.data.media.model.ConversationMediaItem
-import com.android.messaging.data.media.model.ConversationMediaType
-import com.android.messaging.data.media.repository.ConversationMediaRepository
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
 import com.android.messaging.ui.conversation.v2.mediapicker.mapper.ConversationDraftAttachmentMapper
 import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
+import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachment
+import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachmentResult
 import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
+import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,10 +27,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -37,70 +39,80 @@ import org.robolectric.RobolectricTestRunner
 class ConversationMediaPickerDelegateImplTest {
 
     @Test
-    fun onGalleryMediaConfirmed_mapsMediaItemsToDraftAttachments() = runTest {
+    fun onPhotoPickerMediaSelected_addsResolvedDraftAttachments() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
         val draftDelegate = createConversationDraftDelegateMock()
-        val attachmentMapper = createConversationDraftAttachmentMapperMock()
-        val attachmentRepository = createConversationAttachmentRepositoryMock()
-        val repository = createConversationMediaRepositoryMock()
-        val delegate = createDelegate(
-            draftDelegate = draftDelegate,
-            attachmentMapper = attachmentMapper,
-            attachmentRepository = attachmentRepository,
-            repository = repository,
-            defaultDispatcher = Dispatchers.Unconfined,
-        )
-        val mediaItems = listOf(
-            createMediaItem(
-                mediaId = "1",
-                contentUri = "content://media/1",
-                contentType = "image/jpeg",
-                mediaType = ConversationMediaType.Image,
-                width = 640,
-                height = 480,
-                durationMillis = null,
-            ),
-            createMediaItem(
-                mediaId = "2",
-                contentUri = "content://media/2",
-                contentType = "video/mp4",
-                mediaType = ConversationMediaType.Video,
-                width = 1280,
-                height = 720,
-                durationMillis = 5000L,
-            ),
-        )
         val attachments = listOf(
             ConversationDraftAttachment(
                 contentType = "image/jpeg",
-                contentUri = "content://media/1",
+                contentUri = "content://picker/1",
                 width = 640,
                 height = 480,
             ),
             ConversationDraftAttachment(
                 contentType = "video/mp4",
-                contentUri = "content://media/2",
+                contentUri = "content://picker/2",
                 width = 1280,
                 height = 720,
             ),
         )
+        val attachmentRepository = createConversationAttachmentRepositoryMock(
+            createDraftAttachmentsFromPhotoPickerFlow = flowOf(
+                PhotoPickerDraftAttachmentResult.Resolved(
+                    photoPickerDraftAttachment =
+                        PhotoPickerDraftAttachment(
+                            sourceContentUri = "content://picker/source/1",
+                            draftAttachment = attachments[0],
+                        ),
+                ),
+                PhotoPickerDraftAttachmentResult.Resolved(
+                    photoPickerDraftAttachment =
+                        PhotoPickerDraftAttachment(
+                            sourceContentUri = "content://picker/source/2",
+                            draftAttachment = attachments[1],
+                        ),
+                ),
+            ),
+        )
+        val delegate = createDelegate(
+            draftDelegate = draftDelegate,
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = attachmentRepository,
+            defaultDispatcher = dispatcher,
+        )
+        val boundScope = CoroutineScope(dispatcher + SupervisorJob())
 
-        every {
-            attachmentMapper.map(mediaItem = mediaItems[0])
-        } returns attachments[0]
-        every {
-            attachmentMapper.map(mediaItem = mediaItems[1])
-        } returns attachments[1]
+        try {
+            delegate.bind(
+                scope = boundScope,
+                conversationIdFlow = MutableStateFlow(value = null),
+            )
 
-        delegate.onGalleryMediaConfirmed(mediaItems = mediaItems)
+            delegate.onPhotoPickerMediaSelected(
+                contentUris = listOf(
+                    "content://picker/source/1",
+                    "content://picker/source/2",
+                ),
+            )
+            advanceUntilIdle()
 
-        verify(exactly = 1) {
-            attachmentMapper.map(mediaItem = mediaItems[0])
-        }
-        verify(exactly = 1) {
-            attachmentMapper.map(mediaItem = mediaItems[1])
-        }
-        verify(exactly = 1) {
-            draftDelegate.addAttachments(attachments = attachments)
+            verify(exactly = 1) {
+                @Suppress("UnusedFlow")
+                attachmentRepository.createDraftAttachmentsFromPhotoPicker(
+                    contentUris = listOf(
+                        "content://picker/source/1",
+                        "content://picker/source/2",
+                    ),
+                )
+            }
+            verify(exactly = 1) {
+                draftDelegate.addAttachments(attachments = listOf(attachments[0]))
+            }
+            verify(exactly = 1) {
+                draftDelegate.addAttachments(attachments = listOf(attachments[1]))
+            }
+        } finally {
+            boundScope.cancel()
         }
     }
 
@@ -112,7 +124,6 @@ class ConversationMediaPickerDelegateImplTest {
             draftDelegate = draftDelegate,
             attachmentMapper = attachmentMapper,
             attachmentRepository = createConversationAttachmentRepositoryMock(),
-            repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = Dispatchers.Unconfined,
         )
         val capturedMedia = ConversationCapturedMedia(
@@ -157,7 +168,6 @@ class ConversationMediaPickerDelegateImplTest {
             draftDelegate = draftDelegate,
             attachmentMapper = createConversationDraftAttachmentMapperMock(),
             attachmentRepository = attachmentRepository,
-            repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = dispatcher,
         )
         val boundScope = CoroutineScope(dispatcher + SupervisorJob())
@@ -172,6 +182,7 @@ class ConversationMediaPickerDelegateImplTest {
             advanceUntilIdle()
 
             verify(exactly = 1) {
+                @Suppress("UnusedFlow")
                 attachmentRepository.createDraftAttachmentFromContact(contactUri = CONTACT_URI)
             }
             verify(exactly = 1) {
@@ -189,105 +200,14 @@ class ConversationMediaPickerDelegateImplTest {
             draftDelegate = createConversationDraftDelegateMock(),
             attachmentMapper = createConversationDraftAttachmentMapperMock(),
             attachmentRepository = attachmentRepository,
-            repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = Dispatchers.Unconfined,
         )
 
         delegate.onContactCardPicked(contactUri = "   ")
 
         verify(exactly = 0) {
+            @Suppress("UnusedFlow")
             attachmentRepository.createDraftAttachmentFromContact(any())
-        }
-    }
-
-    @Test
-    fun onGalleryVisibilityChanged_loadsGalleryOnceAndExposesItems() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val draftDelegate = createConversationDraftDelegateMock()
-        val mediaItems = listOf(
-            createMediaItem(
-                mediaId = "1",
-                contentUri = "content://media/1",
-                contentType = "image/jpeg",
-                mediaType = ConversationMediaType.Image,
-                width = 640,
-                height = 480,
-                durationMillis = null,
-            ),
-        )
-        val repository = createConversationMediaRepositoryMock(
-            recentMediaFlow = flowOf(mediaItems),
-        )
-        val conversationIdFlow = MutableStateFlow<String?>(value = null)
-        val delegate = createDelegate(
-            draftDelegate = draftDelegate,
-            attachmentMapper = createConversationDraftAttachmentMapperMock(),
-            attachmentRepository = createConversationAttachmentRepositoryMock(),
-            repository = repository,
-            defaultDispatcher = dispatcher,
-        )
-        val boundScope = CoroutineScope(dispatcher + SupervisorJob())
-
-        try {
-            delegate.bind(
-                scope = boundScope,
-                conversationIdFlow = conversationIdFlow,
-            )
-
-            delegate.onGalleryVisibilityChanged(isVisible = true)
-            advanceUntilIdle()
-
-            verify(exactly = 1) {
-                repository.getRecentMedia(limit = any())
-            }
-            assertFalse(delegate.state.value.isLoadingGallery)
-            assertEquals(1, delegate.state.value.galleryItems.size)
-
-            delegate.onGalleryVisibilityChanged(isVisible = true)
-            advanceUntilIdle()
-
-            verify(exactly = 1) {
-                repository.getRecentMedia(limit = any())
-            }
-        } finally {
-            boundScope.cancel()
-        }
-    }
-
-    @Test
-    fun onGalleryVisibilityChanged_failureClearsLoadingState() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val draftDelegate = createConversationDraftDelegateMock()
-        val repository = createConversationMediaRepositoryMock(
-            recentMediaFlow = flow {
-                throw IllegalStateException("boom")
-            },
-        )
-        val delegate = createDelegate(
-            draftDelegate = draftDelegate,
-            attachmentMapper = createConversationDraftAttachmentMapperMock(),
-            attachmentRepository = createConversationAttachmentRepositoryMock(),
-            repository = repository,
-            defaultDispatcher = dispatcher,
-        )
-        val boundScope = CoroutineScope(dispatcher + SupervisorJob())
-
-        try {
-            delegate.bind(
-                scope = boundScope,
-                conversationIdFlow = MutableStateFlow(value = null),
-            )
-
-            delegate.onGalleryVisibilityChanged(isVisible = true)
-            advanceUntilIdle()
-
-            verify(exactly = 1) {
-                repository.getRecentMedia(limit = any())
-            }
-            assertFalse(delegate.state.value.isLoadingGallery)
-            assertTrue(delegate.state.value.galleryItems.isEmpty())
-        } finally {
-            boundScope.cancel()
         }
     }
 
@@ -302,7 +222,6 @@ class ConversationMediaPickerDelegateImplTest {
             draftDelegate = draftDelegate,
             attachmentMapper = createConversationDraftAttachmentMapperMock(),
             attachmentRepository = attachmentRepository,
-            repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = dispatcher,
         )
         val boundScope = CoroutineScope(dispatcher + SupervisorJob())
@@ -313,6 +232,8 @@ class ConversationMediaPickerDelegateImplTest {
                 conversationIdFlow = MutableStateFlow(value = null),
             )
 
+            delegate.onPhotoPickerMediaSelected(contentUris = listOf(REMOTE_CONTENT_URI))
+            advanceUntilIdle()
             delegate.onRemoveResolvedAttachment(contentUri = REMOTE_CONTENT_URI)
             advanceUntilIdle()
 
@@ -320,6 +241,7 @@ class ConversationMediaPickerDelegateImplTest {
                 draftDelegate.removeAttachment(contentUri = REMOTE_CONTENT_URI)
             }
             verify(exactly = 1) {
+                @Suppress("UnusedFlow")
                 attachmentRepository.deleteTemporaryAttachment(contentUri = REMOTE_CONTENT_URI)
             }
         } finally {
@@ -334,7 +256,6 @@ class ConversationMediaPickerDelegateImplTest {
             draftDelegate = draftDelegate,
             attachmentMapper = createConversationDraftAttachmentMapperMock(),
             attachmentRepository = createConversationAttachmentRepositoryMock(),
-            repository = createConversationMediaRepositoryMock(),
             defaultDispatcher = Dispatchers.Unconfined,
         )
 
@@ -346,24 +267,285 @@ class ConversationMediaPickerDelegateImplTest {
     }
 
     @Test
-    fun onGalleryMediaConfirmed_ignoresEmptyLists() = runTest {
-        val attachmentMapper = createConversationDraftAttachmentMapperMock()
+    fun onPhotoPickerMediaSelected_ignoresEmptyLists() = runTest {
+        val attachmentRepository = createConversationAttachmentRepositoryMock()
         val draftDelegate = createConversationDraftDelegateMock()
         val delegate = createDelegate(
             draftDelegate = draftDelegate,
-            attachmentMapper = attachmentMapper,
-            attachmentRepository = createConversationAttachmentRepositoryMock(),
-            repository = createConversationMediaRepositoryMock(),
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = attachmentRepository,
             defaultDispatcher = Dispatchers.Unconfined,
         )
 
-        delegate.onGalleryMediaConfirmed(mediaItems = emptyList())
+        delegate.onPhotoPickerMediaSelected(contentUris = emptyList())
 
         verify(exactly = 0) {
-            attachmentMapper.map(mediaItem = any())
+            @Suppress("UnusedFlow")
+            attachmentRepository.createDraftAttachmentsFromPhotoPicker(any())
         }
         verify(exactly = 0) {
             draftDelegate.addAttachments(any())
+        }
+    }
+
+    @Test
+    fun onPhotoPickerMediaSelected_ignoresAlreadySelectedUris() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val attachmentRepository = createConversationAttachmentRepositoryMock(
+            createDraftAttachmentsFromPhotoPickerFlow = flowOf(
+                PhotoPickerDraftAttachmentResult.Resolved(
+                    photoPickerDraftAttachment =
+                        PhotoPickerDraftAttachment(
+                            sourceContentUri = "content://picker/1",
+                            draftAttachment = ConversationDraftAttachment(
+                                contentType = "image/jpeg",
+                                contentUri = "content://scratch/1",
+                            ),
+                        ),
+                ),
+            ),
+        )
+        val draftDelegate = createConversationDraftDelegateMock()
+        val delegate = createDelegate(
+            draftDelegate = draftDelegate,
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = attachmentRepository,
+            defaultDispatcher = dispatcher,
+        )
+        val boundScope = CoroutineScope(dispatcher + SupervisorJob())
+
+        try {
+            delegate.bind(
+                scope = boundScope,
+                conversationIdFlow = MutableStateFlow(value = null),
+            )
+
+            delegate.onPhotoPickerMediaSelected(contentUris = listOf("content://picker/1"))
+            advanceUntilIdle()
+            delegate.onPhotoPickerMediaSelected(contentUris = listOf("content://picker/1"))
+            advanceUntilIdle()
+
+            verify(exactly = 1) {
+                @Suppress("UnusedFlow")
+                attachmentRepository.createDraftAttachmentsFromPhotoPicker(
+                    contentUris = listOf("content://picker/1"),
+                )
+            }
+        } finally {
+            boundScope.cancel()
+        }
+    }
+
+    @Test
+    fun onPhotoPickerMediaDeselected_removesDraftAttachmentsAndDeletesTemporaryAttachment() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val draftDelegate = createConversationDraftDelegateMock()
+            val attachmentRepository = createConversationAttachmentRepositoryMock(
+                createDraftAttachmentsFromPhotoPickerFlow = flowOf(
+                    PhotoPickerDraftAttachmentResult.Resolved(
+                        photoPickerDraftAttachment =
+                            PhotoPickerDraftAttachment(
+                                sourceContentUri = "content://picker/1",
+                                draftAttachment = ConversationDraftAttachment(
+                                    contentType = "image/jpeg",
+                                    contentUri = "content://scratch/1",
+                                ),
+                            ),
+                    ),
+                ),
+            )
+            val delegate = createDelegate(
+                draftDelegate = draftDelegate,
+                attachmentMapper = createConversationDraftAttachmentMapperMock(),
+                attachmentRepository = attachmentRepository,
+                defaultDispatcher = dispatcher,
+            )
+            val boundScope = CoroutineScope(dispatcher + SupervisorJob())
+
+            try {
+                delegate.bind(
+                    scope = boundScope,
+                    conversationIdFlow = MutableStateFlow(value = null),
+                )
+
+                delegate.onPhotoPickerMediaSelected(contentUris = listOf("content://picker/1"))
+                advanceUntilIdle()
+                delegate.onPhotoPickerMediaDeselected(
+                    contentUris = listOf(
+                        "content://picker/1",
+                        " ",
+                    ),
+                )
+                advanceUntilIdle()
+
+                verify(exactly = 1) {
+                    draftDelegate.removeAttachment(contentUri = "content://scratch/1")
+                }
+                verify(exactly = 1) {
+                    @Suppress("UnusedFlow")
+                    attachmentRepository.deleteTemporaryAttachment(contentUri = "content://scratch/1")
+                }
+            } finally {
+                boundScope.cancel()
+            }
+        }
+
+    @Test
+    fun onPhotoPickerMediaDeselected_beforeResolutionDoesNotAddResolvedAttachment() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val draftDelegate = createConversationDraftDelegateMock()
+        val resolutionStarted = CompletableDeferred<Unit>()
+        val releaseResolution = CompletableDeferred<Unit>()
+        val attachmentRepository = createConversationAttachmentRepositoryMock(
+            createDraftAttachmentsFromPhotoPickerFlow = flow {
+                resolutionStarted.complete(Unit)
+                releaseResolution.await()
+                emit(
+                    PhotoPickerDraftAttachmentResult.Resolved(
+                        photoPickerDraftAttachment =
+                            PhotoPickerDraftAttachment(
+                                sourceContentUri = "content://picker/1",
+                                draftAttachment = ConversationDraftAttachment(
+                                    contentType = "image/jpeg",
+                                    contentUri = "content://scratch/1",
+                                ),
+                            ),
+                    ),
+                )
+            },
+        )
+        val delegate = createDelegate(
+            draftDelegate = draftDelegate,
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = attachmentRepository,
+            defaultDispatcher = dispatcher,
+        )
+        val boundScope = CoroutineScope(dispatcher + SupervisorJob())
+
+        try {
+            delegate.bind(
+                scope = boundScope,
+                conversationIdFlow = MutableStateFlow(value = null),
+            )
+
+            delegate.onPhotoPickerMediaSelected(contentUris = listOf("content://picker/1"))
+            runCurrent()
+            resolutionStarted.await()
+
+            delegate.onPhotoPickerMediaDeselected(contentUris = listOf("content://picker/1"))
+            releaseResolution.complete(Unit)
+            advanceUntilIdle()
+
+            verify(exactly = 0) {
+                draftDelegate.addAttachments(any())
+            }
+            verify(exactly = 1) {
+                draftDelegate.removeAttachment(contentUri = "content://picker/1")
+            }
+            verify(exactly = 1) {
+                @Suppress("UnusedFlow")
+                attachmentRepository.deleteTemporaryAttachment(contentUri = "content://picker/1")
+            }
+            verify(exactly = 1) {
+                @Suppress("UnusedFlow")
+                attachmentRepository.deleteTemporaryAttachment(contentUri = "content://scratch/1")
+            }
+        } finally {
+            boundScope.cancel()
+        }
+    }
+
+    @Test
+    fun onPhotoPickerMediaSelected_whenResolutionFailsEmitsMessageEffect() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val draftDelegate = createConversationDraftDelegateMock()
+        val attachmentRepository = createConversationAttachmentRepositoryMock(
+            createDraftAttachmentsFromPhotoPickerFlow = flowOf(
+                PhotoPickerDraftAttachmentResult.Failed(
+                    sourceContentUri = "content://picker/1",
+                ),
+            ),
+        )
+        val delegate = createDelegate(
+            draftDelegate = draftDelegate,
+            attachmentMapper = createConversationDraftAttachmentMapperMock(),
+            attachmentRepository = attachmentRepository,
+            defaultDispatcher = dispatcher,
+        )
+        val boundScope = CoroutineScope(dispatcher + SupervisorJob())
+
+        try {
+            delegate.bind(
+                scope = boundScope,
+                conversationIdFlow = MutableStateFlow(value = null),
+            )
+
+            delegate.effects.test {
+                delegate.onPhotoPickerMediaSelected(contentUris = listOf("content://picker/1"))
+                advanceUntilIdle()
+
+                assertEquals(
+                    ConversationScreenEffect.ShowMessage(
+                        messageResId = R.string.fail_to_load_attachment,
+                    ),
+                    awaitItem(),
+                )
+            }
+
+            verify(exactly = 0) {
+                draftDelegate.addAttachments(any())
+            }
+        } finally {
+            boundScope.cancel()
+        }
+    }
+
+    @Test
+    fun photoPickerSourceContentUriByAttachmentContentUri_returnsPickerUriForResolvedAttachment() {
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val draftDelegate = createConversationDraftDelegateMock()
+            val attachmentRepository = createConversationAttachmentRepositoryMock(
+                createDraftAttachmentsFromPhotoPickerFlow = flowOf(
+                    PhotoPickerDraftAttachmentResult.Resolved(
+                        photoPickerDraftAttachment =
+                            PhotoPickerDraftAttachment(
+                                sourceContentUri = "content://picker/1",
+                                draftAttachment = ConversationDraftAttachment(
+                                    contentType = "image/jpeg",
+                                    contentUri = "content://scratch/1",
+                                ),
+                            ),
+                    ),
+                ),
+            )
+            val delegate = createDelegate(
+                draftDelegate = draftDelegate,
+                attachmentMapper = createConversationDraftAttachmentMapperMock(),
+                attachmentRepository = attachmentRepository,
+                defaultDispatcher = dispatcher,
+            )
+            val boundScope = CoroutineScope(dispatcher + SupervisorJob())
+
+            try {
+                delegate.bind(
+                    scope = boundScope,
+                    conversationIdFlow = MutableStateFlow(value = null),
+                )
+
+                delegate.onPhotoPickerMediaSelected(contentUris = listOf("content://picker/1"))
+                advanceUntilIdle()
+
+                assertEquals(
+                    "content://picker/1",
+                    delegate.photoPickerSourceContentUriByAttachmentContentUri.value[
+                        "content://scratch/1",
+                    ],
+                )
+            } finally {
+                boundScope.cancel()
+            }
         }
     }
 
@@ -371,14 +553,12 @@ class ConversationMediaPickerDelegateImplTest {
         draftDelegate: ConversationDraftDelegate,
         attachmentMapper: ConversationDraftAttachmentMapper,
         attachmentRepository: ConversationAttachmentRepository,
-        repository: ConversationMediaRepository,
         defaultDispatcher: CoroutineDispatcher,
     ): ConversationMediaPickerDelegateImpl {
         return ConversationMediaPickerDelegateImpl(
             conversationDraftDelegate = draftDelegate,
             conversationAttachmentRepository = attachmentRepository,
             conversationDraftAttachmentMapper = attachmentMapper,
-            conversationMediaRepository = repository,
             defaultDispatcher = defaultDispatcher,
         )
     }
@@ -395,10 +575,15 @@ class ConversationMediaPickerDelegateImplTest {
     }
 
     private fun createConversationAttachmentRepositoryMock(
+        createDraftAttachmentsFromPhotoPickerFlow:
+        Flow<PhotoPickerDraftAttachmentResult> = flowOf(),
         createDraftAttachmentFromContactFlow: Flow<ConversationDraftAttachment?> = flowOf(null),
         deleteTemporaryAttachmentFlow: Flow<Unit> = flowOf(Unit),
     ): ConversationAttachmentRepository {
         val attachmentRepository = mockk<ConversationAttachmentRepository>()
+        every {
+            attachmentRepository.createDraftAttachmentsFromPhotoPicker(any())
+        } returns createDraftAttachmentsFromPhotoPickerFlow
         every {
             attachmentRepository.createDraftAttachmentFromContact(any())
         } returns createDraftAttachmentFromContactFlow
@@ -406,36 +591,6 @@ class ConversationMediaPickerDelegateImplTest {
             attachmentRepository.deleteTemporaryAttachment(any())
         } returns deleteTemporaryAttachmentFlow
         return attachmentRepository
-    }
-
-    private fun createConversationMediaRepositoryMock(
-        recentMediaFlow: Flow<List<ConversationMediaItem>> = flowOf(emptyList()),
-    ): ConversationMediaRepository {
-        val repository = mockk<ConversationMediaRepository>()
-        every {
-            repository.getRecentMedia(any())
-        } returns recentMediaFlow
-        return repository
-    }
-
-    private fun createMediaItem(
-        mediaId: String,
-        contentUri: String,
-        contentType: String,
-        mediaType: ConversationMediaType,
-        width: Int?,
-        height: Int?,
-        durationMillis: Long?,
-    ): ConversationMediaItem {
-        return ConversationMediaItem(
-            mediaId = mediaId,
-            contentUri = contentUri,
-            contentType = contentType,
-            mediaType = mediaType,
-            width = width,
-            height = height,
-            durationMillis = durationMillis,
-        )
     }
 
     private companion object {
