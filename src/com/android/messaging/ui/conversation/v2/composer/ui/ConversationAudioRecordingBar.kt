@@ -308,32 +308,16 @@ internal fun ConversationAudioRecordingLockAffordance(
     modifier: Modifier = Modifier,
     lockProgress: Float,
 ) {
-    val resolvedLockProgress = lockProgress.coerceIn(minimumValue = 0f, maximumValue = 1f)
-
-    val contentColor = animateColorAsState(
-        targetValue = lerp(
-            start = MaterialTheme.colorScheme.onSurfaceVariant,
-            stop = MaterialTheme.colorScheme.onSurface,
-            fraction = resolvedLockProgress,
-        ),
-        animationSpec = tween(durationMillis = 180),
-        label = "conversation_audio_lock_content_color",
-    ).value
-
-    val affordanceScale = animateFloatAsState(
-        targetValue = 0.96f + (resolvedLockProgress * 0.06f),
-        animationSpec = tween(durationMillis = 180),
-        label = "conversation_audio_lock_scale",
-    ).value
-
-    val verticalTranslation = -8f * resolvedLockProgress
+    val visualState = animateConversationAudioRecordingLockAffordanceVisualState(
+        lockProgress = lockProgress,
+    )
 
     Column(
         modifier = modifier
             .graphicsLayer {
-                scaleX = affordanceScale
-                scaleY = affordanceScale
-                translationY = verticalTranslation
+                scaleX = visualState.scale
+                scaleY = visualState.scale
+                translationY = visualState.verticalTranslation
             }
             .shadow(
                 elevation = 8.dp,
@@ -356,35 +340,77 @@ internal fun ConversationAudioRecordingLockAffordance(
             modifier = Modifier.size(size = 18.dp),
             imageVector = Icons.Rounded.Lock,
             contentDescription = null,
-            tint = contentColor,
+            tint = visualState.contentColor,
         )
 
-        Spacer(
-            modifier = Modifier
-                .padding(vertical = 4.dp)
-                .size(
-                    width = 18.dp,
-                    height = 1.dp,
-                )
-                .background(
-                    color = contentColor.copy(alpha = 0.2f),
-                    shape = CircleShape,
-                ),
+        ConversationAudioRecordingLockAffordanceDivider(
+            color = visualState.contentColor,
         )
 
         Icon(
             modifier = Modifier.size(size = 18.dp),
             imageVector = Icons.Rounded.KeyboardArrowUp,
             contentDescription = null,
-            tint = contentColor,
+            tint = visualState.contentColor,
         )
     }
+}
+
+@Composable
+private fun animateConversationAudioRecordingLockAffordanceVisualState(
+    lockProgress: Float,
+): ConversationAudioRecordingLockAffordanceVisualState {
+    val resolvedLockProgress = lockProgress.coerceIn(minimumValue = 0f, maximumValue = 1f)
+
+    val contentColor = animateColorAsState(
+        targetValue = lerp(
+            start = MaterialTheme.colorScheme.onSurfaceVariant,
+            stop = MaterialTheme.colorScheme.onSurface,
+            fraction = resolvedLockProgress,
+        ),
+        animationSpec = tween(durationMillis = 180),
+        label = "conversation_audio_lock_content_color",
+    ).value
+
+    val scale = animateFloatAsState(
+        targetValue = 0.96f + (resolvedLockProgress * 0.06f),
+        animationSpec = tween(durationMillis = 180),
+        label = "conversation_audio_lock_scale",
+    ).value
+
+    return ConversationAudioRecordingLockAffordanceVisualState(
+        contentColor = contentColor,
+        scale = scale,
+        verticalTranslation = -8f * resolvedLockProgress,
+    )
+}
+
+@Composable
+private fun ConversationAudioRecordingLockAffordanceDivider(color: Color) {
+    Spacer(
+        modifier = Modifier
+            .padding(vertical = 4.dp)
+            .size(
+                width = 18.dp,
+                height = 1.dp,
+            )
+            .background(
+                color = color.copy(alpha = 0.2f),
+                shape = CircleShape,
+            ),
+    )
 }
 
 private data class AudioRecordingBarVisualState(
     val contentColor: Color,
     val deleteIconTint: Color,
     val hintAlpha: Float,
+)
+
+private data class ConversationAudioRecordingLockAffordanceVisualState(
+    val contentColor: Color,
+    val scale: Float,
+    val verticalTranslation: Float,
 )
 
 @Immutable

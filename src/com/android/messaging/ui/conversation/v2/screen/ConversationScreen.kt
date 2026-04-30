@@ -1,9 +1,5 @@
 package com.android.messaging.ui.conversation.v2.screen
 
-import android.Manifest
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,26 +26,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect as ComposeRect
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.ui.conversation.v2.CONVERSATION_LOADING_INDICATOR_TEST_TAG
-import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingPhase
-import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.ui.ConversationComposerSection
 import com.android.messaging.ui.conversation.v2.composer.ui.ConversationSimSelectorSheet
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
-import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerOverlay
-import com.android.messaging.ui.conversation.v2.mediapicker.RefreshConversationMediaPickerPermissionsEffect
 import com.android.messaging.ui.conversation.v2.mediapicker.rememberConversationMediaPickerPermissionState
 import com.android.messaging.ui.conversation.v2.mediapicker.rememberConversationMediaPickerState
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
@@ -57,17 +44,10 @@ import com.android.messaging.ui.conversation.v2.messages.model.message.Conversat
 import com.android.messaging.ui.conversation.v2.messages.ui.ConversationMessages
 import com.android.messaging.ui.conversation.v2.metadata.ui.ConversationTopAppBar
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageDeleteConfirmationUiState
-import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionAction
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 import kotlinx.collections.immutable.ImmutableList
 
 private const val SMOOTH_SCROLL_JUMP_THRESHOLD = 15
-
-private enum class PendingAudioRecordingStartMode {
-    None,
-    Unlocked,
-    Locked,
-}
 
 @Composable
 internal fun ConversationScreen(
@@ -86,232 +66,68 @@ internal fun ConversationScreen(
     onPendingStartupAttachmentConsumed: () -> Unit = {},
     screenModel: ConversationScreenModel = hiltViewModel<ConversationViewModel>(),
 ) {
-    val messageFieldFocusRequester = remember {
-        FocusRequester()
-    }
+    val messageFieldFocusRequester = remember { FocusRequester() }
     val mediaPickerState = rememberConversationMediaPickerState()
     val scaffoldUiState by screenModel.scaffoldUiState.collectAsStateWithLifecycle()
     val mediaPickerOverlayUiState by screenModel
         .mediaPickerOverlayUiState
         .collectAsStateWithLifecycle()
 
-    val context = LocalContext.current
-    val permissionState = rememberConversationMediaPickerPermissionState(context = context)
+    val permissionState = rememberConversationMediaPickerPermissionState()
 
-    val hostBoundsState = remember {
-        mutableStateOf<ComposeRect?>(value = null)
-    }
-    val snackbarHostState = remember {
-        SnackbarHostState()
-    }
-
-    var pendingAudioRecordingStartMode by rememberSaveable {
-        mutableStateOf(value = PendingAudioRecordingStartMode.None)
-    }
-
-    val contactPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickContact(),
-    ) { contactUri ->
-        screenModel.onContactCardPicked(contactUri = contactUri?.toString())
-    }
-
-    val audioPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { isGranted ->
-        permissionState.audioPermissionGranted = isGranted
-
-        val startMode = pendingAudioRecordingStartMode
-        pendingAudioRecordingStartMode = PendingAudioRecordingStartMode.None
-
-        if (!isGranted) {
-            return@rememberLauncherForActivityResult
-        }
-
-        startAudioRecording(
-            screenModel = screenModel,
-            startMode = startMode,
-        )
-    }
-
-    val requestAudioRecordingStart = { startMode: PendingAudioRecordingStartMode ->
-        if (permissionState.audioPermissionGranted) {
-            startAudioRecording(
-                screenModel = screenModel,
-                startMode = startMode,
-            )
-        } else {
-            pendingAudioRecordingStartMode = startMode
-            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-    }
-
-    LaunchedEffect(conversationId) {
-        screenModel.onConversationIdChanged(conversationId = conversationId)
-    }
-
-    LaunchedEffect(
-        conversationId,
-        launchGeneration,
-        pendingDraft,
-    ) {
-        if (
-            conversationId != null &&
-            launchGeneration != null &&
-            pendingDraft != null
-        ) {
-            screenModel.onSeedDraft(
-                conversationId = conversationId,
-                draft = pendingDraft,
-            )
-            onPendingDraftConsumed()
-        }
-    }
-
-    LaunchedEffect(
-        conversationId,
-        launchGeneration,
-        pendingStartupAttachment,
-    ) {
-        if (
-            conversationId != null &&
-            launchGeneration != null &&
-            pendingStartupAttachment != null
-        ) {
-            screenModel.onOpenStartupAttachment(
-                conversationId = conversationId,
-                startupAttachment = pendingStartupAttachment,
-            )
-            onPendingStartupAttachmentConsumed()
-        }
-    }
-
-    RefreshConversationMediaPickerPermissionsEffect(
-        context = context,
+    val hostBoundsState = remember { mutableStateOf<ComposeRect?>(value = null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val onOpenContactPicker = rememberOpenContactPickerCallback(screenModel = screenModel)
+    val requestAudioRecordingStart = rememberAudioRecordingStartRequest(
+        screenModel = screenModel,
         permissionState = permissionState,
     )
 
-    LifecycleEventEffect(event = Lifecycle.Event.ON_RESUME) {
-        screenModel.onScreenForegrounded(cancelNotification = cancelIncomingNotification)
-    }
-
-    LifecycleEventEffect(event = Lifecycle.Event.ON_PAUSE) {
-        screenModel.onScreenBackgrounded()
-    }
-
-    LifecycleEventEffect(event = Lifecycle.Event.ON_STOP) {
-        val isRecording = scaffoldUiState.composer.audioRecording.phase ==
-            ConversationAudioRecordingPhase.Recording
-
-        if (isRecording) {
-            screenModel.onAudioRecordingCancel()
-        }
-        screenModel.persistDraft()
-    }
-
-    BackHandler(enabled = scaffoldUiState.selection.isSelectionMode) {
-        screenModel.dismissMessageSelection()
-    }
-
-    ConversationScreenEffects(
-        screenModel = screenModel,
+    ConversationScreenRouteEffects(
+        conversationId = conversationId,
+        launchGeneration = launchGeneration,
+        cancelIncomingNotification = cancelIncomingNotification,
+        pendingDraft = pendingDraft,
+        pendingStartupAttachment = pendingStartupAttachment,
+        scaffoldUiState = scaffoldUiState,
         snackbarHostState = snackbarHostState,
         hostBoundsState = hostBoundsState,
+        permissionState = permissionState,
+        screenModel = screenModel,
         onNavigateBack = onNavigateBack,
+        onPendingDraftConsumed = onPendingDraftConsumed,
+        onPendingStartupAttachmentConsumed = onPendingStartupAttachmentConsumed,
     )
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .onGloballyPositioned { coordinates ->
-                hostBoundsState.value = coordinates.boundsInWindow()
-            },
-    ) {
-        ConversationScreenScaffold(
-            modifier = Modifier
-                .fillMaxSize(),
-            conversationId = conversationId,
-            uiState = scaffoldUiState,
-            snackbarHostState = snackbarHostState,
-            isMediaPickerOpen = mediaPickerState.isOpen,
-            messageFieldFocusRequester = messageFieldFocusRequester,
-            pendingScrollPosition = pendingScrollPosition,
-            onPendingScrollPositionConsumed = onPendingScrollPositionConsumed,
-            onAddPeopleClick = onAddPeopleClick,
-            onCallClick = screenModel::onCallClick,
-            onConversationDetailsClick = onConversationDetailsClick,
-            onNavigateBack = onNavigateBack,
-            onArchiveConversationClick = screenModel::onArchiveConversationClick,
-            onUnarchiveConversationClick = screenModel::onUnarchiveConversationClick,
-            onAddContactClick = screenModel::onAddContactClick,
-            onDeleteConversationClick = screenModel::onDeleteConversationClick,
-            onDeleteConversationConfirmed = screenModel::confirmDeleteConversation,
-            onDeleteConversationDismissed = screenModel::dismissDeleteConversationConfirmation,
-            onDeleteSelectedMessagesConfirmed = screenModel::confirmDeleteSelectedMessages,
-            onDeleteSelectedMessagesDismissed = screenModel::dismissDeleteMessageConfirmation,
-            onDismissMessageSelection = screenModel::dismissMessageSelection,
-            onMessageClick = screenModel::onMessageClick,
-            onMessageLongClick = screenModel::onMessageLongClick,
-            onMessageResendClick = screenModel::onMessageResendClick,
-            onMessageSelectionActionClick = screenModel::onMessageSelectionActionClick,
-            onOpenContactPicker = {
-                contactPickerLauncher.launch(input = null)
-            },
-            onOpenMediaPicker = mediaPickerState::open,
-            onMessageTextChange = screenModel::onMessageTextChanged,
-            onPendingAttachmentRemove = screenModel::onRemovePendingAttachment,
-            onResolvedAttachmentClick = screenModel::onAttachmentClicked,
-            onResolvedAttachmentRemove = screenModel::onRemoveResolvedAttachment,
-            onAudioRecordingStartRequest = {
-                requestAudioRecordingStart(PendingAudioRecordingStartMode.Unlocked)
-            },
-            onLockedAudioRecordingStartRequest = {
-                requestAudioRecordingStart(PendingAudioRecordingStartMode.Locked)
-            },
-            onAudioRecordingFinish = screenModel::onAudioRecordingFinish,
-            onAudioRecordingLock = screenModel::onAudioRecordingLock,
-            onAudioRecordingCancel = screenModel::onAudioRecordingCancel,
-            onSendClick = screenModel::onSendClick,
-            onSimSelected = screenModel::onSimSelected,
-            onAttachmentClick = screenModel::onMessageAttachmentClicked,
-            onExternalUriClick = screenModel::onExternalUriClicked,
-        )
-
-        ConversationMediaPickerOverlay(
-            modifier = Modifier
-                .fillMaxSize(),
-            state = mediaPickerState,
-            attachments = mediaPickerOverlayUiState.attachments,
-            conversationTitle = mediaPickerOverlayUiState.conversationTitle,
-            isSendActionEnabled = mediaPickerOverlayUiState.isSendActionEnabled,
-            messageFieldFocusRequester = messageFieldFocusRequester,
-            onAttachmentPreviewClick = { attachment ->
-                screenModel.onAttachmentClicked(attachment = attachment)
-            },
-            onAttachmentCaptionChange = screenModel::onUpdateAttachmentCaption,
-            onAttachmentRemove = screenModel::onRemoveResolvedAttachment,
-            photoPickerSourceContentUriByAttachmentContentUri =
-                mediaPickerOverlayUiState.photoPickerSourceContentUriByAttachmentContentUri,
-            onPhotoPickerMediaSelected = screenModel::onPhotoPickerMediaSelected,
-            onPhotoPickerMediaDeselected = screenModel::onPhotoPickerMediaDeselected,
-            onCapturedMediaReady = screenModel::onCapturedMediaReady,
-            onSendClick = screenModel::onSendClick,
-        )
-    }
-}
-
-private fun startAudioRecording(
-    screenModel: ConversationScreenModel,
-    startMode: PendingAudioRecordingStartMode,
-) {
-    when (startMode) {
-        PendingAudioRecordingStartMode.None -> Unit
-        PendingAudioRecordingStartMode.Unlocked -> screenModel.onAudioRecordingStart()
-        PendingAudioRecordingStartMode.Locked -> screenModel.onLockedAudioRecordingStart()
-    }
+    ConversationScreenSurface(
+        modifier = modifier,
+        conversationId = conversationId,
+        scaffoldUiState = scaffoldUiState,
+        mediaPickerOverlayUiState = mediaPickerOverlayUiState,
+        mediaPickerState = mediaPickerState,
+        snackbarHostState = snackbarHostState,
+        messageFieldFocusRequester = messageFieldFocusRequester,
+        pendingScrollPosition = pendingScrollPosition,
+        onPendingScrollPositionConsumed = onPendingScrollPositionConsumed,
+        onAddPeopleClick = onAddPeopleClick,
+        onConversationDetailsClick = onConversationDetailsClick,
+        onNavigateBack = onNavigateBack,
+        onHostBoundsChanged = { hostBounds ->
+            hostBoundsState.value = hostBounds
+        },
+        onOpenContactPicker = onOpenContactPicker,
+        onAudioRecordingStartRequest = {
+            requestAudioRecordingStart(PendingAudioRecordingStartMode.Unlocked)
+        },
+        onLockedAudioRecordingStartRequest = {
+            requestAudioRecordingStart(PendingAudioRecordingStartMode.Locked)
+        },
+        screenModel = screenModel,
+    )
 }
 
 @Composable
-private fun ConversationScreenScaffold(
+internal fun ConversationScreenScaffold(
     modifier: Modifier = Modifier,
     conversationId: String?,
     uiState: ConversationScreenScaffoldUiState,
@@ -321,37 +137,13 @@ private fun ConversationScreenScaffold(
     pendingScrollPosition: Int?,
     onPendingScrollPositionConsumed: () -> Unit,
     onAddPeopleClick: () -> Unit,
-    onCallClick: () -> Unit,
     onConversationDetailsClick: () -> Unit,
-    onArchiveConversationClick: () -> Unit,
-    onUnarchiveConversationClick: () -> Unit,
-    onAddContactClick: () -> Unit,
-    onDeleteConversationClick: () -> Unit,
-    onDeleteConversationConfirmed: () -> Unit,
-    onDeleteConversationDismissed: () -> Unit,
-    onDeleteSelectedMessagesConfirmed: () -> Unit,
-    onDeleteSelectedMessagesDismissed: () -> Unit,
-    onDismissMessageSelection: () -> Unit,
-    onMessageClick: (String) -> Unit,
-    onMessageLongClick: (String) -> Unit,
-    onMessageResendClick: (String) -> Unit,
-    onMessageSelectionActionClick: (ConversationMessageSelectionAction) -> Unit,
     onNavigateBack: () -> Unit,
     onOpenContactPicker: () -> Unit,
     onOpenMediaPicker: () -> Unit,
-    onMessageTextChange: (String) -> Unit,
-    onPendingAttachmentRemove: (String) -> Unit,
-    onResolvedAttachmentClick: (ComposerAttachmentUiModel.Resolved) -> Unit,
-    onResolvedAttachmentRemove: (String) -> Unit,
     onAudioRecordingStartRequest: () -> Unit,
     onLockedAudioRecordingStartRequest: () -> Unit,
-    onAudioRecordingFinish: () -> Unit,
-    onAudioRecordingLock: () -> Boolean,
-    onAudioRecordingCancel: () -> Unit,
-    onSendClick: () -> Unit,
-    onSimSelected: (String) -> Unit,
-    onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
-    onExternalUriClick: (String) -> Unit,
+    screenModel: ConversationScreenModel,
 ) {
     var isSimSheetVisible by rememberSaveable { mutableStateOf(value = false) }
 
@@ -364,69 +156,28 @@ private fun ConversationScreenScaffold(
 
     Scaffold(
         modifier = modifier,
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
-        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            when {
-                uiState.selection.isSelectionMode -> {
-                    ConversationSelectionTopAppBar(
-                        selection = uiState.selection,
-                        onActionClick = onMessageSelectionActionClick,
-                        onDismissSelection = onDismissMessageSelection,
-                    )
-                }
-
-                else -> {
-                    ConversationTopAppBar(
-                        metadata = uiState.metadata,
-                        isAddPeopleVisible = uiState.canAddPeople,
-                        isCallVisible = uiState.canCall,
-                        isArchiveVisible = uiState.canArchive,
-                        isUnarchiveVisible = uiState.canUnarchive,
-                        isAddContactVisible = uiState.canAddContact,
-                        isDeleteConversationVisible = uiState.canDeleteConversation,
-                        simSelector = uiState.composer.simSelector,
-                        onAddPeopleClick = onAddPeopleClick,
-                        onCallClick = onCallClick,
-                        onArchiveClick = onArchiveConversationClick,
-                        onUnarchiveClick = onUnarchiveConversationClick,
-                        onAddContactClick = onAddContactClick,
-                        onDeleteConversationClick = onDeleteConversationClick,
-                        onSimSelectorClick = { isSimSheetVisible = true },
-                        onTitleClick = onConversationDetailsClick,
-                        onNavigateBack = onNavigateBack,
-                    )
-                }
-            }
+            ConversationScreenTopBar(
+                uiState = uiState,
+                onAddPeopleClick = onAddPeopleClick,
+                onConversationDetailsClick = onConversationDetailsClick,
+                onNavigateBack = onNavigateBack,
+                onSimSelectorClick = { isSimSheetVisible = true },
+                screenModel = screenModel,
+            )
         },
         bottomBar = {
-            if (!isMediaPickerOpen) {
-                ConversationComposerSection(
-                    audioRecording = uiState.composer.audioRecording,
-                    attachments = uiState.composer.attachments,
-                    messageText = uiState.composer.messageText,
-                    sendProtocol = uiState.composer.sendProtocol,
-                    isMessageFieldEnabled = uiState.composer.isMessageFieldEnabled,
-                    isAttachmentActionEnabled = uiState.composer.isAttachmentActionEnabled,
-                    isRecordActionEnabled = uiState.composer.isRecordActionEnabled,
-                    isSendActionEnabled = uiState.composer.isSendEnabled,
-                    shouldShowRecordAction = uiState.composer.shouldShowRecordAction,
-                    messageFieldFocusRequester = messageFieldFocusRequester,
-                    onContactAttachClick = onOpenContactPicker,
-                    onMediaPickerClick = onOpenMediaPicker,
-                    onMessageTextChange = onMessageTextChange,
-                    onPendingAttachmentRemove = onPendingAttachmentRemove,
-                    onResolvedAttachmentClick = onResolvedAttachmentClick,
-                    onResolvedAttachmentRemove = onResolvedAttachmentRemove,
-                    onAudioRecordingStartRequest = onAudioRecordingStartRequest,
-                    onLockedAudioRecordingStartRequest = onLockedAudioRecordingStartRequest,
-                    onAudioRecordingFinish = onAudioRecordingFinish,
-                    onAudioRecordingLock = onAudioRecordingLock,
-                    onAudioRecordingCancel = onAudioRecordingCancel,
-                    onSendClick = onSendClick,
-                )
-            }
+            ConversationScreenBottomBar(
+                uiState = uiState,
+                isMediaPickerOpen = isMediaPickerOpen,
+                messageFieldFocusRequester = messageFieldFocusRequester,
+                onOpenContactPicker = onOpenContactPicker,
+                onOpenMediaPicker = onOpenMediaPicker,
+                onAudioRecordingStartRequest = onAudioRecordingStartRequest,
+                onLockedAudioRecordingStartRequest = onLockedAudioRecordingStartRequest,
+                screenModel = screenModel,
+            )
         },
     ) { contentPadding ->
         ConversationScreenContent(
@@ -437,41 +188,147 @@ private fun ConversationScreenScaffold(
             contentPadding = contentPadding,
             pendingScrollPosition = pendingScrollPosition,
             onPendingScrollPositionConsumed = onPendingScrollPositionConsumed,
-            onAttachmentClick = onAttachmentClick,
-            onExternalUriClick = onExternalUriClick,
-            onMessageClick = onMessageClick,
-            onMessageLongClick = onMessageLongClick,
-            onMessageResendClick = onMessageResendClick,
+            onAttachmentClick = screenModel::onMessageAttachmentClicked,
+            onExternalUriClick = screenModel::onExternalUriClicked,
+            onMessageClick = screenModel::onMessageClick,
+            onMessageLongClick = screenModel::onMessageLongClick,
+            onMessageResendClick = screenModel::onMessageResendClick,
         )
     }
 
+    ConversationScreenDialogs(uiState = uiState, screenModel = screenModel)
+
+    ConversationScreenSimSelectorSheet(
+        isVisible = isSimSheetVisible,
+        uiState = uiState,
+        onSimSelected = screenModel::onSimSelected,
+        onDismissRequest = { isSimSheetVisible = false },
+    )
+}
+
+@Composable
+private fun ConversationScreenTopBar(
+    uiState: ConversationScreenScaffoldUiState,
+    onAddPeopleClick: () -> Unit,
+    onConversationDetailsClick: () -> Unit,
+    onNavigateBack: () -> Unit,
+    onSimSelectorClick: () -> Unit,
+    screenModel: ConversationScreenModel,
+) {
+    when {
+        uiState.selection.isSelectionMode -> {
+            ConversationSelectionTopAppBar(
+                selection = uiState.selection,
+                onActionClick = screenModel::onMessageSelectionActionClick,
+                onDismissSelection = screenModel::dismissMessageSelection,
+            )
+        }
+
+        else -> {
+            ConversationTopAppBar(
+                metadata = uiState.metadata,
+                isAddPeopleVisible = uiState.canAddPeople,
+                isCallVisible = uiState.canCall,
+                isArchiveVisible = uiState.canArchive,
+                isUnarchiveVisible = uiState.canUnarchive,
+                isAddContactVisible = uiState.canAddContact,
+                isDeleteConversationVisible = uiState.canDeleteConversation,
+                simSelector = uiState.composer.simSelector,
+                onAddPeopleClick = onAddPeopleClick,
+                onCallClick = screenModel::onCallClick,
+                onArchiveClick = screenModel::onArchiveConversationClick,
+                onUnarchiveClick = screenModel::onUnarchiveConversationClick,
+                onAddContactClick = screenModel::onAddContactClick,
+                onDeleteConversationClick = screenModel::onDeleteConversationClick,
+                onSimSelectorClick = onSimSelectorClick,
+                onTitleClick = onConversationDetailsClick,
+                onNavigateBack = onNavigateBack,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConversationScreenBottomBar(
+    uiState: ConversationScreenScaffoldUiState,
+    isMediaPickerOpen: Boolean,
+    messageFieldFocusRequester: FocusRequester,
+    onOpenContactPicker: () -> Unit,
+    onOpenMediaPicker: () -> Unit,
+    onAudioRecordingStartRequest: () -> Unit,
+    onLockedAudioRecordingStartRequest: () -> Unit,
+    screenModel: ConversationScreenModel,
+) {
+    if (isMediaPickerOpen) {
+        return
+    }
+
+    ConversationComposerSection(
+        audioRecording = uiState.composer.audioRecording,
+        attachments = uiState.composer.attachments,
+        messageText = uiState.composer.messageText,
+        sendProtocol = uiState.composer.sendProtocol,
+        isMessageFieldEnabled = uiState.composer.isMessageFieldEnabled,
+        isAttachmentActionEnabled = uiState.composer.isAttachmentActionEnabled,
+        isRecordActionEnabled = uiState.composer.isRecordActionEnabled,
+        isSendActionEnabled = uiState.composer.isSendEnabled,
+        shouldShowRecordAction = uiState.composer.shouldShowRecordAction,
+        messageFieldFocusRequester = messageFieldFocusRequester,
+        onContactAttachClick = onOpenContactPicker,
+        onMediaPickerClick = onOpenMediaPicker,
+        onMessageTextChange = screenModel::onMessageTextChanged,
+        onPendingAttachmentRemove = screenModel::onRemovePendingAttachment,
+        onResolvedAttachmentClick = screenModel::onAttachmentClicked,
+        onResolvedAttachmentRemove = screenModel::onRemoveResolvedAttachment,
+        onAudioRecordingStartRequest = onAudioRecordingStartRequest,
+        onLockedAudioRecordingStartRequest = onLockedAudioRecordingStartRequest,
+        onAudioRecordingFinish = screenModel::onAudioRecordingFinish,
+        onAudioRecordingLock = screenModel::onAudioRecordingLock,
+        onAudioRecordingCancel = screenModel::onAudioRecordingCancel,
+        onSendClick = screenModel::onSendClick,
+    )
+}
+
+@Composable
+private fun ConversationScreenDialogs(
+    uiState: ConversationScreenScaffoldUiState,
+    screenModel: ConversationScreenModel,
+) {
     uiState.selection.deleteConfirmation?.let { deleteConfirmation ->
         ConversationDeleteMessagesDialog(
             deleteConfirmation = deleteConfirmation,
-            onConfirm = onDeleteSelectedMessagesConfirmed,
-            onDismiss = onDeleteSelectedMessagesDismissed,
+            onConfirm = screenModel::confirmDeleteSelectedMessages,
+            onDismiss = screenModel::dismissDeleteMessageConfirmation,
         )
     }
 
     if (uiState.isDeleteConversationConfirmationVisible) {
         ConversationDeleteConversationDialog(
-            onConfirm = onDeleteConversationConfirmed,
-            onDismiss = onDeleteConversationDismissed,
+            onConfirm = screenModel::confirmDeleteConversation,
+            onDismiss = screenModel::dismissDeleteConversationConfirmation,
         )
+    }
+}
+
+@Composable
+private fun ConversationScreenSimSelectorSheet(
+    isVisible: Boolean,
+    uiState: ConversationScreenScaffoldUiState,
+    onSimSelected: (String) -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    if (!isVisible || !uiState.composer.simSelector.isAvailable) {
+        return
     }
 
-    if (isSimSheetVisible && hasSimSelector) {
-        ConversationSimSelectorSheet(
-            uiState = uiState.composer.simSelector,
-            onSimSelected = { selfParticipantId ->
-                onSimSelected(selfParticipantId)
-                isSimSheetVisible = false
-            },
-            onDismissRequest = {
-                isSimSheetVisible = false
-            },
-        )
-    }
+    ConversationSimSelectorSheet(
+        uiState = uiState.composer.simSelector,
+        onSimSelected = { selfParticipantId ->
+            onSimSelected(selfParticipantId)
+            onDismissRequest()
+        },
+        onDismissRequest = onDismissRequest,
+    )
 }
 
 @Composable

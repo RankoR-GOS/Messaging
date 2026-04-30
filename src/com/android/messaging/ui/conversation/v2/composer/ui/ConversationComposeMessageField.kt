@@ -243,34 +243,49 @@ private fun ConversationComposeAttachmentMenu(
                 focusable = false,
             ),
         ) {
-            ConversationComposeAttachmentMenuItem(
-                modifier = Modifier.testTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG),
-                imageVector = Icons.Rounded.Image,
-                textResId = R.string.mediapicker_gallery_title,
-                onClick = {
+            ConversationComposeAttachmentMenuContent(
+                isAudioRecordActionEnabled = isAudioRecordActionEnabled,
+                onMediaPickerClick = {
                     closeMenuAndRun(action = onMediaPickerClick)
                 },
-            )
-            ConversationComposeAttachmentMenuItem(
-                modifier = Modifier.testTag(CONVERSATION_ATTACHMENT_AUDIO_MENU_ITEM_TEST_TAG),
-                imageVector = Icons.Rounded.Mic,
-                textResId = R.string.mediapicker_audio_title,
-                enabled = isAudioRecordActionEnabled,
-                onClick = {
+                onAudioAttachClick = {
                     closeMenuAndRun(action = onAudioAttachClick)
                 },
-            )
-
-            ConversationComposeAttachmentMenuItem(
-                modifier = Modifier.testTag(CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG),
-                imageVector = Icons.Rounded.Person,
-                textResId = R.string.mediapicker_contact_title,
-                onClick = {
+                onContactAttachClick = {
                     closeMenuAndRun(action = onContactAttachClick)
                 },
             )
         }
     }
+}
+
+@Composable
+private fun ConversationComposeAttachmentMenuContent(
+    isAudioRecordActionEnabled: Boolean,
+    onMediaPickerClick: () -> Unit,
+    onAudioAttachClick: () -> Unit,
+    onContactAttachClick: () -> Unit,
+) {
+    ConversationComposeAttachmentMenuItem(
+        modifier = Modifier.testTag(CONVERSATION_ATTACHMENT_MEDIA_MENU_ITEM_TEST_TAG),
+        imageVector = Icons.Rounded.Image,
+        textResId = R.string.mediapicker_gallery_title,
+        onClick = onMediaPickerClick,
+    )
+    ConversationComposeAttachmentMenuItem(
+        modifier = Modifier.testTag(CONVERSATION_ATTACHMENT_AUDIO_MENU_ITEM_TEST_TAG),
+        imageVector = Icons.Rounded.Mic,
+        textResId = R.string.mediapicker_audio_title,
+        enabled = isAudioRecordActionEnabled,
+        onClick = onAudioAttachClick,
+    )
+
+    ConversationComposeAttachmentMenuItem(
+        modifier = Modifier.testTag(CONVERSATION_ATTACHMENT_CONTACT_MENU_ITEM_TEST_TAG),
+        imageVector = Icons.Rounded.Person,
+        textResId = R.string.mediapicker_contact_title,
+        onClick = onContactAttachClick,
+    )
 }
 
 @Composable

@@ -1,11 +1,9 @@
 package com.android.messaging.ui.conversation.v2.mediapicker
 
 import android.Manifest
-import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresExtension
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +11,6 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -23,7 +20,6 @@ import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCa
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 
-@RequiresExtension(extension = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, version = 15)
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ConversationMediaPickerOverlay(
@@ -42,12 +38,11 @@ internal fun ConversationMediaPickerOverlay(
     onCapturedMediaReady: (ConversationCapturedMedia) -> Unit,
     onSendClick: () -> Unit,
 ) {
-    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val isImeVisible = WindowInsets.isImeVisible
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    val permissionState = rememberConversationMediaPickerPermissionState(context = context)
+    val permissionState = rememberConversationMediaPickerPermissionState()
 
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -70,7 +65,6 @@ internal fun ConversationMediaPickerOverlay(
     )
 
     RefreshConversationMediaPickerPermissionsEffect(
-        context = context,
         permissionState = permissionState,
     )
 

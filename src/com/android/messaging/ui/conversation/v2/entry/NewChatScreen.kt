@@ -154,28 +154,13 @@ private fun NewChatRecipientSelectionContent(
     onCreateGroupRecipientClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val primaryAction = when {
-        isCreatingGroup && selectedGroupRecipientDestinations.isNotEmpty() -> {
-            RecipientSelectionPrimaryActionUiState(
-                text = stringResource(id = R.string.next),
-                isEnabled = !pickerUiState.isLoading && !isResolvingConversation,
-                isLoading = isResolvingConversationIndicatorVisible,
-                testTag = NEW_CHAT_CREATE_GROUP_NEXT_BUTTON_TEST_TAG,
-            )
-        }
-
-        else -> null
-    }
-
     RecipientSelectionContent(
-        uiState = RecipientSelectionContentUiState(
-            picker = pickerUiState,
-            primaryAction = primaryAction,
-            selectedRecipientDestinations = when {
-                isCreatingGroup -> selectedGroupRecipientDestinations.toImmutableSet()
-                else -> persistentSetOf()
-            },
-            isQueryEnabled = !isResolvingConversation,
+        uiState = newChatRecipientSelectionContentUiState(
+            pickerUiState = pickerUiState,
+            isCreatingGroup = isCreatingGroup,
+            isResolvingConversation = isResolvingConversation,
+            isResolvingConversationIndicatorVisible = isResolvingConversationIndicatorVisible,
+            selectedGroupRecipientDestinations = selectedGroupRecipientDestinations,
         ),
         strings = RecipientSelectionStrings(
             queryPrefixText = stringResource(id = R.string.new_chat_recipient_prefix),
@@ -219,23 +204,66 @@ private fun NewChatRecipientSelectionContent(
             }
         },
         topListContent = {
-            AnimatedVisibility(
-                visible = !isCreatingGroup,
-                enter = newGroupButtonEnterTransition(),
-                exit = newGroupButtonExitTransition(),
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(space = 12.dp),
-                ) {
-                    NewGroupButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onCreateGroupClick,
-                    )
-                    Spacer(modifier = Modifier.height(height = 12.dp))
-                }
-            }
+            NewChatRecipientSelectionTopListContent(
+                isCreatingGroup = isCreatingGroup,
+                onCreateGroupClick = onCreateGroupClick,
+            )
         },
     )
+}
+
+@Composable
+private fun newChatRecipientSelectionContentUiState(
+    pickerUiState: RecipientPickerUiState,
+    isCreatingGroup: Boolean,
+    isResolvingConversation: Boolean,
+    isResolvingConversationIndicatorVisible: Boolean,
+    selectedGroupRecipientDestinations: ImmutableList<String>,
+): RecipientSelectionContentUiState {
+    val primaryAction = when {
+        isCreatingGroup && selectedGroupRecipientDestinations.isNotEmpty() -> {
+            RecipientSelectionPrimaryActionUiState(
+                text = stringResource(id = R.string.next),
+                isEnabled = !pickerUiState.isLoading && !isResolvingConversation,
+                isLoading = isResolvingConversationIndicatorVisible,
+                testTag = NEW_CHAT_CREATE_GROUP_NEXT_BUTTON_TEST_TAG,
+            )
+        }
+
+        else -> null
+    }
+
+    return RecipientSelectionContentUiState(
+        picker = pickerUiState,
+        primaryAction = primaryAction,
+        selectedRecipientDestinations = when {
+            isCreatingGroup -> selectedGroupRecipientDestinations.toImmutableSet()
+            else -> persistentSetOf()
+        },
+        isQueryEnabled = !isResolvingConversation,
+    )
+}
+
+@Composable
+private fun NewChatRecipientSelectionTopListContent(
+    isCreatingGroup: Boolean,
+    onCreateGroupClick: () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = !isCreatingGroup,
+        enter = newGroupButtonEnterTransition(),
+        exit = newGroupButtonExitTransition(),
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(space = 12.dp),
+        ) {
+            NewGroupButton(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onCreateGroupClick,
+            )
+            Spacer(modifier = Modifier.height(height = 12.dp))
+        }
+    }
 }
 
 @Composable

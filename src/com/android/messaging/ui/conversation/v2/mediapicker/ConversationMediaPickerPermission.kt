@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -31,9 +32,10 @@ internal class ConversationMediaPickerPermissionState(
 }
 
 @Composable
-internal fun rememberConversationMediaPickerPermissionState(
-    context: Context,
-): ConversationMediaPickerPermissionState {
+internal fun rememberConversationMediaPickerPermissionState():
+    ConversationMediaPickerPermissionState {
+    val context = LocalContext.current
+
     return remember(context) {
         ConversationMediaPickerPermissionState(
             context = context,
@@ -43,9 +45,10 @@ internal fun rememberConversationMediaPickerPermissionState(
 
 @Composable
 internal fun RefreshConversationMediaPickerPermissionsEffect(
-    context: Context,
     permissionState: ConversationMediaPickerPermissionState,
 ) {
+    val context = LocalContext.current
+
     LifecycleEventEffect(event = Lifecycle.Event.ON_RESUME) {
         permissionState.refresh(context = context)
     }

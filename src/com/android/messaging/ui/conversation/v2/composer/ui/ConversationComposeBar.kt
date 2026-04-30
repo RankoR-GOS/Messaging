@@ -3,8 +3,6 @@ package com.android.messaging.ui.conversation.v2.composer.ui
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -87,17 +85,13 @@ internal fun ConversationComposeBar(
     onSendClick: () -> Unit,
 ) {
     val presentation = rememberConversationComposeBarPresentation()
-    val hapticFeedback = LocalHapticFeedback.current
-
-    var recordingGestureState by remember {
-        mutableStateOf(ConversationSendActionButtonGestureState())
-    }
-
-    LaunchedEffect(audioRecording.phase) {
-        if (audioRecording.phase != ConversationAudioRecordingPhase.Recording) {
-            recordingGestureState = ConversationSendActionButtonGestureState()
-        }
-    }
+    val recordingGestureController = rememberConversationAudioRecordingGestureController(
+        audioRecording = audioRecording,
+        onAudioRecordingStartRequest = onAudioRecordingStartRequest,
+        onAudioRecordingFinish = onAudioRecordingFinish,
+        onAudioRecordingLock = onAudioRecordingLock,
+        onAudioRecordingCancel = onAudioRecordingCancel,
+    )
 
     Box(
         modifier = modifier
@@ -115,42 +109,73 @@ internal fun ConversationComposeBar(
             isRecordActionEnabled = isRecordActionEnabled,
             isSendActionEnabled = isSendActionEnabled,
             shouldShowRecordAction = shouldShowRecordAction,
-            recordingGestureState = recordingGestureState,
+            recordingGestureState = recordingGestureController.recordingGestureState,
             messageFieldFocusRequester = messageFieldFocusRequester,
             presentation = presentation,
             onContactAttachClick = onContactAttachClick,
             onMediaPickerClick = onMediaPickerClick,
             onLockedAudioRecordingStartRequest = onLockedAudioRecordingStartRequest,
             onMessageTextChange = onMessageTextChange,
-            onAudioRecordingStartRequest = {
-                recordingGestureState = ConversationSendActionButtonGestureState()
-                onAudioRecordingStartRequest()
-            },
-            onAudioRecordingDrag = { gestureState ->
-                recordingGestureState = gestureState
-            },
-            onAudioRecordingLock = {
-                if (audioRecording.isLocked) {
-                    return@ConversationComposeInputContent false
-                }
-
-                recordingGestureState = ConversationSendActionButtonGestureState()
-                val didLockRecording = onAudioRecordingLock()
-                if (didLockRecording) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                }
-                didLockRecording
-            },
-            onAudioRecordingFinish = { shouldCancelRecording ->
-                recordingGestureState = ConversationSendActionButtonGestureState()
-                when {
-                    shouldCancelRecording -> onAudioRecordingCancel()
-                    else -> onAudioRecordingFinish()
-                }
-            },
+            onAudioRecordingStartRequest = recordingGestureController.onAudioRecordingStartRequest,
+            onAudioRecordingDrag = recordingGestureController.onAudioRecordingDrag,
+            onAudioRecordingLock = recordingGestureController.onAudioRecordingLock,
+            onAudioRecordingFinish = recordingGestureController.onAudioRecordingFinish,
             onSendClick = onSendClick,
         )
     }
+}
+
+@Composable
+private fun rememberConversationAudioRecordingGestureController(
+    audioRecording: ConversationAudioRecordingUiState,
+    onAudioRecordingStartRequest: () -> Unit,
+    onAudioRecordingFinish: () -> Unit,
+    onAudioRecordingLock: () -> Boolean,
+    onAudioRecordingCancel: () -> Unit,
+): ConversationAudioRecordingGestureController {
+    val hapticFeedback = LocalHapticFeedback.current
+
+    var recordingGestureState by remember {
+        mutableStateOf(ConversationSendActionButtonGestureState())
+    }
+
+    LaunchedEffect(audioRecording.phase) {
+        if (audioRecording.phase != ConversationAudioRecordingPhase.Recording) {
+            recordingGestureState = ConversationSendActionButtonGestureState()
+        }
+    }
+
+    return ConversationAudioRecordingGestureController(
+        recordingGestureState = recordingGestureState,
+        onAudioRecordingStartRequest = {
+            recordingGestureState = ConversationSendActionButtonGestureState()
+            onAudioRecordingStartRequest()
+        },
+        onAudioRecordingDrag = { gestureState ->
+            recordingGestureState = gestureState
+        },
+        onAudioRecordingLock = {
+            when {
+                audioRecording.isLocked -> false
+
+                else -> {
+                    recordingGestureState = ConversationSendActionButtonGestureState()
+                    val didLockRecording = onAudioRecordingLock()
+                    if (didLockRecording) {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                    }
+                    didLockRecording
+                }
+            }
+        },
+        onAudioRecordingFinish = { shouldCancelRecording ->
+            recordingGestureState = ConversationSendActionButtonGestureState()
+            when {
+                shouldCancelRecording -> onAudioRecordingCancel()
+                else -> onAudioRecordingFinish()
+            }
+        },
+    )
 }
 
 @Composable
@@ -213,31 +238,53 @@ internal fun ConversationComposeInputContent(
             onMessageTextChange = onMessageTextChange,
         )
 
-        ConversationComposeSendAction(
-            modifier = Modifier
-                .testTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
-                .semantics {
-                    conversationShape = CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
-                },
-            enabled = inputState.isRecordingControlEnabled,
-            mode = conversationComposeSendActionMode(
-                isRecordMode = inputState.isRecordMode,
-                isRecordingLocked = audioRecording.isLocked,
-            ),
-            isRecordingActive = inputState.isActiveRecording,
-            isRecordingLocked = audioRecording.isLocked,
-            shouldShowLockAffordance = inputState.isActiveRecording && !audioRecording.isLocked,
-            lockProgress = inputState.lockProgress,
-            onClick = onSendClick,
-            onLockedStopClick = {
-                onAudioRecordingFinish(false)
-            },
-            onRecordGestureStart = onAudioRecordingStartRequest,
-            onRecordGestureMove = onAudioRecordingDrag,
-            onRecordGestureLock = onAudioRecordingLock,
-            onRecordGestureFinish = onAudioRecordingFinish,
+        ConversationComposeInputSendAction(
+            audioRecording = audioRecording,
+            inputState = inputState,
+            onSendClick = onSendClick,
+            onAudioRecordingStartRequest = onAudioRecordingStartRequest,
+            onAudioRecordingDrag = onAudioRecordingDrag,
+            onAudioRecordingLock = onAudioRecordingLock,
+            onAudioRecordingFinish = onAudioRecordingFinish,
         )
     }
+}
+
+@Composable
+private fun ConversationComposeInputSendAction(
+    modifier: Modifier = Modifier,
+    audioRecording: ConversationAudioRecordingUiState,
+    inputState: ConversationComposeInputState,
+    onSendClick: () -> Unit,
+    onAudioRecordingStartRequest: () -> Unit,
+    onAudioRecordingDrag: (ConversationSendActionButtonGestureState) -> Unit,
+    onAudioRecordingLock: () -> Boolean,
+    onAudioRecordingFinish: (Boolean) -> Unit,
+) {
+    ConversationComposeSendAction(
+        modifier = modifier
+            .testTag(CONVERSATION_SEND_BUTTON_TEST_TAG)
+            .semantics {
+                conversationShape = CONVERSATION_SEND_BUTTON_SHAPE_CIRCLE
+            },
+        enabled = inputState.isRecordingControlEnabled,
+        mode = conversationComposeSendActionMode(
+            isRecordMode = inputState.isRecordMode,
+            isRecordingLocked = audioRecording.isLocked,
+        ),
+        isRecordingActive = inputState.isActiveRecording,
+        isRecordingLocked = audioRecording.isLocked,
+        shouldShowLockAffordance = inputState.isActiveRecording && !audioRecording.isLocked,
+        lockProgress = inputState.lockProgress,
+        onClick = onSendClick,
+        onLockedStopClick = {
+            onAudioRecordingFinish(false)
+        },
+        onRecordGestureStart = onAudioRecordingStartRequest,
+        onRecordGestureMove = onAudioRecordingDrag,
+        onRecordGestureLock = onAudioRecordingLock,
+        onRecordGestureFinish = onAudioRecordingFinish,
+    )
 }
 
 @Composable
@@ -383,36 +430,25 @@ private fun conversationComposeSendActionMode(
 }
 
 private fun contentSwapTransition(): ContentTransform {
-    val enterTransition = contentSwapEnterTransition()
-    val exitTransition = contentSwapExitTransition()
-
-    return enterTransition.togetherWith(exitTransition)
-}
-
-private fun contentSwapEnterTransition(): EnterTransition {
-    return fadeIn(
+    val enterTransition = fadeIn(
         animationSpec = tween(durationMillis = CONTENT_SWAP_ENTER_FADE_DURATION_MILLIS),
     ) + slideInHorizontally(
         animationSpec = tween(durationMillis = CONTENT_SWAP_ENTER_SLIDE_DURATION_MILLIS),
-        initialOffsetX = ::contentSwapEnterOffset,
+        initialOffsetX = { fullWidth ->
+            fullWidth / CONTENT_SWAP_ENTER_SLIDE_OFFSET_DIVISOR
+        },
     )
-}
 
-private fun contentSwapExitTransition(): ExitTransition {
-    return fadeOut(
+    val exitTransition = fadeOut(
         animationSpec = tween(durationMillis = CONTENT_SWAP_EXIT_FADE_DURATION_MILLIS),
     ) + slideOutHorizontally(
         animationSpec = tween(durationMillis = CONTENT_SWAP_EXIT_SLIDE_DURATION_MILLIS),
-        targetOffsetX = ::contentSwapExitOffset,
+        targetOffsetX = { fullWidth ->
+            -(fullWidth / CONTENT_SWAP_EXIT_SLIDE_OFFSET_DIVISOR)
+        },
     )
-}
 
-private fun contentSwapEnterOffset(fullWidth: Int): Int {
-    return fullWidth / CONTENT_SWAP_ENTER_SLIDE_OFFSET_DIVISOR
-}
-
-private fun contentSwapExitOffset(fullWidth: Int): Int {
-    return -(fullWidth / CONTENT_SWAP_EXIT_SLIDE_OFFSET_DIVISOR)
+    return enterTransition.togetherWith(exitTransition)
 }
 
 @Composable
@@ -470,6 +506,14 @@ private data class ConversationComposeInputState(
     val isActiveRecording: Boolean,
     val isRecordMode: Boolean,
     val isRecordingControlEnabled: Boolean,
+)
+
+private data class ConversationAudioRecordingGestureController(
+    val recordingGestureState: ConversationSendActionButtonGestureState,
+    val onAudioRecordingStartRequest: () -> Unit,
+    val onAudioRecordingDrag: (ConversationSendActionButtonGestureState) -> Unit,
+    val onAudioRecordingLock: () -> Boolean,
+    val onAudioRecordingFinish: (Boolean) -> Unit,
 )
 
 private data class ConversationComposeBarPreviewState(

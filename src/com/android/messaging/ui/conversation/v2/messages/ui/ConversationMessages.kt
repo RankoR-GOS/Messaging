@@ -30,18 +30,11 @@ import com.android.messaging.ui.conversation.v2.messages.model.message.Conversat
 import com.android.messaging.ui.conversation.v2.messages.ui.message.ConversationMessage
 import com.android.messaging.ui.conversation.v2.messages.ui.message.conversationMessageDisplayEpochDay
 import com.android.messaging.ui.conversation.v2.messages.ui.message.formatDateSeparatorText
-import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationAudioPart
-import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationImagePart
-import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationLocationVCardPart
-import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationMessage
-import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationTimestamp
-import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationVCardPart
-import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationVideoPart
+import com.android.messaging.ui.conversation.v2.messages.ui.preview.previewConversationMessages
 import com.android.messaging.ui.core.AppTheme
 import java.util.TimeZone
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 
 private val CONVERSATION_MESSAGES_CONTENT_PADDING = PaddingValues(
@@ -348,136 +341,7 @@ private fun ConversationMessagesPreview() {
 
     AppTheme {
         ConversationMessages(
-            messages = persistentListOf(
-                previewConversationMessage(
-                    messageId = "standalone-incoming",
-                    text = "Standalone incoming",
-                    isIncoming = true,
-                    senderDisplayName = "+15550001234",
-                    timestamp = previewConversationTimestamp(dayOffset = 2, hour = 9, minute = 12),
-                    canClusterWithPrevious = false,
-                    canClusterWithNext = false,
-                ),
-                previewConversationMessage(
-                    messageId = "pair-top",
-                    text = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    isIncoming = true,
-                    senderDisplayName = "+15550001234",
-                    timestamp = previewConversationTimestamp(dayOffset = 2, hour = 9, minute = 15),
-                    canClusterWithPrevious = false,
-                    canClusterWithNext = true,
-                ),
-                previewConversationMessage(
-                    messageId = "pair-bottom",
-                    text = null,
-                    isIncoming = true,
-                    senderDisplayName = "+15550001234",
-                    timestamp = previewConversationTimestamp(dayOffset = 2, hour = 9, minute = 16),
-                    canClusterWithPrevious = true,
-                    canClusterWithNext = false,
-                    parts = listOf(
-                        previewConversationImagePart(
-                            uniqueId = "pair-bottom-image",
-                            width = 1600,
-                            height = 1200,
-                        ),
-                    ),
-                    protocol = ConversationMessageUiModel.Protocol.MMS,
-                ),
-                previewConversationMessage(
-                    messageId = "triplet-top",
-                    text = "Triplet top",
-                    isIncoming = true,
-                    senderDisplayName = "+15550004567",
-                    timestamp = previewConversationTimestamp(dayOffset = 1, hour = 18, minute = 10),
-                    canClusterWithPrevious = false,
-                    canClusterWithNext = true,
-                ),
-                previewConversationMessage(
-                    messageId = "triplet-middle",
-                    text = null,
-                    isIncoming = true,
-                    senderDisplayName = "+15550004567",
-                    timestamp = previewConversationTimestamp(dayOffset = 1, hour = 18, minute = 11),
-                    canClusterWithPrevious = true,
-                    canClusterWithNext = true,
-                    parts = listOf(
-                        previewConversationImagePart(
-                            uniqueId = "triplet-middle-image-1",
-                            width = 1400,
-                            height = 1400,
-                        ),
-                        previewConversationImagePart(
-                            uniqueId = "triplet-middle-image-2",
-                            width = 1400,
-                            height = 1400,
-                        ),
-                        previewConversationImagePart(
-                            uniqueId = "triplet-middle-image-3",
-                            width = 1400,
-                            height = 1400,
-                        ),
-                    ),
-                    protocol = ConversationMessageUiModel.Protocol.MMS,
-                ),
-                previewConversationMessage(
-                    messageId = "triplet-bottom",
-                    text = null,
-                    isIncoming = true,
-                    senderDisplayName = "+15550004567",
-                    timestamp = previewConversationTimestamp(dayOffset = 1, hour = 18, minute = 12),
-                    canClusterWithPrevious = true,
-                    canClusterWithNext = false,
-                    parts = listOf(
-                        previewConversationAudioPart(
-                            uniqueId = "triplet-bottom-audio",
-                        ),
-                        previewConversationVCardPart(
-                            uniqueId = "triplet-bottom-vcard",
-                        ),
-                        previewConversationLocationVCardPart(
-                            uniqueId = "triplet-bottom-location-vcard",
-                        ),
-                    ),
-                    protocol = ConversationMessageUiModel.Protocol.MMS,
-                ),
-                previewConversationMessage(
-                    messageId = "outgoing-standalone",
-                    text = "Outgoing standalone",
-                    isIncoming = false,
-                    senderDisplayName = null,
-                    timestamp = previewConversationTimestamp(dayOffset = 0, hour = 13, minute = 4),
-                    canClusterWithPrevious = false,
-                    canClusterWithNext = false,
-                ),
-                previewConversationMessage(
-                    messageId = "outgoing-top",
-                    text = null,
-                    isIncoming = false,
-                    senderDisplayName = null,
-                    timestamp = previewConversationTimestamp(dayOffset = 0, hour = 13, minute = 5),
-                    canClusterWithPrevious = false,
-                    canClusterWithNext = true,
-                    parts = listOf(
-                        previewConversationVideoPart(
-                            uniqueId = "outgoing-top-video",
-                            width = 1280,
-                            height = 720,
-                        ),
-                    ),
-                    protocol = ConversationMessageUiModel.Protocol.MMS,
-                ),
-                previewConversationMessage(
-                    messageId = "outgoing-bottom",
-                    text = "Outgoing pair bottom",
-                    isIncoming = false,
-                    senderDisplayName = null,
-                    timestamp = previewConversationTimestamp(dayOffset = 0, hour = 13, minute = 6),
-                    canClusterWithPrevious = true,
-                    canClusterWithNext = false,
-                    status = ConversationMessageUiModel.Status.Outgoing.Delivered,
-                ),
-            ),
+            messages = previewConversationMessages(),
             listState = listState,
             onMessageClick = {},
             onMessageLongClick = {},

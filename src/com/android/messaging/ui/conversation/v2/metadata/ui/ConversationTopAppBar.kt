@@ -30,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -105,10 +104,23 @@ internal fun ConversationTopAppBar(
         metadata = metadata,
     )
     val isTitleClickable = metadata is ConversationMetadataUiState.Present
+    val overflowVisibility = ConversationTopAppBarOverflowVisibility(
+        isAddPeopleVisible = isAddPeopleVisible,
+        isArchiveVisible = isArchiveVisible,
+        isUnarchiveVisible = isUnarchiveVisible,
+        isAddContactVisible = isAddContactVisible,
+        isDeleteConversationVisible = isDeleteConversationVisible,
+        isSimSelectorVisible = simSelector.isAvailable,
+    )
 
     TopAppBar(
         modifier = modifier.fillMaxWidth(),
-        colors = conversationTopAppBarColors(),
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
         title = {
             ConversationTopAppBarTitle(
                 isClickable = isTitleClickable,
@@ -127,57 +139,22 @@ internal fun ConversationTopAppBar(
             }
         },
         actions = {
-            if (isCallVisible) {
-                IconButton(
-                    modifier = Modifier.testTag(CONVERSATION_CALL_BUTTON_TEST_TAG),
-                    onClick = onCallClick,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Call,
-                        contentDescription = stringResource(id = R.string.action_call),
-                    )
-                }
-            }
-            val isSimSelectorVisible = simSelector.isAvailable
-
-            val isOverflowVisible = isAddPeopleVisible ||
-                isArchiveVisible ||
-                isUnarchiveVisible ||
-                isAddContactVisible ||
-                isDeleteConversationVisible ||
-                isSimSelectorVisible
-
-            if (isOverflowVisible) {
-                ConversationTopAppBarOverflowMenu(
-                    isAddPeopleVisible = isAddPeopleVisible,
-                    isArchiveVisible = isArchiveVisible,
-                    isUnarchiveVisible = isUnarchiveVisible,
-                    isAddContactVisible = isAddContactVisible,
-                    isDeleteConversationVisible = isDeleteConversationVisible,
-                    isSimSelectorVisible = isSimSelectorVisible,
-                    simSelectorLabel = simSelector.selectedSubscription
-                        ?.label
-                        ?.resolveDisplayName()
-                        .orEmpty(),
-                    onAddPeopleClick = onAddPeopleClick,
-                    onArchiveClick = onArchiveClick,
-                    onUnarchiveClick = onUnarchiveClick,
-                    onAddContactClick = onAddContactClick,
-                    onDeleteConversationClick = onDeleteConversationClick,
-                    onSimSelectorClick = onSimSelectorClick,
-                )
-            }
+            ConversationTopAppBarActions(
+                isCallVisible = isCallVisible,
+                overflowVisibility = overflowVisibility,
+                simSelectorLabel = simSelector.selectedSubscription
+                    ?.label
+                    ?.resolveDisplayName()
+                    .orEmpty(),
+                onCallClick = onCallClick,
+                onAddPeopleClick = onAddPeopleClick,
+                onArchiveClick = onArchiveClick,
+                onUnarchiveClick = onUnarchiveClick,
+                onAddContactClick = onAddContactClick,
+                onDeleteConversationClick = onDeleteConversationClick,
+                onSimSelectorClick = onSimSelectorClick,
+            )
         },
-    )
-}
-
-@Composable
-private fun conversationTopAppBarColors(): TopAppBarColors {
-    return TopAppBarDefaults.topAppBarColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-        titleContentColor = MaterialTheme.colorScheme.onSurface,
-        actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
@@ -269,13 +246,47 @@ private fun ConversationTopAppBarText(
 }
 
 @Composable
+private fun ConversationTopAppBarActions(
+    isCallVisible: Boolean,
+    overflowVisibility: ConversationTopAppBarOverflowVisibility,
+    simSelectorLabel: String,
+    onCallClick: () -> Unit,
+    onAddPeopleClick: () -> Unit,
+    onArchiveClick: () -> Unit,
+    onUnarchiveClick: () -> Unit,
+    onAddContactClick: () -> Unit,
+    onDeleteConversationClick: () -> Unit,
+    onSimSelectorClick: () -> Unit,
+) {
+    if (isCallVisible) {
+        IconButton(
+            modifier = Modifier.testTag(CONVERSATION_CALL_BUTTON_TEST_TAG),
+            onClick = onCallClick,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Call,
+                contentDescription = stringResource(id = R.string.action_call),
+            )
+        }
+    }
+
+    if (overflowVisibility.isOverflowVisible) {
+        ConversationTopAppBarOverflowMenu(
+            visibility = overflowVisibility,
+            simSelectorLabel = simSelectorLabel,
+            onAddPeopleClick = onAddPeopleClick,
+            onArchiveClick = onArchiveClick,
+            onUnarchiveClick = onUnarchiveClick,
+            onAddContactClick = onAddContactClick,
+            onDeleteConversationClick = onDeleteConversationClick,
+            onSimSelectorClick = onSimSelectorClick,
+        )
+    }
+}
+
+@Composable
 private fun ConversationTopAppBarOverflowMenu(
-    isAddPeopleVisible: Boolean,
-    isArchiveVisible: Boolean,
-    isUnarchiveVisible: Boolean,
-    isAddContactVisible: Boolean,
-    isDeleteConversationVisible: Boolean,
-    isSimSelectorVisible: Boolean,
+    visibility: ConversationTopAppBarOverflowVisibility,
     simSelectorLabel: String,
     onAddPeopleClick: () -> Unit,
     onArchiveClick: () -> Unit,
@@ -298,65 +309,84 @@ private fun ConversationTopAppBarOverflowMenu(
 
     DropdownMenu(
         expanded = isExpanded,
-        onDismissRequest = {
-            @Suppress("AssignedValueIsNeverRead")
-            isExpanded = false
-        },
+        onDismissRequest = { isExpanded = false },
     ) {
-        val dismissAndInvoke: (() -> Unit) -> Unit = { action ->
-            @Suppress("AssignedValueIsNeverRead")
-            isExpanded = false
-            action()
-        }
-
-        ConversationTopAppBarOverflowMenuItem(
-            isVisible = isSimSelectorVisible,
-            testTag = CONVERSATION_SIM_SELECTOR_MENU_ITEM_TEST_TAG,
-            label = simSelectorLabel,
-            icon = Icons.Rounded.SimCard,
-            onClick = { dismissAndInvoke(onSimSelectorClick) },
-        )
-
-        ConversationTopAppBarOverflowMenuItem(
-            isVisible = isAddPeopleVisible,
-            testTag = CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG,
-            label = stringResource(id = R.string.conversation_add_people),
-            icon = Icons.Rounded.GroupAdd,
-            onClick = { dismissAndInvoke(onAddPeopleClick) },
-        )
-
-        ConversationTopAppBarOverflowMenuItem(
-            isVisible = isAddContactVisible,
-            testTag = CONVERSATION_ADD_CONTACT_BUTTON_TEST_TAG,
-            label = stringResource(id = R.string.action_add_contact),
-            icon = Icons.Rounded.PersonAdd,
-            onClick = { dismissAndInvoke(onAddContactClick) },
-        )
-
-        ConversationTopAppBarOverflowMenuItem(
-            isVisible = isArchiveVisible,
-            testTag = CONVERSATION_ARCHIVE_BUTTON_TEST_TAG,
-            label = stringResource(id = R.string.action_archive),
-            icon = Icons.Rounded.Archive,
-            onClick = { dismissAndInvoke(onArchiveClick) },
-        )
-
-        ConversationTopAppBarOverflowMenuItem(
-            isVisible = isUnarchiveVisible,
-            testTag = CONVERSATION_UNARCHIVE_BUTTON_TEST_TAG,
-            label = stringResource(id = R.string.action_unarchive),
-            icon = Icons.Rounded.Unarchive,
-            onClick = { dismissAndInvoke(onUnarchiveClick) },
-        )
-
-        ConversationTopAppBarOverflowMenuItem(
-            isVisible = isDeleteConversationVisible,
-            testTag = CONVERSATION_DELETE_CONVERSATION_BUTTON_TEST_TAG,
-            label = stringResource(id = R.string.action_delete),
-            icon = Icons.Rounded.Delete,
-            onClick = { dismissAndInvoke(onDeleteConversationClick) },
+        ConversationTopAppBarOverflowMenuContent(
+            visibility = visibility,
+            simSelectorLabel = simSelectorLabel,
+            onAddPeopleClick = onAddPeopleClick,
+            onArchiveClick = onArchiveClick,
+            onUnarchiveClick = onUnarchiveClick,
+            onAddContactClick = onAddContactClick,
+            onDeleteConversationClick = onDeleteConversationClick,
+            onSimSelectorClick = onSimSelectorClick,
+            onItemClick = { action ->
+                isExpanded = false
+                action()
+            },
         )
     }
+}
+
+@Composable
+private fun ConversationTopAppBarOverflowMenuContent(
+    visibility: ConversationTopAppBarOverflowVisibility,
+    simSelectorLabel: String,
+    onAddPeopleClick: () -> Unit,
+    onArchiveClick: () -> Unit,
+    onUnarchiveClick: () -> Unit,
+    onAddContactClick: () -> Unit,
+    onDeleteConversationClick: () -> Unit,
+    onSimSelectorClick: () -> Unit,
+    onItemClick: (() -> Unit) -> Unit,
+) {
+    ConversationTopAppBarOverflowMenuItem(
+        isVisible = visibility.isSimSelectorVisible,
+        testTag = CONVERSATION_SIM_SELECTOR_MENU_ITEM_TEST_TAG,
+        label = simSelectorLabel,
+        icon = Icons.Rounded.SimCard,
+        onClick = { onItemClick(onSimSelectorClick) },
+    )
+
+    ConversationTopAppBarOverflowMenuItem(
+        isVisible = visibility.isAddPeopleVisible,
+        testTag = CONVERSATION_ADD_PEOPLE_BUTTON_TEST_TAG,
+        label = stringResource(id = R.string.conversation_add_people),
+        icon = Icons.Rounded.GroupAdd,
+        onClick = { onItemClick(onAddPeopleClick) },
+    )
+
+    ConversationTopAppBarOverflowMenuItem(
+        isVisible = visibility.isAddContactVisible,
+        testTag = CONVERSATION_ADD_CONTACT_BUTTON_TEST_TAG,
+        label = stringResource(id = R.string.action_add_contact),
+        icon = Icons.Rounded.PersonAdd,
+        onClick = { onItemClick(onAddContactClick) },
+    )
+
+    ConversationTopAppBarOverflowMenuItem(
+        isVisible = visibility.isArchiveVisible,
+        testTag = CONVERSATION_ARCHIVE_BUTTON_TEST_TAG,
+        label = stringResource(id = R.string.action_archive),
+        icon = Icons.Rounded.Archive,
+        onClick = { onItemClick(onArchiveClick) },
+    )
+
+    ConversationTopAppBarOverflowMenuItem(
+        isVisible = visibility.isUnarchiveVisible,
+        testTag = CONVERSATION_UNARCHIVE_BUTTON_TEST_TAG,
+        label = stringResource(id = R.string.action_unarchive),
+        icon = Icons.Rounded.Unarchive,
+        onClick = { onItemClick(onUnarchiveClick) },
+    )
+
+    ConversationTopAppBarOverflowMenuItem(
+        isVisible = visibility.isDeleteConversationVisible,
+        testTag = CONVERSATION_DELETE_CONVERSATION_BUTTON_TEST_TAG,
+        label = stringResource(id = R.string.action_delete),
+        icon = Icons.Rounded.Delete,
+        onClick = { onItemClick(onDeleteConversationClick) },
+    )
 }
 
 @Composable
@@ -556,6 +586,26 @@ private data class ConversationTopAppBarPresentation(
     val subtitleContentDescription: String?,
     val avatar: ConversationMetadataUiState.Avatar,
 )
+
+@Immutable
+private data class ConversationTopAppBarOverflowVisibility(
+    val isAddPeopleVisible: Boolean,
+    val isArchiveVisible: Boolean,
+    val isUnarchiveVisible: Boolean,
+    val isAddContactVisible: Boolean,
+    val isDeleteConversationVisible: Boolean,
+    val isSimSelectorVisible: Boolean,
+) {
+    val isOverflowVisible: Boolean
+        get() {
+            return isAddPeopleVisible ||
+                isArchiveVisible ||
+                isUnarchiveVisible ||
+                isAddContactVisible ||
+                isDeleteConversationVisible ||
+                isSimSelectorVisible
+        }
+}
 
 @Preview(showBackground = true)
 @Composable

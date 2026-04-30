@@ -41,6 +41,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.android.messaging.R
@@ -96,12 +97,44 @@ internal fun ConversationMediaReviewScene(
         imeBottomPadding,
     ) + 12.dp
 
+    ConversationMediaReviewSceneContent(
+        modifier = modifier,
+        attachments = attachments,
+        conversationTitle = conversationTitle,
+        reviewBottomPadding = reviewBottomPadding,
+        reviewPagerState = reviewPagerState,
+        isSendActionEnabled = isSendActionEnabled,
+        onAttachmentPreviewClick = onAttachmentPreviewClick,
+        onCaptionChange = onCaptionChange,
+        onAttachmentRemove = onAttachmentRemove,
+        onAddMoreClick = onAddMoreClick,
+        onClearReview = onClearReview,
+        onCloseClick = onCloseClick,
+        onSendClick = onSendClick,
+    )
+}
+
+@Composable
+private fun ConversationMediaReviewSceneContent(
+    modifier: Modifier = Modifier,
+    attachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
+    conversationTitle: String?,
+    reviewBottomPadding: Dp,
+    reviewPagerState: ConversationMediaReviewPagerState,
+    isSendActionEnabled: Boolean,
+    onAttachmentPreviewClick: (ComposerAttachmentUiModel.Resolved.VisualMedia) -> Unit,
+    onCaptionChange: (String, String) -> Unit,
+    onAttachmentRemove: (String) -> Unit,
+    onAddMoreClick: () -> Unit,
+    onClearReview: () -> Unit,
+    onCloseClick: () -> Unit,
+    onSendClick: () -> Unit,
+) {
     Box(
         modifier = modifier,
     ) {
         ConversationMediaReviewBackground(
-            modifier = Modifier
-                .fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             pagerState = reviewPagerState.pagerState,
             attachments = attachments,
         )
@@ -198,29 +231,9 @@ private fun ConversationMediaReviewPager(
     BoxWithConstraints(
         modifier = modifier,
     ) {
-        val maxPageWidth = maxWidth * PICKER_REVIEW_PAGE_WIDTH_FRACTION
-        val maxPageHeight = maxHeight * PICKER_REVIEW_PAGE_MAX_HEIGHT_FRACTION
-        val pageWidthFromHeight = maxPageHeight * PICKER_REVIEW_PAGE_ASPECT_RATIO
-
-        val pageWidth = when {
-            maxPageWidth <= pageWidthFromHeight -> maxPageWidth
-            else -> pageWidthFromHeight
-        }
-
-        val pageHeight = pageWidth / PICKER_REVIEW_PAGE_ASPECT_RATIO
-        val pageHorizontalInset = (maxWidth - pageWidth) / 2
-        val density = LocalDensity.current
-        val currentPreviewSize = remember(pageWidth, pageHeight, density) {
-            with(density) {
-                IntSize(
-                    width = pageWidth.roundToPx().coerceAtLeast(minimumValue = 1),
-                    height = pageHeight.roundToPx().coerceAtLeast(minimumValue = 1),
-                )
-            }
-        }
-
-        val previewSize = rememberLargestReviewPreviewSize(
-            currentPreviewSize = currentPreviewSize,
+        val pagerLayout = rememberConversationMediaReviewPagerLayout(
+            maxWidth = maxWidth,
+            maxHeight = maxHeight,
         )
 
         HorizontalPager(
@@ -228,8 +241,8 @@ private fun ConversationMediaReviewPager(
                 .fillMaxSize()
                 .padding(top = 16.dp),
             state = pagerState,
-            contentPadding = PaddingValues(horizontal = pageHorizontalInset),
-            pageSize = PageSize.Fixed(pageWidth),
+            contentPadding = PaddingValues(horizontal = pagerLayout.pageHorizontalInset),
+            pageSize = PageSize.Fixed(pagerLayout.pageWidth),
             pageSpacing = 12.dp,
             key = { page ->
                 attachmentContentUris.getOrElse(index = page) {
@@ -237,31 +250,93 @@ private fun ConversationMediaReviewPager(
                 }
             },
         ) { page ->
-            val attachment = attachments.getOrNull(index = page)
+            ConversationMediaReviewPageSlot(
+                attachments = attachments,
+                page = page,
+                pageHeight = pagerLayout.pageHeight,
+                pageWidth = pagerLayout.pageWidth,
+                pagerState = pagerState,
+                previewSize = pagerLayout.previewSize,
+                visibleDeleteChipPage = visibleDeleteChipPage,
+                onAttachmentPreviewClick = onAttachmentPreviewClick,
+                onAttachmentRemove = onAttachmentRemove,
+                onClearReview = onClearReview,
+            )
+        }
+    }
+}
 
-            when {
-                attachment != null -> {
-                    ConversationMediaReviewPageCard(
-                        attachment = attachment,
-                        attachments = attachments,
-                        page = page,
-                        pageHeight = pageHeight,
-                        pageWidth = pageWidth,
-                        pagerState = pagerState,
-                        previewSize = previewSize,
-                        shouldShowDeleteChip = page == visibleDeleteChipPage,
-                        onAttachmentPreviewClick = onAttachmentPreviewClick,
-                        onAttachmentRemove = onAttachmentRemove,
-                        onClearReview = onClearReview,
-                    )
-                }
+@Composable
+private fun rememberConversationMediaReviewPagerLayout(
+    maxWidth: Dp,
+    maxHeight: Dp,
+): ConversationMediaReviewPagerLayout {
+    val maxPageWidth = maxWidth * PICKER_REVIEW_PAGE_WIDTH_FRACTION
+    val maxPageHeight = maxHeight * PICKER_REVIEW_PAGE_MAX_HEIGHT_FRACTION
+    val pageWidthFromHeight = maxPageHeight * PICKER_REVIEW_PAGE_ASPECT_RATIO
 
-                else -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
+    val pageWidth = when {
+        maxPageWidth <= pageWidthFromHeight -> maxPageWidth
+        else -> pageWidthFromHeight
+    }
+
+    val pageHeight = pageWidth / PICKER_REVIEW_PAGE_ASPECT_RATIO
+    val density = LocalDensity.current
+    val currentPreviewSize = remember(pageWidth, pageHeight, density) {
+        with(density) {
+            IntSize(
+                width = pageWidth.roundToPx().coerceAtLeast(minimumValue = 1),
+                height = pageHeight.roundToPx().coerceAtLeast(minimumValue = 1),
+            )
+        }
+    }
+
+    return ConversationMediaReviewPagerLayout(
+        pageHeight = pageHeight,
+        pageHorizontalInset = (maxWidth - pageWidth) / 2,
+        pageWidth = pageWidth,
+        previewSize = rememberLargestReviewPreviewSize(
+            currentPreviewSize = currentPreviewSize,
+        ),
+    )
+}
+
+@Composable
+private fun ConversationMediaReviewPageSlot(
+    attachments: ImmutableList<ComposerAttachmentUiModel.Resolved.VisualMedia>,
+    page: Int,
+    pageHeight: Dp,
+    pageWidth: Dp,
+    pagerState: PagerState,
+    previewSize: IntSize,
+    visibleDeleteChipPage: Int?,
+    onAttachmentPreviewClick: (ComposerAttachmentUiModel.Resolved.VisualMedia) -> Unit,
+    onAttachmentRemove: (String) -> Unit,
+    onClearReview: () -> Unit,
+) {
+    val attachment = attachments.getOrNull(index = page)
+
+    when {
+        attachment != null -> {
+            ConversationMediaReviewPageCard(
+                attachment = attachment,
+                attachments = attachments,
+                page = page,
+                pageHeight = pageHeight,
+                pageWidth = pageWidth,
+                pagerState = pagerState,
+                previewSize = previewSize,
+                shouldShowDeleteChip = page == visibleDeleteChipPage,
+                onAttachmentPreviewClick = onAttachmentPreviewClick,
+                onAttachmentRemove = onAttachmentRemove,
+                onClearReview = onClearReview,
+            )
+        }
+
+        else -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }
@@ -293,6 +368,13 @@ private fun rememberLargestReviewPreviewSize(
 
     return largestPreviewSize
 }
+
+private data class ConversationMediaReviewPagerLayout(
+    val pageHeight: Dp,
+    val pageHorizontalInset: Dp,
+    val pageWidth: Dp,
+    val previewSize: IntSize,
+)
 
 @Composable
 private fun ReviewCaptionTextField(

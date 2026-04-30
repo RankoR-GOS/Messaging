@@ -46,77 +46,137 @@ internal fun ConversationMessageBubble(
     onExternalUriClick: (String) -> Unit,
     onMessageLongClick: () -> Unit,
 ) {
+    val bubbleModifier = Modifier
+        .widthIn(max = maxBubbleWidth)
+        .then(other = modifier)
+
     when (layout.bubbleLayoutMode) {
         ConversationMessageBubbleLayoutMode.AttachmentOnlyWithoutSurface -> {
-            ConversationMessageAttachmentOnlyContainer(
-                modifier = Modifier
-                    .widthIn(max = maxBubbleWidth)
-                    .then(other = modifier),
-                bubbleShape = layout.bubbleShape,
+            ConversationMessageAttachmentOnlyBubble(
+                modifier = bubbleModifier,
+                layout = layout,
                 message = message,
                 isSelected = isSelected,
-            ) {
-                ConversationMessageAttachmentBubbleContent(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    content = layout.content,
-                    message = message,
-                    isSelected = isSelected,
-                    isSelectionMode = isSelectionMode,
-                    senderDisplayName = message.senderDisplayName,
-                    showSender = layout.showSender,
-                    onAttachmentClick = onAttachmentClick,
-                    onExternalUriClick = onExternalUriClick,
-                    onMessageLongClick = onMessageLongClick,
-                )
-            }
+                isSelectionMode = isSelectionMode,
+                onAttachmentClick = onAttachmentClick,
+                onExternalUriClick = onExternalUriClick,
+                onMessageLongClick = onMessageLongClick,
+            )
         }
 
         ConversationMessageBubbleLayoutMode.AttachmentsInSurface -> {
-            ConversationMessageBubbleSurface(
-                modifier = Modifier
-                    .widthIn(max = maxBubbleWidth)
-                    .then(other = modifier),
+            ConversationMessageAttachmentSurfaceBubble(
+                modifier = bubbleModifier,
+                layout = layout,
                 isSelected = isSelected,
                 message = message,
-                layout = layout,
-            ) {
-                ConversationMessageAttachmentBubbleContent(
-                    content = layout.content,
-                    message = message,
-                    isSelected = isSelected,
-                    isSelectionMode = isSelectionMode,
-                    senderDisplayName = message.senderDisplayName,
-                    showSender = layout.showSender,
-                    onAttachmentClick = onAttachmentClick,
-                    onExternalUriClick = onExternalUriClick,
-                    onMessageLongClick = onMessageLongClick,
-                )
-            }
+                isSelectionMode = isSelectionMode,
+                onAttachmentClick = onAttachmentClick,
+                onExternalUriClick = onExternalUriClick,
+                onMessageLongClick = onMessageLongClick,
+            )
         }
 
         ConversationMessageBubbleLayoutMode.TextInSurface -> {
-            ConversationMessageBubbleSurface(
-                modifier = Modifier
-                    .widthIn(max = maxBubbleWidth)
-                    .then(other = modifier),
+            ConversationMessageTextSurfaceBubble(
+                modifier = bubbleModifier,
+                layout = layout,
                 isSelected = isSelected,
                 message = message,
-                layout = layout,
-            ) {
-                ConversationMessageTextBubbleContent(
-                    content = layout.content,
-                    message = message,
-                    isSelected = isSelected,
-                    isSelectionMode = isSelectionMode,
-                    senderDisplayName = message.senderDisplayName,
-                    showSender = layout.showSender,
-                    onAttachmentClick = onAttachmentClick,
-                    onExternalUriClick = onExternalUriClick,
-                    onMessageLongClick = onMessageLongClick,
-                )
-            }
+                isSelectionMode = isSelectionMode,
+                onAttachmentClick = onAttachmentClick,
+                onExternalUriClick = onExternalUriClick,
+                onMessageLongClick = onMessageLongClick,
+            )
         }
+    }
+}
+
+@Composable
+private fun ConversationMessageAttachmentOnlyBubble(
+    modifier: Modifier,
+    layout: ConversationMessageLayout,
+    message: ConversationMessageUiModel,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
+    onExternalUriClick: (String) -> Unit,
+    onMessageLongClick: () -> Unit,
+) {
+    ConversationMessageAttachmentOnlyContainer(
+        modifier = modifier,
+        bubbleShape = layout.bubbleShape,
+        message = message,
+        isSelected = isSelected,
+    ) {
+        ConversationMessageAttachmentBubbleContent(
+            modifier = Modifier.fillMaxWidth(),
+            layout = layout,
+            message = message,
+            isSelected = isSelected,
+            isSelectionMode = isSelectionMode,
+            onAttachmentClick = onAttachmentClick,
+            onExternalUriClick = onExternalUriClick,
+            onMessageLongClick = onMessageLongClick,
+        )
+    }
+}
+
+@Composable
+private fun ConversationMessageAttachmentSurfaceBubble(
+    modifier: Modifier,
+    layout: ConversationMessageLayout,
+    isSelected: Boolean,
+    message: ConversationMessageUiModel,
+    isSelectionMode: Boolean,
+    onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
+    onExternalUriClick: (String) -> Unit,
+    onMessageLongClick: () -> Unit,
+) {
+    ConversationMessageBubbleSurface(
+        modifier = modifier,
+        isSelected = isSelected,
+        message = message,
+        layout = layout,
+    ) {
+        ConversationMessageAttachmentBubbleContent(
+            layout = layout,
+            message = message,
+            isSelected = isSelected,
+            isSelectionMode = isSelectionMode,
+            onAttachmentClick = onAttachmentClick,
+            onExternalUriClick = onExternalUriClick,
+            onMessageLongClick = onMessageLongClick,
+        )
+    }
+}
+
+@Composable
+private fun ConversationMessageTextSurfaceBubble(
+    modifier: Modifier,
+    layout: ConversationMessageLayout,
+    isSelected: Boolean,
+    message: ConversationMessageUiModel,
+    isSelectionMode: Boolean,
+    onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
+    onExternalUriClick: (String) -> Unit,
+    onMessageLongClick: () -> Unit,
+) {
+    ConversationMessageBubbleSurface(
+        modifier = modifier,
+        isSelected = isSelected,
+        message = message,
+        layout = layout,
+    ) {
+        ConversationMessageTextBubbleContent(
+            layout = layout,
+            message = message,
+            isSelected = isSelected,
+            isSelectionMode = isSelectionMode,
+            onAttachmentClick = onAttachmentClick,
+            onExternalUriClick = onExternalUriClick,
+            onMessageLongClick = onMessageLongClick,
+        )
     }
 }
 
@@ -136,7 +196,10 @@ internal fun ConversationMessageMetadata(
         text = metadataText,
         style = MaterialTheme.typography.labelSmall,
         color = messageMetadataColor(message = message),
-        textAlign = messageMetadataTextAlign(message = message),
+        textAlign = when {
+            message.isIncoming -> TextAlign.Start
+            else -> TextAlign.End
+        },
     )
 }
 
@@ -204,12 +267,10 @@ private fun ConversationMessageAttachmentOnlyContainer(
 
 @Composable
 private fun ConversationMessageTextBubbleContent(
-    content: ConversationMessageContent,
+    layout: ConversationMessageLayout,
     message: ConversationMessageUiModel,
     isSelected: Boolean,
     isSelectionMode: Boolean,
-    senderDisplayName: String?,
-    showSender: Boolean,
     onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
     onExternalUriClick: (String) -> Unit,
     onMessageLongClick: () -> Unit,
@@ -226,12 +287,12 @@ private fun ConversationMessageTextBubbleContent(
                 message = message,
                 isSelected = isSelected,
             ),
-            senderDisplayName = senderDisplayName,
-            showSender = showSender,
+            senderDisplayName = message.senderDisplayName,
+            showSender = layout.showSender,
         )
 
         ConversationMessageBody(
-            content = content,
+            content = layout.content,
             isIncoming = message.isIncoming,
             isSelectionMode = isSelectionMode,
             onAttachmentClick = onAttachmentClick,
@@ -244,17 +305,16 @@ private fun ConversationMessageTextBubbleContent(
 @Composable
 private fun ConversationMessageAttachmentBubbleContent(
     modifier: Modifier = Modifier,
-    content: ConversationMessageContent,
+    layout: ConversationMessageLayout,
     message: ConversationMessageUiModel,
     isSelected: Boolean,
     isSelectionMode: Boolean,
-    senderDisplayName: String?,
-    showSender: Boolean,
     onAttachmentClick: (contentType: String, contentUri: String) -> Unit,
     onExternalUriClick: (String) -> Unit,
     onMessageLongClick: () -> Unit,
 ) {
-    val hasHeader = showSender || !content.subjectText.isNullOrBlank()
+    val content = layout.content
+    val hasHeader = layout.showSender || !content.subjectText.isNullOrBlank()
     val hasBodyText = !content.bodyText.isNullOrBlank()
 
     Column(
@@ -265,17 +325,14 @@ private fun ConversationMessageAttachmentBubbleContent(
                 start = MESSAGE_BUBBLE_MEDIA_TEXT_PADDING,
                 top = MESSAGE_BUBBLE_MEDIA_TEXT_PADDING,
                 end = MESSAGE_BUBBLE_MEDIA_TEXT_PADDING,
-                bottom = when {
-                    content.subjectText.isNullOrBlank() -> 6.dp
-                    else -> MESSAGE_BUBBLE_MEDIA_SECTION_SPACING
-                },
+                bottom = conversationMessageSenderBottomPadding(content),
             ),
             color = messageSenderColor(
                 message = message,
                 isSelected = isSelected,
             ),
-            senderDisplayName = senderDisplayName,
-            showSender = showSender,
+            senderDisplayName = message.senderDisplayName,
+            showSender = layout.showSender,
         )
 
         content.subjectText?.let { subjectText ->
@@ -315,6 +372,15 @@ private fun ConversationMessageAttachmentBubbleContent(
                 onExternalUriClick = onExternalUriClick,
             )
         }
+    }
+}
+
+private fun conversationMessageSenderBottomPadding(
+    content: ConversationMessageContent,
+): Dp {
+    return when {
+        content.subjectText.isNullOrBlank() -> 6.dp
+        else -> MESSAGE_BUBBLE_MEDIA_SECTION_SPACING
     }
 }
 
@@ -374,13 +440,6 @@ private fun ConversationMessageSender(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
-}
-
-private fun messageMetadataTextAlign(message: ConversationMessageUiModel): TextAlign {
-    return when {
-        message.isIncoming -> TextAlign.Start
-        else -> TextAlign.End
-    }
 }
 
 @Composable

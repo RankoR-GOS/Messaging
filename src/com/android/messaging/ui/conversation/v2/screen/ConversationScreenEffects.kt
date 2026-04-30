@@ -51,103 +51,151 @@ internal fun ConversationScreenEffects(
 
     LaunchedEffect(screenModel, context, snackbarHostState, hostBoundsState, onNavigateBack) {
         screenModel.effects.collect { effect ->
-            when (effect) {
-                ConversationScreenEffect.CloseConversation -> {
-                    onNavigateBack()
-                }
-
-                is ConversationScreenEffect.RequestDefaultSmsRole -> {
-                    requestDefaultSmsRole(
-                        context = context,
-                        snackbarHostState = snackbarHostState,
-                        effect = effect,
-                        onActionClick = screenModel::onDefaultSmsRolePromptActionClick,
-                    )
-                }
-
-                is ConversationScreenEffect.LaunchAddContactFlow -> {
-                    UIIntents.get().launchAddContactActivity(
-                        context,
-                        effect.destination,
-                    )
-                }
-
-                is ConversationScreenEffect.OpenAttachmentPreview -> {
-                    openAttachmentPreview(
-                        context = context,
-                        hostBounds = hostBoundsState.value,
-                        contentUri = effect.contentUri,
-                        contentType = effect.contentType,
-                        imageCollectionUri = effect.imageCollectionUri,
-                        awaitHostBounds = {
-                            snapshotFlow { hostBoundsState.value }
-                                .filterNotNull()
-                                .first()
-                        },
-                    )
-                }
-
-                is ConversationScreenEffect.OpenExternalUri -> {
-                    openExternalUri(
-                        context = context,
-                        uri = effect.uri,
-                    )
-                }
-
-                is ConversationScreenEffect.PlacePhoneCall -> {
-                    placePhoneCall(
-                        context = context,
-                        phoneNumber = effect.phoneNumber,
-                    )
-                }
-
-                is ConversationScreenEffect.ShowSaveAttachmentsResult -> {
-                    showSaveAttachmentsResultToast(
-                        context = context,
-                        effect = effect,
-                    )
-                }
-
-                is ConversationScreenEffect.LaunchDefaultSmsRoleRequest -> {
-                    launchDefaultSmsRoleRequest(
-                        effect = effect,
-                        launchRoleRequest = { intent ->
-                            defaultSmsRoleLauncher.launch(intent)
-                        },
-                        onLaunchFailed = screenModel::onDefaultSmsRoleRequestLaunchFailed,
-                    )
-                }
-
-                is ConversationScreenEffect.LaunchForwardMessage -> {
-                    UIIntents.get().launchForwardMessageActivity(
-                        context,
-                        effect.message,
-                    )
-                }
-
-                is ConversationScreenEffect.ShareMessage -> {
-                    openShareSheet(
-                        context = context,
-                        attachmentContentType = effect.attachmentContentType,
-                        attachmentContentUri = effect.attachmentContentUri,
-                        text = effect.text,
-                    )
-                }
-
-                is ConversationScreenEffect.ShowMessage -> {
-                    UiUtils.showToastAtBottom(effect.messageResId)
-                }
-
-                is ConversationScreenEffect.ShowMessageDetails -> {
-                    MessageDetailsDialog.show(
-                        context,
-                        effect.message,
-                        effect.participants,
-                        effect.selfParticipant,
-                    )
-                }
-            }
+            screenModel.handleConversationScreenEffect(
+                context = context,
+                snackbarHostState = snackbarHostState,
+                hostBoundsState = hostBoundsState,
+                effect = effect,
+                launchRoleRequest = defaultSmsRoleLauncher::launch,
+                onNavigateBack = onNavigateBack,
+            )
         }
+    }
+}
+
+private suspend fun ConversationScreenModel.handleConversationScreenEffect(
+    context: Context,
+    snackbarHostState: SnackbarHostState,
+    hostBoundsState: State<ComposeRect?>,
+    effect: ConversationScreenEffect,
+    launchRoleRequest: (Intent) -> Unit,
+    onNavigateBack: () -> Unit,
+) {
+    when (effect) {
+        ConversationScreenEffect.CloseConversation -> onNavigateBack()
+        is ConversationScreenEffect.RequestDefaultSmsRole -> {
+            requestDefaultSmsRole(
+                context = context,
+                snackbarHostState = snackbarHostState,
+                effect = effect,
+                onActionClick = ::onDefaultSmsRolePromptActionClick,
+            )
+        }
+
+        is ConversationScreenEffect.LaunchDefaultSmsRoleRequest -> {
+            launchDefaultSmsRoleRequest(
+                effect = effect,
+                launchRoleRequest = launchRoleRequest,
+                onLaunchFailed = ::onDefaultSmsRoleRequestLaunchFailed,
+            )
+        }
+
+        is ConversationScreenEffect.OpenAttachmentPreview -> {
+            openAttachmentPreviewEffect(
+                context = context,
+                hostBoundsState = hostBoundsState,
+                effect = effect,
+            )
+        }
+
+        is ConversationScreenEffect.ShareMessage -> {
+            openShareSheet(
+                context = context,
+                attachmentContentType = effect.attachmentContentType,
+                attachmentContentUri = effect.attachmentContentUri,
+                text = effect.text,
+            )
+        }
+
+        is ConversationScreenEffect.LaunchAddContactFlow,
+        is ConversationScreenEffect.LaunchForwardMessage,
+        is ConversationScreenEffect.OpenExternalUri,
+        is ConversationScreenEffect.PlacePhoneCall,
+        is ConversationScreenEffect.ShowMessage,
+        is ConversationScreenEffect.ShowMessageDetails,
+        is ConversationScreenEffect.ShowSaveAttachmentsResult,
+        -> {
+            handleImmediateConversationScreenEffect(
+                context = context,
+                effect = effect,
+            )
+        }
+    }
+}
+
+private suspend fun openAttachmentPreviewEffect(
+    context: Context,
+    hostBoundsState: State<ComposeRect?>,
+    effect: ConversationScreenEffect.OpenAttachmentPreview,
+) {
+    openAttachmentPreview(
+        context = context,
+        hostBounds = hostBoundsState.value,
+        contentUri = effect.contentUri,
+        contentType = effect.contentType,
+        imageCollectionUri = effect.imageCollectionUri,
+        awaitHostBounds = {
+            snapshotFlow { hostBoundsState.value }
+                .filterNotNull()
+                .first()
+        },
+    )
+}
+
+private fun handleImmediateConversationScreenEffect(
+    context: Context,
+    effect: ConversationScreenEffect,
+) {
+    when (effect) {
+        is ConversationScreenEffect.LaunchAddContactFlow -> {
+            UIIntents.get().launchAddContactActivity(
+                context,
+                effect.destination,
+            )
+        }
+
+        is ConversationScreenEffect.LaunchForwardMessage -> {
+            UIIntents.get().launchForwardMessageActivity(
+                context,
+                effect.message,
+            )
+        }
+
+        is ConversationScreenEffect.OpenExternalUri -> {
+            openExternalUri(
+                context = context,
+                uri = effect.uri,
+            )
+        }
+
+        is ConversationScreenEffect.PlacePhoneCall -> {
+            placePhoneCall(
+                context = context,
+                phoneNumber = effect.phoneNumber,
+            )
+        }
+
+        is ConversationScreenEffect.ShowMessage -> {
+            UiUtils.showToastAtBottom(effect.messageResId)
+        }
+
+        is ConversationScreenEffect.ShowMessageDetails -> {
+            MessageDetailsDialog.show(
+                context,
+                effect.message,
+                effect.participants,
+                effect.selfParticipant,
+            )
+        }
+
+        is ConversationScreenEffect.ShowSaveAttachmentsResult -> {
+            showSaveAttachmentsResultToast(
+                context = context,
+                effect = effect,
+            )
+        }
+
+        else -> Unit
     }
 }
 

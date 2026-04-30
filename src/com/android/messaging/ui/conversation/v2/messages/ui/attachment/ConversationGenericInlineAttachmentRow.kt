@@ -67,36 +67,47 @@ internal fun ConversationGenericInlineAttachmentRow(
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         shape = shape,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(space = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        ConversationGenericInlineAttachmentContent(
+            title = title,
+            subtitle = subtitle,
+        )
+    }
+}
+
+@Composable
+private fun ConversationGenericInlineAttachmentContent(
+    title: String,
+    subtitle: String?,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(space = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier.size(size = 28.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier.size(size = 28.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                ConversationFileInlineAttachmentIcon()
-            }
+            ConversationFileInlineAttachmentIcon()
+        }
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(space = 2.dp),
-            ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(space = 2.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            subtitle?.let {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
-                subtitle?.let {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
         }
     }

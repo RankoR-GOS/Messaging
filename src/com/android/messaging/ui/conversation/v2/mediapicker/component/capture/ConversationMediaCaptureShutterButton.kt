@@ -1,6 +1,7 @@
 package com.android.messaging.ui.conversation.v2.mediapicker.component.capture
 
 import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.Transition
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
@@ -49,25 +50,6 @@ private val PICKER_SHUTTER_FLOAT_SPRING_ANIMATION_SPEC = spring<Float>(
     stiffness = PICKER_SHUTTER_STATE_TRANSITION_SPRING_STIFFNESS,
 )
 
-private enum class ConversationMediaCaptureShutterPhase {
-    Photo,
-    VideoIdle,
-    VideoRecording,
-}
-
-private data class ConversationMediaCaptureShutterVisualState(
-    val innerShutterColor: Color,
-    val innerShutterSize: Dp,
-    val outerContainerColor: Color,
-    val outerScale: Float,
-    val recordingStopAlpha: Float,
-    val recordingStopBackgroundColor: Color,
-    val recordingStopScale: Float,
-    val videoCenterDotAlpha: Float,
-    val videoCenterDotColor: Color,
-    val videoCenterDotScale: Float,
-)
-
 @Composable
 internal fun ConversationMediaCaptureShutterButton(
     captureMode: ConversationCaptureMode,
@@ -96,7 +78,7 @@ private fun ConversationMediaCaptureShutterButtonAnimatedContent(
     onClick: () -> Unit,
     shutterPhase: ConversationMediaCaptureShutterPhase,
 ) {
-    val visualState = animateConversationMediaCaptureShutterVisualState(
+    val visualState = animateShutterVisualState(
         colorScheme = colorScheme,
         shutterPhase = shutterPhase,
     )
@@ -127,7 +109,7 @@ private fun ConversationMediaCaptureShutterButtonAnimatedContent(
 }
 
 @Composable
-private fun animateConversationMediaCaptureShutterVisualState(
+private fun animateShutterVisualState(
     colorScheme: ColorScheme,
     shutterPhase: ConversationMediaCaptureShutterPhase,
 ): ConversationMediaCaptureShutterVisualState {
@@ -135,7 +117,38 @@ private fun animateConversationMediaCaptureShutterVisualState(
         targetState = shutterPhase,
         label = "picker_shutter_phase",
     )
-    val innerShutterColor by transition.animateColor(
+    val surfaceVisualState = transition.animateShutterSurfaceVisualState(
+        colorScheme = colorScheme,
+    )
+    val recordingStopVisualState =
+        transition.animateRecordingStopVisualState(
+            colorScheme = colorScheme,
+        )
+    val videoCenterDotVisualState =
+        transition.animateVideoCenterDotVisualState(
+            colorScheme = colorScheme,
+        )
+    val targetVisualState = shutterPhase.toVisualState(colorScheme = colorScheme)
+
+    return ConversationMediaCaptureShutterVisualState(
+        innerShutterColor = surfaceVisualState.innerShutterColor,
+        innerShutterSize = surfaceVisualState.innerShutterSize,
+        outerContainerColor = surfaceVisualState.outerContainerColor,
+        outerScale = surfaceVisualState.outerScale,
+        recordingStopAlpha = recordingStopVisualState.alpha,
+        recordingStopBackgroundColor = targetVisualState.recordingStopBackgroundColor,
+        recordingStopScale = recordingStopVisualState.scale,
+        videoCenterDotAlpha = videoCenterDotVisualState.alpha,
+        videoCenterDotColor = targetVisualState.videoCenterDotColor,
+        videoCenterDotScale = videoCenterDotVisualState.scale,
+    )
+}
+
+@Composable
+private fun Transition<ConversationMediaCaptureShutterPhase>.animateShutterSurfaceVisualState(
+    colorScheme: ColorScheme,
+): ConversationMediaCaptureShutterSurfaceVisualState {
+    val innerShutterColor by animateColor(
         transitionSpec = {
             PICKER_SHUTTER_COLOR_ANIMATION_SPEC
         },
@@ -144,7 +157,7 @@ private fun animateConversationMediaCaptureShutterVisualState(
             phase.toVisualState(colorScheme = colorScheme).innerShutterColor
         },
     )
-    val innerShutterSize by transition.animateDp(
+    val innerShutterSize by animateDp(
         transitionSpec = {
             spring(
                 dampingRatio = PICKER_SHUTTER_STATE_TRANSITION_SPRING_DAMPING_RATIO,
@@ -156,7 +169,7 @@ private fun animateConversationMediaCaptureShutterVisualState(
             phase.toVisualState(colorScheme = colorScheme).innerShutterSize
         },
     )
-    val outerContainerColor by transition.animateColor(
+    val outerContainerColor by animateColor(
         transitionSpec = {
             PICKER_SHUTTER_COLOR_ANIMATION_SPEC
         },
@@ -165,7 +178,7 @@ private fun animateConversationMediaCaptureShutterVisualState(
             phase.toVisualState(colorScheme = colorScheme).outerContainerColor
         },
     )
-    val outerScale by transition.animateFloat(
+    val outerScale by animateFloat(
         transitionSpec = {
             PICKER_SHUTTER_FLOAT_SPRING_ANIMATION_SPEC
         },
@@ -174,7 +187,20 @@ private fun animateConversationMediaCaptureShutterVisualState(
             phase.toVisualState(colorScheme = colorScheme).outerScale
         },
     )
-    val recordingStopAlpha by transition.animateFloat(
+
+    return ConversationMediaCaptureShutterSurfaceVisualState(
+        innerShutterColor = innerShutterColor,
+        innerShutterSize = innerShutterSize,
+        outerContainerColor = outerContainerColor,
+        outerScale = outerScale,
+    )
+}
+
+@Composable
+private fun Transition<ConversationMediaCaptureShutterPhase>.animateRecordingStopVisualState(
+    colorScheme: ColorScheme,
+): ConversationMediaCaptureRecordingStopVisualState {
+    val recordingStopAlpha by animateFloat(
         transitionSpec = {
             tween(durationMillis = 130)
         },
@@ -183,7 +209,7 @@ private fun animateConversationMediaCaptureShutterVisualState(
             phase.toVisualState(colorScheme = colorScheme).recordingStopAlpha
         },
     )
-    val recordingStopScale by transition.animateFloat(
+    val recordingStopScale by animateFloat(
         transitionSpec = {
             PICKER_SHUTTER_FLOAT_SPRING_ANIMATION_SPEC
         },
@@ -192,7 +218,18 @@ private fun animateConversationMediaCaptureShutterVisualState(
             phase.toVisualState(colorScheme = colorScheme).recordingStopScale
         },
     )
-    val videoCenterDotAlpha by transition.animateFloat(
+
+    return ConversationMediaCaptureRecordingStopVisualState(
+        alpha = recordingStopAlpha,
+        scale = recordingStopScale,
+    )
+}
+
+@Composable
+private fun Transition<ConversationMediaCaptureShutterPhase>.animateVideoCenterDotVisualState(
+    colorScheme: ColorScheme,
+): ConversationMediaCaptureVideoCenterDotVisualState {
+    val videoCenterDotAlpha by animateFloat(
         transitionSpec = {
             tween(durationMillis = 110)
         },
@@ -201,7 +238,7 @@ private fun animateConversationMediaCaptureShutterVisualState(
             phase.toVisualState(colorScheme = colorScheme).videoCenterDotAlpha
         },
     )
-    val videoCenterDotScale by transition.animateFloat(
+    val videoCenterDotScale by animateFloat(
         transitionSpec = {
             PICKER_SHUTTER_FLOAT_SPRING_ANIMATION_SPEC
         },
@@ -210,19 +247,10 @@ private fun animateConversationMediaCaptureShutterVisualState(
             phase.toVisualState(colorScheme = colorScheme).videoCenterDotScale
         },
     )
-    val targetVisualState = shutterPhase.toVisualState(colorScheme = colorScheme)
 
-    return ConversationMediaCaptureShutterVisualState(
-        innerShutterColor = innerShutterColor,
-        innerShutterSize = innerShutterSize,
-        outerContainerColor = outerContainerColor,
-        outerScale = outerScale,
-        recordingStopAlpha = recordingStopAlpha,
-        recordingStopBackgroundColor = targetVisualState.recordingStopBackgroundColor,
-        recordingStopScale = recordingStopScale,
-        videoCenterDotAlpha = videoCenterDotAlpha,
-        videoCenterDotColor = targetVisualState.videoCenterDotColor,
-        videoCenterDotScale = videoCenterDotScale,
+    return ConversationMediaCaptureVideoCenterDotVisualState(
+        alpha = videoCenterDotAlpha,
+        scale = videoCenterDotScale,
     )
 }
 
@@ -353,50 +381,85 @@ private fun resolveConversationMediaCaptureShutterPhase(
     }
 }
 
-private fun ConversationMediaCaptureShutterPhase.toVisualState(
-    colorScheme: ColorScheme,
-): ConversationMediaCaptureShutterVisualState {
-    return when (this) {
-        Photo -> ConversationMediaCaptureShutterVisualState(
-            innerShutterColor = colorScheme.inverseOnSurface,
-            innerShutterSize = PICKER_SHUTTER_PHOTO_INNER_SIZE,
-            outerContainerColor = colorScheme.scrim.copy(alpha = 0.2f),
-            outerScale = 1f,
-            recordingStopAlpha = 0f,
-            recordingStopBackgroundColor = colorScheme.error.copy(alpha = 0.3f),
-            recordingStopScale = 0.8f,
-            videoCenterDotAlpha = 0f,
-            videoCenterDotColor = colorScheme.inverseOnSurface,
-            videoCenterDotScale = 0.72f,
-        )
+@Suppress("ktlint:standard:trailing-comma-on-declaration-site")
+private enum class ConversationMediaCaptureShutterPhase {
+    Photo,
+    VideoIdle,
+    VideoRecording;
 
-        VideoIdle -> ConversationMediaCaptureShutterVisualState(
-            innerShutterColor = colorScheme.scrim.copy(alpha = 0.5f),
-            innerShutterSize = PICKER_SHUTTER_FULL_INNER_SIZE,
-            outerContainerColor = Color.Transparent,
-            outerScale = 1f,
-            recordingStopAlpha = 0f,
-            recordingStopBackgroundColor = colorScheme.error.copy(alpha = 0.3f),
-            recordingStopScale = 0.8f,
-            videoCenterDotAlpha = 1f,
-            videoCenterDotColor = colorScheme.inverseOnSurface,
-            videoCenterDotScale = 1f,
-        )
+    fun toVisualState(colorScheme: ColorScheme): ConversationMediaCaptureShutterVisualState {
+        return when (this) {
+            Photo -> ConversationMediaCaptureShutterVisualState(
+                innerShutterColor = colorScheme.inverseOnSurface,
+                innerShutterSize = PICKER_SHUTTER_PHOTO_INNER_SIZE,
+                outerContainerColor = colorScheme.scrim.copy(alpha = 0.2f),
+                outerScale = 1f,
+                recordingStopAlpha = 0f,
+                recordingStopBackgroundColor = colorScheme.error.copy(alpha = 0.3f),
+                recordingStopScale = 0.8f,
+                videoCenterDotAlpha = 0f,
+                videoCenterDotColor = colorScheme.inverseOnSurface,
+                videoCenterDotScale = 0.7f,
+            )
 
-        VideoRecording -> ConversationMediaCaptureShutterVisualState(
-            innerShutterColor = colorScheme.errorContainer,
-            innerShutterSize = PICKER_SHUTTER_FULL_INNER_SIZE,
-            outerContainerColor = Color.Transparent,
-            outerScale = 0.97f,
-            recordingStopAlpha = 1f,
-            recordingStopBackgroundColor = colorScheme.error.copy(alpha = 0.3f),
-            recordingStopScale = 1f,
-            videoCenterDotAlpha = 0f,
-            videoCenterDotColor = colorScheme.inverseOnSurface,
-            videoCenterDotScale = 0.72f,
-        )
+            VideoIdle -> ConversationMediaCaptureShutterVisualState(
+                innerShutterColor = colorScheme.scrim.copy(alpha = 0.5f),
+                innerShutterSize = PICKER_SHUTTER_FULL_INNER_SIZE,
+                outerContainerColor = Color.Transparent,
+                outerScale = 1f,
+                recordingStopAlpha = 0f,
+                recordingStopBackgroundColor = colorScheme.error.copy(alpha = 0.3f),
+                recordingStopScale = 0.8f,
+                videoCenterDotAlpha = 1f,
+                videoCenterDotColor = colorScheme.inverseOnSurface,
+                videoCenterDotScale = 1f,
+            )
+
+            VideoRecording -> ConversationMediaCaptureShutterVisualState(
+                innerShutterColor = colorScheme.errorContainer,
+                innerShutterSize = PICKER_SHUTTER_FULL_INNER_SIZE,
+                outerContainerColor = Color.Transparent,
+                outerScale = 0.97f,
+                recordingStopAlpha = 1f,
+                recordingStopBackgroundColor = colorScheme.error.copy(alpha = 0.3f),
+                recordingStopScale = 1f,
+                videoCenterDotAlpha = 0f,
+                videoCenterDotColor = colorScheme.inverseOnSurface,
+                videoCenterDotScale = 0.7f,
+            )
+        }
     }
 }
+
+private data class ConversationMediaCaptureShutterVisualState(
+    val innerShutterColor: Color,
+    val innerShutterSize: Dp,
+    val outerContainerColor: Color,
+    val outerScale: Float,
+    val recordingStopAlpha: Float,
+    val recordingStopBackgroundColor: Color,
+    val recordingStopScale: Float,
+    val videoCenterDotAlpha: Float,
+    val videoCenterDotColor: Color,
+    val videoCenterDotScale: Float,
+)
+
+private data class ConversationMediaCaptureShutterSurfaceVisualState(
+    val innerShutterColor: Color,
+    val innerShutterSize: Dp,
+    val outerContainerColor: Color,
+    val outerScale: Float,
+)
+
+private data class ConversationMediaCaptureRecordingStopVisualState(
+    val alpha: Float,
+    val scale: Float,
+)
+
+private data class ConversationMediaCaptureVideoCenterDotVisualState(
+    val alpha: Float,
+    val scale: Float,
+)
 
 @Preview(name = "Shutter Button States")
 @Composable

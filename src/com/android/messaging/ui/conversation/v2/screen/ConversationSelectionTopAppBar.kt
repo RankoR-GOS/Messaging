@@ -32,6 +32,24 @@ import androidx.compose.ui.res.stringResource
 import com.android.messaging.R
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionAction
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMessageSelectionUiState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
+
+private val messageSelectionActions = persistentListOf(
+    ConversationMessageSelectionAction.Download,
+    ConversationMessageSelectionAction.Resend,
+    ConversationMessageSelectionAction.Copy,
+    ConversationMessageSelectionAction.Delete,
+)
+
+private val conversationMessageSelectionActions = persistentListOf(
+    ConversationMessageSelectionAction.Share,
+    ConversationMessageSelectionAction.Forward,
+    ConversationMessageSelectionAction.SaveAttachment,
+    ConversationMessageSelectionAction.Details,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,123 +62,143 @@ internal fun ConversationSelectionTopAppBar(
         mutableStateOf(value = false)
     }
 
-    val overflowActions = remember(selection.availableActions) {
-        buildList {
-            if (selection.availableActions.contains(ConversationMessageSelectionAction.Share)) {
-                add(ConversationMessageSelectionAction.Share)
-            }
-
-            if (selection.availableActions.contains(ConversationMessageSelectionAction.Forward)) {
-                add(ConversationMessageSelectionAction.Forward)
-            }
-
-            val hasSaveAttachmentAction = selection.availableActions.contains(
-                ConversationMessageSelectionAction.SaveAttachment,
-            )
-
-            if (hasSaveAttachmentAction) {
-                add(ConversationMessageSelectionAction.SaveAttachment)
-            }
-
-            if (selection.availableActions.contains(ConversationMessageSelectionAction.Details)) {
-                add(ConversationMessageSelectionAction.Details)
-            }
-        }
+    val availableActions = selection.availableActions
+    val overflowActions = remember(availableActions) {
+        selectionActionsInOrder(
+            availableActions = availableActions,
+            orderedActions = conversationMessageSelectionActions,
+        )
     }
 
     TopAppBar(
         colors = conversationSelectionTopAppBarColors(),
         title = {
-            Text(
-                text = pluralStringResource(
-                    id = R.plurals.conversation_message_selection_title,
-                    count = selection.selectedMessageCount,
-                    selection.selectedMessageCount,
-                ),
-            )
+            ConversationSelectionTitle(selectedMessageCount = selection.selectedMessageCount)
         },
         navigationIcon = {
-            IconButton(
-                onClick = onDismissSelection,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Close,
-                    contentDescription = stringResource(
-                        id = R.string.close_selection,
-                    ),
-                )
-            }
+            ConversationSelectionNavigationIcon(onDismissSelection = onDismissSelection)
         },
         actions = {
-            if (selection.availableActions.contains(ConversationMessageSelectionAction.Download)) {
-                ConversationSelectionActionButton(
-                    action = ConversationMessageSelectionAction.Download,
-                    onActionClick = onActionClick,
-                )
-            }
-
-            if (selection.availableActions.contains(ConversationMessageSelectionAction.Resend)) {
-                ConversationSelectionActionButton(
-                    action = ConversationMessageSelectionAction.Resend,
-                    onActionClick = onActionClick,
-                )
-            }
-
-            if (selection.availableActions.contains(ConversationMessageSelectionAction.Copy)) {
-                ConversationSelectionActionButton(
-                    action = ConversationMessageSelectionAction.Copy,
-                    onActionClick = onActionClick,
-                )
-            }
-
-            if (selection.availableActions.contains(ConversationMessageSelectionAction.Delete)) {
-                ConversationSelectionActionButton(
-                    action = ConversationMessageSelectionAction.Delete,
-                    onActionClick = onActionClick,
-                )
-            }
-
-            if (overflowActions.isNotEmpty()) {
-                IconButton(
-                    onClick = {
-                        isOverflowExpanded = true
-                    },
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = stringResource(
-                            id = R.string.more_options,
-                        ),
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = isOverflowExpanded,
-                    onDismissRequest = {
-                        isOverflowExpanded = false
-                    },
-                ) {
-                    overflowActions.forEach { action ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(text = selectionActionLabel(action = action))
-                            },
-                            onClick = {
-                                isOverflowExpanded = false
-                                onActionClick(action)
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = selectionActionIcon(action = action),
-                                    contentDescription = null,
-                                )
-                            },
-                        )
-                    }
-                }
-            }
+            ConversationSelectionActions(
+                availableActions = availableActions,
+                overflowActions = overflowActions,
+                isOverflowExpanded = isOverflowExpanded,
+                onOverflowExpandedChange = { isExpanded ->
+                    isOverflowExpanded = isExpanded
+                },
+                onActionClick = onActionClick,
+            )
         },
     )
+}
+
+@Composable
+private fun ConversationSelectionTitle(selectedMessageCount: Int) {
+    Text(
+        text = pluralStringResource(
+            id = R.plurals.conversation_message_selection_title,
+            count = selectedMessageCount,
+            selectedMessageCount,
+        ),
+    )
+}
+
+@Composable
+private fun ConversationSelectionNavigationIcon(onDismissSelection: () -> Unit) {
+    IconButton(
+        onClick = onDismissSelection,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Close,
+            contentDescription = stringResource(
+                id = R.string.close_selection,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun ConversationSelectionActions(
+    availableActions: ImmutableSet<ConversationMessageSelectionAction>,
+    overflowActions: ImmutableList<ConversationMessageSelectionAction>,
+    isOverflowExpanded: Boolean,
+    onOverflowExpandedChange: (Boolean) -> Unit,
+    onActionClick: (ConversationMessageSelectionAction) -> Unit,
+) {
+    val primaryActions = remember(availableActions) {
+        selectionActionsInOrder(
+            availableActions = availableActions,
+            orderedActions = messageSelectionActions,
+        )
+    }
+
+    primaryActions.forEach { action ->
+        ConversationSelectionActionButton(
+            action = action,
+            onActionClick = onActionClick,
+        )
+    }
+
+    if (overflowActions.isNotEmpty()) {
+        ConversationSelectionOverflowButton(
+            onClick = {
+                onOverflowExpandedChange(true)
+            },
+        )
+        ConversationSelectionOverflowMenu(
+            actions = overflowActions,
+            expanded = isOverflowExpanded,
+            onDismissRequest = {
+                onOverflowExpandedChange(false)
+            },
+            onActionClick = onActionClick,
+        )
+    }
+}
+
+@Composable
+private fun ConversationSelectionOverflowButton(onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.MoreVert,
+            contentDescription = stringResource(
+                id = R.string.more_options,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun ConversationSelectionOverflowMenu(
+    actions: ImmutableList<ConversationMessageSelectionAction>,
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    onActionClick: (ConversationMessageSelectionAction) -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+    ) {
+        actions.forEach { action ->
+            DropdownMenuItem(
+                text = {
+                    Text(text = selectionActionLabel(action = action))
+                },
+                onClick = {
+                    onDismissRequest()
+                    onActionClick(action)
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = selectionActionIcon(action = action),
+                        contentDescription = null,
+                    )
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -188,6 +226,15 @@ private fun ConversationSelectionActionButton(
             contentDescription = selectionActionLabel(action = action),
         )
     }
+}
+
+private fun selectionActionsInOrder(
+    availableActions: ImmutableSet<ConversationMessageSelectionAction>,
+    orderedActions: ImmutableList<ConversationMessageSelectionAction>,
+): ImmutableList<ConversationMessageSelectionAction> {
+    return orderedActions.filter { action ->
+        availableActions.contains(action)
+    }.toPersistentList()
 }
 
 private fun selectionActionIcon(

@@ -110,10 +110,6 @@ internal enum class ConversationMessageBubbleLayoutMode {
 private fun rememberConversationMessageLayout(
     message: ConversationMessageUiModel,
 ): ConversationMessageLayout {
-    val context = LocalContext.current
-    val resources = LocalResources.current
-    val configuration = LocalConfiguration.current
-
     val bubbleShape = remember(
         message.canClusterWithPrevious,
         message.canClusterWithNext,
@@ -121,48 +117,8 @@ private fun rememberConversationMessageLayout(
         messageBubbleShape(message = message)
     }
 
-    val subjectText = remember(
-        resources,
-        configuration,
-        message.mmsSubject,
-    ) {
-        cleanseMmsSubject(
-            resources = resources,
-            subject = message.mmsSubject,
-        )
-    }
-
-    val content = remember(
-        message.text,
-        message.mmsSubject,
-        message.parts,
-        subjectText,
-    ) {
-        buildConversationMessageContent(
-            message = message,
-            subjectText = subjectText,
-        )
-    }
-
-    val statusTextResourceId = remember(message.status) {
-        messageStatusTextResourceId(status = message.status)
-    }
-    val statusText = statusTextResourceId?.let { stringResource(it) }
-
-    val metadataText = remember(
-        context,
-        configuration,
-        message.canClusterWithNext,
-        message.displayTimestamp,
-        statusText,
-    ) {
-        buildMessageMetadataText(
-            context = context,
-            canClusterWithNext = message.canClusterWithNext,
-            timestamp = message.displayTimestamp,
-            statusText = statusText,
-        )
-    }
+    val content = rememberConversationMessageContent(message = message)
+    val metadataText = rememberConversationMessageMetadataText(message = message)
 
     val showSender = remember(
         message.isIncoming,
@@ -201,6 +157,63 @@ private fun rememberConversationMessageLayout(
     }
 }
 
+@Composable
+private fun rememberConversationMessageContent(
+    message: ConversationMessageUiModel,
+): ConversationMessageContent {
+    val resources = LocalResources.current
+    val configuration = LocalConfiguration.current
+    val subjectText = remember(
+        resources,
+        configuration,
+        message.mmsSubject,
+    ) {
+        cleanseMmsSubject(
+            resources = resources,
+            subject = message.mmsSubject,
+        )
+    }
+
+    return remember(
+        message.text,
+        message.mmsSubject,
+        message.parts,
+        subjectText,
+    ) {
+        buildConversationMessageContent(
+            message = message,
+            subjectText = subjectText,
+        )
+    }
+}
+
+@Composable
+private fun rememberConversationMessageMetadataText(
+    message: ConversationMessageUiModel,
+): String? {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val statusTextResourceId = remember(message.status) {
+        messageStatusTextResourceId(status = message.status)
+    }
+    val statusText = statusTextResourceId?.let { stringResource(it) }
+
+    return remember(
+        context,
+        configuration,
+        message.canClusterWithNext,
+        message.displayTimestamp,
+        statusText,
+    ) {
+        buildMessageMetadataText(
+            context = context,
+            canClusterWithNext = message.canClusterWithNext,
+            timestamp = message.displayTimestamp,
+            statusText = statusText,
+        )
+    }
+}
+
 private fun messageHorizontalArrangement(
     message: ConversationMessageUiModel,
 ): Arrangement.Horizontal {
@@ -223,31 +236,15 @@ private fun ConversationMessageContent(
     onMessageLongClick: () -> Unit,
     onMessageResendClick: () -> Unit,
 ) {
-    val hapticFeedback = LocalHapticFeedback.current
-    val bubbleInteractionModifier = Modifier
-        .clip(shape = layout.bubbleShape)
-        .semantics {
-            selected = isSelected
-        }
-        .combinedClickable(
-            enabled = true,
-            onClick = {
-                when {
-                    isSelectionMode -> {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
-                        onMessageClick()
-                    }
-
-                    message.canResendMessage -> {
-                        onMessageResendClick()
-                    }
-                }
-            },
-            onLongClick = {
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                onMessageLongClick()
-            },
-        )
+    val bubbleInteractionModifier = conversationMessageBubbleInteractionModifier(
+        message = message,
+        isSelected = isSelected,
+        isSelectionMode = isSelectionMode,
+        layout = layout,
+        onMessageClick = onMessageClick,
+        onMessageLongClick = onMessageLongClick,
+        onMessageResendClick = onMessageResendClick,
+    )
 
     Column(
         modifier = Modifier.widthIn(max = maxBubbleWidth),
@@ -298,6 +295,43 @@ private fun ConversationMessageContent(
             metadataText = layout.metadataText,
         )
     }
+}
+
+@Composable
+private fun conversationMessageBubbleInteractionModifier(
+    message: ConversationMessageUiModel,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    layout: ConversationMessageLayout,
+    onMessageClick: () -> Unit,
+    onMessageLongClick: () -> Unit,
+    onMessageResendClick: () -> Unit,
+): Modifier {
+    val hapticFeedback = LocalHapticFeedback.current
+    return Modifier
+        .clip(shape = layout.bubbleShape)
+        .semantics {
+            selected = isSelected
+        }
+        .combinedClickable(
+            enabled = true,
+            onClick = {
+                when {
+                    isSelectionMode -> {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        onMessageClick()
+                    }
+
+                    message.canResendMessage -> {
+                        onMessageResendClick()
+                    }
+                }
+            },
+            onLongClick = {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                onMessageLongClick()
+            },
+        )
 }
 
 private fun messageContentHorizontalAlignment(

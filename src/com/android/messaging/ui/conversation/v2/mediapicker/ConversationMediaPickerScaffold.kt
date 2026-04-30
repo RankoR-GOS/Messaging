@@ -1,7 +1,5 @@
 package com.android.messaging.ui.conversation.v2.mediapicker
 
-import android.os.Build
-import androidx.annotation.RequiresExtension
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.Spring
@@ -31,7 +29,6 @@ private enum class ConversationMediaPickerOverlayMode {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresExtension(extension = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, version = 15)
 @Composable
 internal fun ConversationMediaPickerScaffold(
     modifier: Modifier = Modifier,
