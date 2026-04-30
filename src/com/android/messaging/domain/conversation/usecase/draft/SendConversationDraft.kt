@@ -55,17 +55,31 @@ internal class SendConversationDraftImpl @Inject constructor(
                     conversationId = conversationId,
                     draft = draft,
                 )
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: SendConversationDraftException) {
-                throw exception
             } catch (exception: Exception) {
-                throw DraftDispatchFailedException(
+                if (exception is CancellationException) {
+                    throw exception
+                }
+
+                throw exception.toSendConversationDraftException(
                     conversationId = conversationId,
-                    cause = exception,
                 )
             }
         }.flowOn(ioDispatcher)
+    }
+
+    private fun Exception.toSendConversationDraftException(
+        conversationId: String,
+    ): SendConversationDraftException {
+        return when (this) {
+            is SendConversationDraftException -> this
+
+            else -> {
+                DraftDispatchFailedException(
+                    conversationId = conversationId,
+                    cause = this,
+                )
+            }
+        }
     }
 
     private fun validateAndSendDraft(
