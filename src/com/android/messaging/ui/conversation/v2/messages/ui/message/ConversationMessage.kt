@@ -435,6 +435,7 @@ private fun buildMessageMetadataText(
     return "$formattedTime \u2022 $statusText"
 }
 
+@Suppress("CyclomaticComplexMethod")
 private fun messageStatusTextResourceId(status: Status): Int? {
     return when (status) {
         Status.Outgoing.Delivered -> R.string.delivered_status_content_description

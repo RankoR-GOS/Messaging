@@ -127,6 +127,7 @@ internal class ConversationMessageUiModelMapperImpl @Inject constructor(
         }
     }
 
+    @Suppress("CyclomaticComplexMethod")
     private fun mapStatus(javaStatus: Int): Status {
         return when (javaStatus) {
             MessageData.BUGLE_STATUS_UNKNOWN -> Status.Unknown
