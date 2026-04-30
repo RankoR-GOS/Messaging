@@ -280,26 +280,24 @@ internal class ConversationRecipientsRepositoryImpl @Inject constructor(
         recipients: List<RecipientSearchEntry>,
         offset: Int,
     ): ConversationRecipientsPage {
-        if (offset >= recipients.size) {
-            return emptyRecipientsPage()
-        }
+        val pageStart = offset.coerceAtMost(maximumValue = recipients.size)
+        val pageEndExclusive = (pageStart + PAGE_SIZE).coerceAtMost(maximumValue = recipients.size)
 
-        val pagedRecipients = persistentListOf<ConversationRecipient>().builder()
+        val pagedRecipients = recipients
+            .subList(
+                fromIndex = pageStart,
+                toIndex = pageEndExclusive,
+            )
+            .map { it.recipient }
+            .toPersistentList()
 
-        for (index in offset until recipients.size) {
-            if (pagedRecipients.size == PAGE_SIZE) {
-                return ConversationRecipientsPage(
-                    recipients = pagedRecipients.build(),
-                    nextOffset = index,
-                )
-            }
-
-            pagedRecipients.add(recipients[index].recipient)
+        val nextOffset = pageEndExclusive.takeIf { nextOffset ->
+            nextOffset < recipients.size
         }
 
         return ConversationRecipientsPage(
-            recipients = pagedRecipients.build(),
-            nextOffset = null,
+            recipients = pagedRecipients,
+            nextOffset = nextOffset,
         )
     }
 
@@ -318,13 +316,6 @@ internal class ConversationRecipientsRepositoryImpl @Inject constructor(
 
     private fun extractDigits(value: String): String {
         return value.filter { character -> character.isDigit() }
-    }
-
-    private fun emptyRecipientsPage(): ConversationRecipientsPage {
-        return ConversationRecipientsPage(
-            recipients = persistentListOf(),
-            nextOffset = null,
-        )
     }
 
     private companion object {

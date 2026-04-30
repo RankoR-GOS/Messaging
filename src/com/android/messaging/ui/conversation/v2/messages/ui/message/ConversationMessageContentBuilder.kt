@@ -21,7 +21,6 @@ internal fun buildConversationMessageContent(
 
     val bodyText = buildConversationMessageBodyText(
         message = message,
-        attachments = attachments,
     )
 
     val isAttachmentOnly = subjectText.isNullOrBlank() &&
@@ -105,10 +104,7 @@ private fun buildConversationMessageAttachmentKey(
     }
 }
 
-private fun buildConversationMessageBodyText(
-    message: ConversationMessageUiModel,
-    attachments: ImmutableList<ConversationMessageAttachment>,
-): String? {
+private fun buildConversationMessageBodyText(message: ConversationMessageUiModel): String? {
     message.text
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
@@ -116,7 +112,7 @@ private fun buildConversationMessageBodyText(
             return bodyText
         }
 
-    val captionText = message.parts
+    return message.parts
         .asSequence()
         .filter { it.hasCaptionText }
         .mapNotNull { part ->
@@ -125,11 +121,6 @@ private fun buildConversationMessageBodyText(
         .distinct()
         .joinToString(separator = "\n")
         .takeIf { text -> text.isNotEmpty() }
-
-    return when {
-        captionText != null -> captionText
-        else -> null
-    }
 }
 
 private fun ConversationMessagePartUiModel.Attachment.isSupportedAttachment(): Boolean {

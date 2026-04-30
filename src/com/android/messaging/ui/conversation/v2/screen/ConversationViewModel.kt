@@ -343,12 +343,9 @@ internal class ConversationViewModel @Inject constructor(
     private fun canAddPeople(
         metadataState: ConversationMetadataUiState,
     ): Boolean {
-        return when (metadataState) {
-            is ConversationMetadataUiState.Present -> {
-                canAddMoreConversationParticipants(
-                    participantCount = metadataState.participantCount,
-                )
-            }
+        return when {
+            metadataState !is ConversationMetadataUiState.Present -> false
+            canAddMoreConversationParticipants(metadataState.participantCount) -> true
             else -> false
         }
     }
@@ -356,31 +353,26 @@ internal class ConversationViewModel @Inject constructor(
     private fun canCall(
         metadataState: ConversationMetadataUiState,
     ): Boolean {
-        if (metadataState !is ConversationMetadataUiState.Present) {
-            return false
+        return when {
+            metadataState !is ConversationMetadataUiState.Present -> false
+            metadataState.participantCount != 1 -> false
+            metadataState.otherParticipantPhoneNumber == null -> false
+            !isDeviceVoiceCapable() -> false
+            isEmergencyPhoneNumber(metadataState.otherParticipantPhoneNumber) -> false
+            else -> true
         }
-
-        val phoneNumber = metadataState.otherParticipantPhoneNumber
-        if (metadataState.participantCount != 1 || phoneNumber == null) {
-            return false
-        }
-
-        return isDeviceVoiceCapable() && !isEmergencyPhoneNumber(phoneNumber = phoneNumber)
     }
 
     private fun canAddContact(
         metadataState: ConversationMetadataUiState,
     ): Boolean {
-        if (metadataState !is ConversationMetadataUiState.Present) {
-            return false
+        return when {
+            metadataState !is ConversationMetadataUiState.Present -> false
+            metadataState.participantCount != 1 -> false
+            metadataState.otherParticipantPhoneNumber.isNullOrBlank() -> false
+            !metadataState.otherParticipantContactLookupKey.isNullOrBlank() -> false
+            else -> true
         }
-
-        val hasDestination = !metadataState.otherParticipantPhoneNumber.isNullOrBlank()
-        val hasContactLink = !metadataState.otherParticipantContactLookupKey.isNullOrBlank()
-
-        return metadataState.participantCount == 1 &&
-            hasDestination &&
-            !hasContactLink
     }
 
     override fun onSeedDraft(

@@ -18,13 +18,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageContent
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
-import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel.Status
 import com.android.messaging.ui.conversation.v2.messages.ui.attachment.ConversationMessageAttachments
 import com.android.messaging.ui.conversation.v2.messages.ui.text.ConversationMessageText
 
@@ -178,29 +176,6 @@ private fun ConversationMessageTextSurfaceBubble(
             onMessageLongClick = onMessageLongClick,
         )
     }
-}
-
-@Composable
-internal fun ConversationMessageMetadata(
-    message: ConversationMessageUiModel,
-    metadataText: String?,
-) {
-    if (metadataText == null) {
-        return
-    }
-
-    Text(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        text = metadataText,
-        style = MaterialTheme.typography.labelSmall,
-        color = messageMetadataColor(message = message),
-        textAlign = when {
-            message.isIncoming -> TextAlign.Start
-            else -> TextAlign.End
-        },
-    )
 }
 
 @Composable
@@ -487,21 +462,5 @@ private fun messageSenderColor(
                 isSelected = false,
             )
         }
-    }
-}
-
-@Composable
-private fun messageMetadataColor(
-    message: ConversationMessageUiModel,
-): Color {
-    return when (message.status) {
-        Status.Outgoing.AwaitingRetry,
-        Status.Outgoing.Failed,
-        Status.Outgoing.FailedEmergencyNumber,
-        Status.Incoming.DownloadFailed,
-        Status.Incoming.ExpiredOrNotAvailable,
-        -> MaterialTheme.colorScheme.error
-
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 }

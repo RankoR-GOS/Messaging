@@ -96,21 +96,26 @@ internal class ConversationsRepositoryImpl @Inject constructor(
         conversationId: String,
         requestedSelfParticipantId: String,
     ): ConversationSendData? {
-        if (conversationId.isBlank()) {
-            return null
+        val metadata = when {
+            conversationId.isBlank() -> null
+            else -> {
+                MessagingContentProvider
+                    .buildConversationMetadataUri(conversationId)
+                    .let(::queryConversationMetadata)
+            }
         }
 
-        val uri = MessagingContentProvider.buildConversationMetadataUri(conversationId)
-        val metadata = queryConversationMetadata(uri = uri) ?: return null
-        val resolvedSelfParticipantId = requestedSelfParticipantId
-            .takeIf { it.isNotBlank() }
-            ?: metadata.selfParticipantId
+        return metadata?.let { conversationMetadata ->
+            val resolvedSelfParticipantId = requestedSelfParticipantId
+                .takeIf { it.isNotBlank() }
+                ?: conversationMetadata.selfParticipantId
 
-        return ConversationSendData(
-            metadata = metadata,
-            participants = queryConversationParticipants(conversationId = conversationId),
-            selfParticipant = queryParticipant(participantId = resolvedSelfParticipantId),
-        )
+            ConversationSendData(
+                metadata = conversationMetadata,
+                participants = queryConversationParticipants(conversationId = conversationId),
+                selfParticipant = queryParticipant(participantId = resolvedSelfParticipantId),
+            )
+        }
     }
 
     override fun getConversationMessage(

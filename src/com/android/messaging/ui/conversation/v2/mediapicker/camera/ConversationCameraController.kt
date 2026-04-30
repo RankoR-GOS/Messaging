@@ -150,18 +150,17 @@ private class ConversationCameraControllerImpl(
     }
 
     override fun stopVideoRecording() {
-        val recording = updateRecordingDiscardOnFinalize(discardOnFinalize = false) ?: return
-        recording.stop()
+        updateRecordingDiscardOnFinalize(discardOnFinalize = false)?.stop()
     }
 
     override fun cancelVideoRecording() {
-        val recording = updateRecordingDiscardOnFinalize(discardOnFinalize = true) ?: return
-        recording.stop()
+        updateRecordingDiscardOnFinalize(discardOnFinalize = true)?.stop()
     }
 
     override fun switchCamera(onError: (Throwable) -> Unit) {
-        val currentBoundCameraSession =
-            getBoundCameraSessionOrReportError(onError = onError) ?: return
+        val currentBoundCameraSession = getBoundCameraSessionOrReportError(onError = onError)
+            ?: return
+
         val targetLensFacing = resolveSwitchTargetLensFacing(
             currentLensFacing = currentBoundCameraSession.lensFacing,
         )
@@ -179,14 +178,16 @@ private class ConversationCameraControllerImpl(
     }
 
     override fun cyclePhotoFlashMode(onError: (Throwable) -> Unit) {
-        val currentBoundCameraSession =
-            getBoundCameraSessionOrReportError(onError = onError) ?: return
+        val currentBoundCameraSession = getBoundCameraSessionOrReportError(onError = onError)
+            ?: return
+
         if (!_hasFlashUnit.value) {
             onError(FlashUnavailableException())
             return
         }
 
         val nextPhotoFlashMode = _photoFlashMode.value.next()
+
         runCatching {
             updatePhotoFlashMode(
                 imageCapture = currentBoundCameraSession.imageCapture,
@@ -208,9 +209,7 @@ private class ConversationCameraControllerImpl(
         _hasFlashUnit.value = false
     }
 
-    private fun syncBoundImageCaptureFlashMode(
-        imageCapture: ImageCapture,
-    ) {
+    private fun syncBoundImageCaptureFlashMode(imageCapture: ImageCapture) {
         updatePhotoFlashMode(
             imageCapture = imageCapture,
             photoFlashMode = preferredPhotoFlashMode,
@@ -230,6 +229,7 @@ private class ConversationCameraControllerImpl(
         onError: (Throwable) -> Unit,
     ) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(applicationContext)
+
         cameraProviderFuture.addListener(
             {
                 handleCameraProviderReady(
@@ -279,6 +279,7 @@ private class ConversationCameraControllerImpl(
         val selectedLensFacing = resolveBindLensFacing(
             processCameraProvider = processCameraProvider,
         )
+
         val selectedCameraSelector = buildCameraSelector(lensFacing = selectedLensFacing)
         val boundUseCases = createBoundUseCases()
         val camera = processCameraProvider.bindToLifecycle(
@@ -311,11 +312,13 @@ private class ConversationCameraControllerImpl(
     }
 
     private fun createPreviewUseCase(): Preview {
-        return Preview.Builder().build().also { previewUseCase ->
-            previewUseCase.setSurfaceProvider { surfaceRequest ->
-                _surfaceRequest.value = surfaceRequest
+        return Preview.Builder()
+            .build()
+            .also { previewUseCase ->
+                previewUseCase.setSurfaceProvider { surfaceRequest ->
+                    _surfaceRequest.value = surfaceRequest
+                }
             }
-        }
     }
 
     private fun createImageCaptureUseCase(): ImageCapture {
@@ -345,10 +348,8 @@ private class ConversationCameraControllerImpl(
             return null
         }
 
-        val currentBoundCameraSession = getBoundCameraSessionOrReportError(onError = onError)
-            ?: return null
-
-        return currentBoundCameraSession.imageCapture
+        return getBoundCameraSessionOrReportError(onError = onError)
+            ?.imageCapture
     }
 
     private fun createPhotoOutputOrReportError(
@@ -361,7 +362,6 @@ private class ConversationCameraControllerImpl(
                     mediaLabel = "photo",
                 ),
             )
-            return null
         }
 
         return photoOutput
@@ -456,7 +456,6 @@ private class ConversationCameraControllerImpl(
                     mediaLabel = "video",
                 ),
             )
-            return null
         }
 
         return videoOutput
@@ -517,9 +516,13 @@ private class ConversationCameraControllerImpl(
                 )
             }
 
-            is VideoRecordEvent.Start -> handleVideoRecordingStarted()
+            is VideoRecordEvent.Start -> {
+                handleVideoRecordingStarted()
+            }
 
-            is VideoRecordEvent.Status -> handleVideoRecordingStatus(event = event)
+            is VideoRecordEvent.Status -> {
+                handleVideoRecordingStatus(event = event)
+            }
         }
     }
 
@@ -669,11 +672,9 @@ private class ConversationCameraControllerImpl(
     }
 
     private fun deleteScratchOutput(scratchOutput: ScratchOutput?) {
-        if (scratchOutput == null) {
-            return
+        if (scratchOutput != null) {
+            applicationContext.contentResolver.delete(scratchOutput.uri, null, null)
         }
-
-        applicationContext.contentResolver.delete(scratchOutput.uri, null, null)
     }
 
     private fun isCurrentBindGeneration(bindGeneration: Long): Boolean {
@@ -686,7 +687,6 @@ private class ConversationCameraControllerImpl(
         val currentBoundCameraSession = boundCameraSession
         if (currentBoundCameraSession == null) {
             onError(CameraNotBoundException())
-            return null
         }
 
         return currentBoundCameraSession
@@ -694,6 +694,7 @@ private class ConversationCameraControllerImpl(
 
     private fun updateRecordingDiscardOnFinalize(discardOnFinalize: Boolean): Recording? {
         val currentRecordingSession = activeRecordingSession ?: return null
+
         activeRecordingSession = currentRecordingSession.copy(
             discardOnFinalize = discardOnFinalize,
         )

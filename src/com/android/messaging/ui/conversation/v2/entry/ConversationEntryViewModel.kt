@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-internal interface ConversationEntryModel {
+internal interface ConversationEntryScreenModel {
     val effects: Flow<ConversationEntryEffect>
     val uiState: StateFlow<ConversationEntryUiState>
 
@@ -67,7 +67,7 @@ internal class ConversationEntryViewModel @Inject constructor(
     @param:MainDispatcher
     private val mainDispatcher: CoroutineDispatcher,
 ) : ViewModel(),
-    ConversationEntryModel {
+    ConversationEntryScreenModel {
 
     private val _effects = MutableSharedFlow<ConversationEntryEffect>(
         extraBufferCapacity = 1,
@@ -117,33 +117,22 @@ internal class ConversationEntryViewModel @Inject constructor(
     }
 
     override fun onCreateGroupRecipientClicked(destination: String) {
-        val state = editableGroupStateOrNull() ?: return
-        val current = state.selectedGroupRecipientDestinations
-        val trimmed = destination.trim()
+        val editableGroupState = editableGroupStateOrNull()
 
-        val updatedDestinations = when {
-            trimmed.isEmpty() -> {
-                return
+        editableGroupState
+            ?.let { editableGroupState ->
+                updatedGroupRecipientDestinationsOrNull(
+                    currentDestinations = editableGroupState.selectedGroupRecipientDestinations,
+                    destination = destination,
+                )
             }
-
-            trimmed in current -> {
-                current - trimmed
+            ?.let { updatedDestinations ->
+                updateUiState(
+                    editableGroupState.copy(
+                        selectedGroupRecipientDestinations = updatedDestinations.toImmutableList(),
+                    ),
+                )
             }
-
-            canAcceptRecipientCount(count = current.size + 1) -> {
-                current + trimmed
-            }
-
-            else -> {
-                return
-            }
-        }
-
-        updateUiState(
-            state.copy(
-                selectedGroupRecipientDestinations = updatedDestinations.toImmutableList(),
-            ),
-        )
     }
 
     override fun onCreateGroupConfirmed() {
@@ -352,6 +341,24 @@ internal class ConversationEntryViewModel @Inject constructor(
     private fun editableGroupStateOrNull(): ConversationEntryUiState? {
         return _uiState.value.takeIf { state ->
             state.isCreatingGroup && !state.isResolvingConversation
+        }
+    }
+
+    private fun updatedGroupRecipientDestinationsOrNull(
+        currentDestinations: List<String>,
+        destination: String,
+    ): List<String>? {
+        val trimmedDestination = destination.trim()
+
+        return when {
+            trimmedDestination.isEmpty() -> null
+            trimmedDestination in currentDestinations -> currentDestinations - trimmedDestination
+
+            canAcceptRecipientCount(count = currentDestinations.size + 1) -> {
+                currentDestinations + trimmedDestination
+            }
+
+            else -> null
         }
     }
 

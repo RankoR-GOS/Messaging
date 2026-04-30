@@ -19,7 +19,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.ui.conversation.v2.addparticipants.AddParticipantsScreen
-import com.android.messaging.ui.conversation.v2.entry.ConversationEntryModel
+import com.android.messaging.ui.conversation.v2.entry.ConversationEntryScreenModel
 import com.android.messaging.ui.conversation.v2.entry.ConversationEntryViewModel
 import com.android.messaging.ui.conversation.v2.entry.NewChatScreen
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryEffect
@@ -36,7 +36,7 @@ internal fun ConversationNavGraph(
     modifier: Modifier = Modifier,
     onConversationDetailsClick: (String) -> Unit = {},
     onFinish: () -> Unit,
-    entryModel: ConversationEntryModel = hiltViewModel<ConversationEntryViewModel>(),
+    entryModel: ConversationEntryScreenModel = hiltViewModel<ConversationEntryViewModel>(),
     navigationReducer: ConversationNavigationReducer = defaultConversationNavReducer,
 ) {
     val entryUiState by entryModel.uiState.collectAsStateWithLifecycle()
@@ -262,7 +262,7 @@ private fun popBackStackOrFinish(
 
 private fun handleNavBack(
     backStack: MutableList<NavKey>,
-    entryModel: ConversationEntryModel,
+    entryModel: ConversationEntryScreenModel,
     entryUiState: ConversationEntryUiState,
     navigationReducer: ConversationNavigationReducer,
     onFinish: () -> Unit,
@@ -280,7 +280,7 @@ private fun handleNavBack(
 }
 
 private fun handleNewChatBack(
-    entryModel: ConversationEntryModel,
+    entryModel: ConversationEntryScreenModel,
     entryUiState: ConversationEntryUiState,
     backStack: MutableList<NavKey>,
     navigationReducer: ConversationNavigationReducer,
@@ -315,7 +315,7 @@ private fun pendingLaunchPayloadForConversation(
 
 private class ConversationNavRouteState(
     val backStack: MutableList<NavKey>,
-    val entryModel: State<ConversationEntryModel>,
+    val entryModel: State<ConversationEntryScreenModel>,
     val entryUiState: State<ConversationEntryUiState>,
     val isLaunchedFromBubble: State<Boolean>,
     val navigationReducer: State<ConversationNavigationReducer>,
@@ -342,7 +342,7 @@ private data class ConversationPendingLaunchPayload(
 
 private fun conversationNavEffectState(
     routeState: ConversationNavRouteState,
-    entryModel: ConversationEntryModel,
+    entryModel: ConversationEntryScreenModel,
 ): ConversationNavEffectState {
     return ConversationNavEffectState(
         onLaunchRequest = entryModel::onLaunchRequest,

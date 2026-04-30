@@ -200,11 +200,25 @@ internal class ConversationSubscriptionsRepositoryImpl @Inject constructor(
     private fun queryMaxMessageSize(
         selfParticipantId: String,
     ): Int {
+        val resolvedSubId = resolveSubscriptionId(selfParticipantId)
+
+        return when {
+            resolvedSubId == null || resolvedSubId <= ParticipantData.DEFAULT_SELF_SUB_ID -> {
+                MmsConfig.getMaxMaxMessageSize()
+            }
+
+            else -> {
+                MmsConfig.get(resolvedSubId).maxMessageSize
+            }
+        }
+    }
+
+    private fun resolveSubscriptionId(selfParticipantId: String): Int? {
         if (selfParticipantId.isBlank()) {
-            return MmsConfig.getMaxMaxMessageSize()
+            return null
         }
 
-        val resolvedSubId = contentResolver.query(
+        return contentResolver.query(
             MessagingContentProvider.PARTICIPANTS_URI,
             ParticipantData.ParticipantsQuery.PROJECTION,
             "${ParticipantColumns._ID} = ?",
@@ -212,16 +226,12 @@ internal class ConversationSubscriptionsRepositoryImpl @Inject constructor(
             null,
         )?.use { cursor ->
             when {
-                cursor.moveToFirst() -> ParticipantData.getFromCursor(cursor).subId
+                cursor.moveToFirst() -> {
+                    ParticipantData.getFromCursor(cursor).subId
+                }
                 else -> null
             }
-        } ?: return MmsConfig.getMaxMaxMessageSize()
-
-        if (resolvedSubId <= ParticipantData.DEFAULT_SELF_SUB_ID) {
-            return MmsConfig.getMaxMaxMessageSize()
         }
-
-        return MmsConfig.get(resolvedSubId).maxMessageSize
     }
 
     private companion object {

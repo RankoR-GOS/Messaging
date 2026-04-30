@@ -195,7 +195,7 @@ private fun handleImmediateConversationScreenEffect(
             )
         }
 
-        else -> Unit
+        else -> {}
     }
 }
 
@@ -387,8 +387,12 @@ private fun openImageAttachmentPreview(
     attachmentUri: Uri,
     imageCollectionUri: String?,
 ): Boolean {
-    val activity = UiUtils.getActivity(context) ?: return false
-    val imageCollection = imageCollectionUri?.toUri() ?: return false
+    val activity = UiUtils.getActivity(context)
+    val imageCollection = imageCollectionUri?.toUri()
+
+    if (activity == null || imageCollection == null) {
+        return false
+    }
 
     UIIntents.get().launchFullScreenPhotoViewer(
         activity,

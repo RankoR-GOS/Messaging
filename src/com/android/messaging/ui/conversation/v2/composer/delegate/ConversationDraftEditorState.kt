@@ -125,13 +125,14 @@ internal data class DraftEditorState(
             return this
         }
 
+        val currentAttachments = effectiveDraft.attachments
         val mergedAttachments = mergeDraftAttachments(
-            baseAttachments = effectiveDraft.attachments,
+            baseAttachments = currentAttachments,
             attachmentsToAdd = attachments,
         )
 
         return when {
-            mergedAttachments == effectiveDraft.attachments -> this
+            mergedAttachments == currentAttachments -> this
 
             else -> {
                 copyWithNormalizedLocalEdits(
@@ -144,67 +145,57 @@ internal data class DraftEditorState(
     }
 
     fun withAttachmentRemoved(contentUri: String): DraftEditorState {
-        if (conversationId == null) {
-            return this
+        return when {
+            conversationId == null -> this
+
+            else -> {
+                val currentAttachments = effectiveDraft.attachments
+                val updatedAttachments = currentAttachments.withoutAttachment(
+                    contentUri = contentUri,
+                )
+
+                copyWithUpdatedAttachments(
+                    currentAttachments = currentAttachments,
+                    updatedAttachments = updatedAttachments,
+                )
+            }
         }
-
-        val attachmentIndex = effectiveDraft.attachments.indexOfFirst { attachment ->
-            attachment.contentUri == contentUri
-        }
-
-        if (attachmentIndex == -1) {
-            return this
-        }
-
-        val updatedAttachments = effectiveDraft.attachments.toMutableList().apply {
-            removeAt(attachmentIndex)
-        }.toImmutableList()
-
-        return copyWithNormalizedLocalEdits(
-            updatedLocalEdits = localEdits.copy(attachments = updatedAttachments),
-        )
     }
 
     fun withAttachmentCaption(
         contentUri: String,
         captionText: String,
     ): DraftEditorState {
-        if (conversationId == null) {
-            return this
-        }
+        return when {
+            conversationId == null -> this
 
-        val currentAttachments = effectiveDraft.attachments
-        val attachmentIndex = currentAttachments.indexOfFirst { attachment ->
-            attachment.contentUri == contentUri
-        }
-        if (attachmentIndex == -1) {
-            return this
-        }
+            else -> {
+                val currentAttachments = effectiveDraft.attachments
+                val updatedAttachments = currentAttachments.withUpdatedAttachmentCaption(
+                    contentUri = contentUri,
+                    captionText = captionText,
+                )
 
-        val currentAttachment = currentAttachments[attachmentIndex]
-        if (currentAttachment.captionText == captionText) {
-            return this
+                copyWithUpdatedAttachments(
+                    currentAttachments = currentAttachments,
+                    updatedAttachments = updatedAttachments,
+                )
+            }
         }
-
-        val updatedAttachments = currentAttachments.toMutableList().apply {
-            this[attachmentIndex] = currentAttachment.copy(captionText = captionText)
-        }.toImmutableList()
-
-        return copyWithNormalizedLocalEdits(
-            updatedLocalEdits = localEdits.copy(attachments = updatedAttachments),
-        )
     }
 
     fun withPendingAttachmentAdded(
         pendingAttachment: ConversationDraftPendingAttachment,
     ): DraftEditorState {
-        if (conversationId == null) {
-            return this
+        return when {
+            conversationId == null -> this
+
+            else -> {
+                copy(
+                    pendingAttachments = pendingAttachments + pendingAttachment,
+                )
+            }
         }
-
-        val updatedPendingAttachments = pendingAttachments + pendingAttachment
-
-        return copy(pendingAttachments = updatedPendingAttachments)
     }
 
     fun withPendingAttachmentRemoved(pendingAttachmentId: String): DraftEditorState {
@@ -287,9 +278,11 @@ internal data class DraftEditorState(
         val visibleDraftAfterSend = when {
             latestEffectiveDraft == sentDraft -> clearedDraft
 
-            else -> latestEffectiveDraft.copy(
-                selfParticipantId = sentDraft.selfParticipantId,
-            )
+            else -> {
+                latestEffectiveDraft.copy(
+                    selfParticipantId = sentDraft.selfParticipantId,
+                )
+            }
         }
 
         return copy(
@@ -308,29 +301,63 @@ internal data class DraftEditorState(
         persistedDraft: ConversationDraft,
         sentDraftAwaitingClear: ConversationDraft,
     ): DraftEditorState {
-        val currentEffectiveDraft = effectiveDraft
+        return when {
+            persistedDraft == sentDraftAwaitingClear -> {
+                rebaseVisibleDraftOnPersistedDraft(
+                    persistedDraft = persistedDraft,
+                    shouldKeepPendingSentDraft = true,
+                )
+            }
 
-        if (persistedDraft == sentDraftAwaitingClear) {
-            return rebaseVisibleDraftOnPersistedDraft(
-                persistedDraft = persistedDraft,
-                shouldKeepPendingSentDraft = true,
-            )
+            else -> {
+                withPersistedDraftAfterSentDraftChanged(
+                    persistedDraft = persistedDraft,
+                    sentDraftAwaitingClear = sentDraftAwaitingClear,
+                )
+            }
         }
+    }
 
-        val clearedDraft = createClearedDraftForSentDraft(sentDraftAwaitingClear)
-        if (currentEffectiveDraft == clearedDraft) {
-            return copy(
-                persistedDraft = persistedDraft,
-                localEdits = ConversationDraftEdits(),
-                isLoaded = true,
-                pendingSentDraft = null,
-            )
-        }
-
-        return rebaseVisibleDraftOnPersistedDraft(
-            persistedDraft = persistedDraft,
-            shouldKeepPendingSentDraft = false,
+    private fun withPersistedDraftAfterSentDraftChanged(
+        persistedDraft: ConversationDraft,
+        sentDraftAwaitingClear: ConversationDraft,
+    ): DraftEditorState {
+        val isVisibleDraftAlreadyCleared = effectiveDraft == createClearedDraftForSentDraft(
+            sentDraft = sentDraftAwaitingClear,
         )
+
+        return when {
+            isVisibleDraftAlreadyCleared -> {
+                copy(
+                    persistedDraft = persistedDraft,
+                    localEdits = ConversationDraftEdits(),
+                    isLoaded = true,
+                    pendingSentDraft = null,
+                )
+            }
+
+            else -> {
+                rebaseVisibleDraftOnPersistedDraft(
+                    persistedDraft = persistedDraft,
+                    shouldKeepPendingSentDraft = false,
+                )
+            }
+        }
+    }
+
+    private fun copyWithUpdatedAttachments(
+        currentAttachments: ImmutableList<ConversationDraftAttachment>,
+        updatedAttachments: ImmutableList<ConversationDraftAttachment>,
+    ): DraftEditorState {
+        return when {
+            updatedAttachments == currentAttachments -> this
+
+            else -> {
+                copyWithNormalizedLocalEdits(
+                    updatedLocalEdits = localEdits.copy(attachments = updatedAttachments),
+                )
+            }
+        }
     }
 
     private fun rebaseVisibleDraftOnPersistedDraft(
@@ -426,7 +453,53 @@ private fun mergeDraftAttachments(
 
     return when {
         attachmentsToAppend.isEmpty() -> baseAttachments
-        else -> (baseAttachments + attachmentsToAppend).toImmutableList()
+
+        else -> {
+            (baseAttachments + attachmentsToAppend).toImmutableList()
+        }
+    }
+}
+
+private fun ImmutableList<ConversationDraftAttachment>.withoutAttachment(
+    contentUri: String,
+): ImmutableList<ConversationDraftAttachment> {
+    val attachmentIndex = indexOfFirst { attachment ->
+        attachment.contentUri == contentUri
+    }
+
+    return when {
+        attachmentIndex == -1 -> this
+
+        else -> {
+            toMutableList()
+                .apply {
+                    removeAt(attachmentIndex)
+                }
+                .toImmutableList()
+        }
+    }
+}
+
+private fun ImmutableList<ConversationDraftAttachment>.withUpdatedAttachmentCaption(
+    contentUri: String,
+    captionText: String,
+): ImmutableList<ConversationDraftAttachment> {
+    val attachmentIndex = indexOfFirst { attachment ->
+        attachment.contentUri == contentUri
+    }
+    val currentAttachment = getOrNull(attachmentIndex)
+
+    return when {
+        currentAttachment == null -> this
+        currentAttachment.captionText == captionText -> this
+
+        else -> {
+            toMutableList()
+                .apply {
+                    this[attachmentIndex] = currentAttachment.copy(captionText = captionText)
+                }
+                .toImmutableList()
+        }
     }
 }
 

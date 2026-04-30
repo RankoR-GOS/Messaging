@@ -314,10 +314,24 @@ private fun shouldShowDateSeparator(
     messageAbove: ConversationMessageUiModel?,
     timeZone: TimeZone,
 ): Boolean {
-    if (messageAbove == null) {
-        return true
-    }
+    return when (messageAbove) {
+        null -> true
 
+        else -> {
+            shouldShowDateSeparatorBetweenMessages(
+                currentMessage = currentMessage,
+                messageAbove = messageAbove,
+                timeZone = timeZone,
+            )
+        }
+    }
+}
+
+private fun shouldShowDateSeparatorBetweenMessages(
+    currentMessage: ConversationMessageUiModel,
+    messageAbove: ConversationMessageUiModel,
+    timeZone: TimeZone,
+): Boolean {
     val currentEpochDay = conversationMessageDisplayEpochDay(
         displayTimestamp = currentMessage.displayTimestamp,
         timeZone = timeZone,

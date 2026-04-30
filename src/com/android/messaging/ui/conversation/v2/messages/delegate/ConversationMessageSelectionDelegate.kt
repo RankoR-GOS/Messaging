@@ -173,11 +173,10 @@ internal class ConversationMessageSelectionDelegateImpl @Inject constructor(
         val messageId = pendingDefaultSmsRoleResendMessageId ?: return false
         pendingDefaultSmsRoleResendMessageId = null
 
-        if (resultCode != Activity.RESULT_OK) {
-            return true
+        if (resultCode == Activity.RESULT_OK) {
+            resendMessageWhenActionRequirementsSatisfied(messageId = messageId)
         }
 
-        resendMessageWhenActionRequirementsSatisfied(messageId = messageId)
         return true
     }
 
@@ -452,97 +451,104 @@ internal class ConversationMessageSelectionDelegateImpl @Inject constructor(
             )
         }
     }
-}
 
-private fun buildMessageSelectionUiState(
-    messagesUiState: ConversationMessagesUiState,
-    selectionState: ConversationMessageSelectionState,
-): ConversationMessageSelectionUiState {
-    val messages = when (messagesUiState) {
-        is ConversationMessagesUiState.Present -> messagesUiState.messages
-        ConversationMessagesUiState.Loading -> return ConversationMessageSelectionUiState()
-    }
+    private fun buildMessageSelectionUiState(
+        messagesUiState: ConversationMessagesUiState,
+        selectionState: ConversationMessageSelectionState,
+    ): ConversationMessageSelectionUiState {
+        val messages = when (messagesUiState) {
+            is ConversationMessagesUiState.Present -> messagesUiState.messages
+            ConversationMessagesUiState.Loading -> return ConversationMessageSelectionUiState()
+        }
 
-    val messagesById = messages.associateBy(ConversationMessageUiModel::messageId)
-    val currentMessageIds = messagesById.keys
+        val messagesById = messages.associateBy(ConversationMessageUiModel::messageId)
+        val currentMessageIds = messagesById.keys
 
-    val selectedMessageIds = selectionState
-        .selectedMessageIds
-        .asSequence()
-        .filter(currentMessageIds::contains)
-        .toImmutableSet()
+        val selectedMessageIds = selectionState
+            .selectedMessageIds
+            .asSequence()
+            .filter(currentMessageIds::contains)
+            .toImmutableSet()
 
-    val pendingDeleteMessageIds = selectionState
-        .pendingDeleteMessageIds
-        .asSequence()
-        .filter(currentMessageIds::contains)
-        .toImmutableSet()
+        val pendingDeleteMessageIds = selectionState
+            .pendingDeleteMessageIds
+            .asSequence()
+            .filter(currentMessageIds::contains)
+            .toImmutableSet()
 
-    val selectedMessage = when (selectedMessageIds.size) {
-        1 -> messagesById[selectedMessageIds.first()]
-        else -> null
-    }
+        val selectedMessage = when (selectedMessageIds.size) {
+            1 -> messagesById[selectedMessageIds.first()]
+            else -> null
+        }
 
-    return ConversationMessageSelectionUiState(
-        selectedMessageIds = selectedMessageIds,
-        availableActions = availableSelectionActions(
-            selectedMessage = selectedMessage,
-            selectedMessageCount = selectedMessageIds.size,
-        ),
-        deleteConfirmation = pendingDeleteMessageIds
-            .takeIf { messageIds ->
-                messageIds.isNotEmpty()
-            }
-            ?.let { messageIds ->
-                ConversationMessageDeleteConfirmationUiState(
-                    messageIds = messageIds,
-                )
-            },
-    )
-}
-
-private fun availableSelectionActions(
-    selectedMessage: ConversationMessageUiModel?,
-    selectedMessageCount: Int,
-): ImmutableSet<ConversationMessageSelectionAction> {
-    if (selectedMessageCount <= 0) {
-        return persistentSetOf()
-    }
-
-    if (selectedMessageCount > 1 || selectedMessage == null) {
-        return persistentSetOf(
-            ConversationMessageSelectionAction.Delete,
+        return ConversationMessageSelectionUiState(
+            selectedMessageIds = selectedMessageIds,
+            availableActions = availableSelectionActions(
+                selectedMessage = selectedMessage,
+                selectedMessageCount = selectedMessageIds.size,
+            ),
+            deleteConfirmation = pendingDeleteMessageIds
+                .takeIf { messageIds ->
+                    messageIds.isNotEmpty()
+                }
+                ?.let { messageIds ->
+                    ConversationMessageDeleteConfirmationUiState(
+                        messageIds = messageIds,
+                    )
+                },
         )
     }
 
-    val actions = LinkedHashSet<ConversationMessageSelectionAction>()
+    private fun availableSelectionActions(
+        selectedMessage: ConversationMessageUiModel?,
+        selectedMessageCount: Int,
+    ): ImmutableSet<ConversationMessageSelectionAction> {
+        return when {
+            selectedMessageCount <= 0 -> persistentSetOf()
+            selectedMessageCount > 1 || selectedMessage == null -> {
+                persistentSetOf(
+                    ConversationMessageSelectionAction.Delete,
+                )
+            }
 
-    if (selectedMessage.canDownloadMessage) {
-        actions += ConversationMessageSelectionAction.Download
+            else -> {
+                availableSingleMessageSelectionActions(selectedMessage = selectedMessage)
+            }
+        }
     }
 
-    if (selectedMessage.canResendMessage) {
-        actions += ConversationMessageSelectionAction.Resend
+    private fun availableSingleMessageSelectionActions(
+        selectedMessage: ConversationMessageUiModel,
+    ): ImmutableSet<ConversationMessageSelectionAction> {
+        val actions = LinkedHashSet<ConversationMessageSelectionAction>()
+
+        if (selectedMessage.canDownloadMessage) {
+            actions += ConversationMessageSelectionAction.Download
+        }
+
+        if (selectedMessage.canResendMessage) {
+            actions += ConversationMessageSelectionAction.Resend
+        }
+
+        actions += ConversationMessageSelectionAction.Delete
+
+        if (selectedMessage.canForwardMessage) {
+            actions += ConversationMessageSelectionAction.Share
+            actions += ConversationMessageSelectionAction.Forward
+        }
+
+        if (selectedMessage.canSaveAttachments) {
+            actions += ConversationMessageSelectionAction.SaveAttachment
+        }
+
+        if (selectedMessage.canCopyMessageToClipboard) {
+            actions += ConversationMessageSelectionAction.Copy
+        }
+
+        actions += ConversationMessageSelectionAction.Details
+
+        return actions.toImmutableSet()
     }
-
-    actions += ConversationMessageSelectionAction.Delete
-
-    if (selectedMessage.canForwardMessage) {
-        actions += ConversationMessageSelectionAction.Share
-        actions += ConversationMessageSelectionAction.Forward
-    }
-
-    if (selectedMessage.canSaveAttachments) {
-        actions += ConversationMessageSelectionAction.SaveAttachment
-    }
-
-    if (selectedMessage.canCopyMessageToClipboard) {
-        actions += ConversationMessageSelectionAction.Copy
-    }
-
-    actions += ConversationMessageSelectionAction.Details
-
-    return actions.toImmutableSet()
 }
 
 private data class ConversationMessageSelectionState(

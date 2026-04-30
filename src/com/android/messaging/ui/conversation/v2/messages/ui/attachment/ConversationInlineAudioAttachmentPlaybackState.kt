@@ -99,28 +99,33 @@ internal class ConversationInlineAudioAttachmentPlaybackState(
     ) {
         val currentMediaPlayer = mediaPlayer
 
-        if (currentMediaPlayer == null) {
-            shouldStartPlaybackWhenPrepared = true
-            ensureMediaPlayer(
-                context = context,
-                contentUri = contentUri,
-            )
-            return
-        }
+        when {
+            currentMediaPlayer == null -> {
+                shouldStartPlaybackWhenPrepared = true
+                ensureMediaPlayer(
+                    context = context,
+                    contentUri = contentUri,
+                )
+            }
 
-        if (!isPrepared) {
-            shouldStartPlaybackWhenPrepared = !shouldStartPlaybackWhenPrepared
-            return
-        }
+            !isPrepared -> {
+                shouldStartPlaybackWhenPrepared = !shouldStartPlaybackWhenPrepared
+            }
 
-        if (isPlaying) {
-            currentMediaPlayer.pause()
-            positionMillis = currentMediaPlayer.currentPosition.toLong().coerceAtLeast(0L)
-            isPlaying = false
-            return
-        }
+            isPlaying -> {
+                currentMediaPlayer.pause()
+                positionMillis = currentMediaPlayer
+                    .currentPosition
+                    .toLong()
+                    .coerceAtLeast(0L)
 
-        startPlayback()
+                isPlaying = false
+            }
+
+            else -> {
+                startPlayback()
+            }
+        }
     }
 
     fun updateProgress() {

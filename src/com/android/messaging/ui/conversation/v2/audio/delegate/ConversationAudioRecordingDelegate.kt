@@ -414,34 +414,41 @@ internal class ConversationAudioRecordingDelegateImpl @Inject constructor(
         durationJob: Job?,
     ): AudioRecordingEffect {
         val currentSessionState = sessionState as? AudioRecordingSessionState.Starting
-            ?: return AudioRecordingEffect.StopAndDeleteRecording(
-                mediaRecorder = mediaRecorder,
-                durationJob = durationJob,
-            )
 
-        if (currentSessionState.queuedIntent == QueuedStartIntent.Cancel) {
-            sessionState = AudioRecordingSessionState.Idle
-            publishUiStateLocked()
+        return when {
+            currentSessionState == null -> {
+                AudioRecordingEffect.StopAndDeleteRecording(
+                    mediaRecorder = mediaRecorder,
+                    durationJob = durationJob,
+                )
+            }
 
-            return AudioRecordingEffect.StopAndDeleteRecording(
-                mediaRecorder = mediaRecorder,
-                durationJob = durationJob,
-            )
+            currentSessionState.queuedIntent == QueuedStartIntent.Cancel -> {
+                sessionState = AudioRecordingSessionState.Idle
+                publishUiStateLocked()
+
+                AudioRecordingEffect.StopAndDeleteRecording(
+                    mediaRecorder = mediaRecorder,
+                    durationJob = durationJob,
+                )
+            }
+
+            else -> {
+                sessionState = AudioRecordingSessionState.Recording(
+                    mediaRecorder = mediaRecorder,
+                    startedAtMillis = startedAtMillis,
+                    durationMillis = 0L,
+                    isLocked = currentSessionState.queuedIntent == QueuedStartIntent.Lock,
+                    durationJob = requireNotNull(durationJob) {
+                        "Duration job must be available for active recording"
+                    },
+                )
+
+                publishUiStateLocked()
+
+                AudioRecordingEffect.None
+            }
         }
-
-        sessionState = AudioRecordingSessionState.Recording(
-            mediaRecorder = mediaRecorder,
-            startedAtMillis = startedAtMillis,
-            durationMillis = 0L,
-            isLocked = currentSessionState.queuedIntent == QueuedStartIntent.Lock,
-            durationJob = requireNotNull(durationJob) {
-                "Duration job must be available for active recording"
-            },
-        )
-
-        publishUiStateLocked()
-
-        return AudioRecordingEffect.None
     }
 
     private suspend fun finalizeRecording(pendingAttachmentId: String) {
@@ -482,15 +489,14 @@ internal class ConversationAudioRecordingDelegateImpl @Inject constructor(
         pendingAttachmentId: String,
     ): LevelTrackingMediaRecorder? {
         val currentSessionState = sessionState as? AudioRecordingSessionState.Finalizing
-            ?: return null
+        var claimedMediaRecorder: LevelTrackingMediaRecorder? = null
 
-        if (currentSessionState.pendingAttachmentId != pendingAttachmentId) {
-            return null
+        if (currentSessionState?.pendingAttachmentId == pendingAttachmentId) {
+            sessionState = currentSessionState.copy(mediaRecorder = null)
+            claimedMediaRecorder = currentSessionState.mediaRecorder
         }
 
-        sessionState = currentSessionState.copy(mediaRecorder = null)
-
-        return currentSessionState.mediaRecorder
+        return claimedMediaRecorder
     }
 
     private fun storeStoppedRecordingUriLocked(
@@ -498,27 +504,23 @@ internal class ConversationAudioRecordingDelegateImpl @Inject constructor(
         outputUri: Uri?,
     ): Boolean {
         val currentSessionState = sessionState as? AudioRecordingSessionState.Finalizing
-            ?: return false
+        var didStoreStoppedRecordingUri = false
 
-        if (currentSessionState.pendingAttachmentId != pendingAttachmentId) {
-            return false
+        if (currentSessionState?.pendingAttachmentId == pendingAttachmentId) {
+            sessionState = currentSessionState.copy(stoppedRecordingUri = outputUri)
+            didStoreStoppedRecordingUri = true
         }
 
-        sessionState = currentSessionState.copy(stoppedRecordingUri = outputUri)
-
-        return true
+        return didStoreStoppedRecordingUri
     }
 
     private fun clearFinalizingSessionLocked(pendingAttachmentId: String) {
         val currentSessionState = sessionState as? AudioRecordingSessionState.Finalizing
-            ?: return
 
-        if (currentSessionState.pendingAttachmentId != pendingAttachmentId) {
-            return
+        if (currentSessionState?.pendingAttachmentId == pendingAttachmentId) {
+            sessionState = AudioRecordingSessionState.Idle
+            publishUiStateLocked()
         }
-
-        sessionState = AudioRecordingSessionState.Idle
-        publishUiStateLocked()
     }
 
     private fun addPendingAudioAttachment(pendingAttachmentId: String) {
@@ -577,18 +579,20 @@ internal class ConversationAudioRecordingDelegateImpl @Inject constructor(
 
     private fun tickRecordingDurationLocked(startedAtMillis: Long): Boolean {
         val currentSessionState = sessionState as? AudioRecordingSessionState.Recording
-            ?: return false
+        var shouldContinueTicking = false
 
-        if (currentSessionState.startedAtMillis != startedAtMillis) {
-            return false
+        val isMatchingRecordingSession = currentSessionState?.startedAtMillis == startedAtMillis
+
+        if (isMatchingRecordingSession) {
+            sessionState = currentSessionState.copy(
+                durationMillis = SystemClock.elapsedRealtime() - startedAtMillis,
+            )
+
+            publishUiStateLocked()
+            shouldContinueTicking = true
         }
 
-        sessionState = currentSessionState.copy(
-            durationMillis = SystemClock.elapsedRealtime() - startedAtMillis,
-        )
-        publishUiStateLocked()
-
-        return true
+        return shouldContinueTicking
     }
 
     @Suppress("TooGenericExceptionCaught")

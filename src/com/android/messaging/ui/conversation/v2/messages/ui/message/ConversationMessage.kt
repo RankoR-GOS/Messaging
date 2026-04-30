@@ -376,15 +376,11 @@ private fun clusteredCornerRadius(
     useFreeSide: Boolean = false,
     defaultRadius: Dp = MESSAGE_BUBBLE_CORNER_RADIUS_DP.dp,
 ): Dp {
-    if (!clustersWithAdjacent) {
-        return defaultRadius
+    return when {
+        !clustersWithAdjacent -> defaultRadius
+        useFreeSide -> defaultRadius
+        else -> MESSAGE_BUBBLE_CONNECTED_CORNER_RADIUS_DP.dp
     }
-
-    if (useFreeSide) {
-        return defaultRadius
-    }
-
-    return MESSAGE_BUBBLE_CONNECTED_CORNER_RADIUS_DP.dp
 }
 
 private fun buildConversationMessageBubbleLayoutMode(
@@ -414,25 +410,33 @@ private fun buildMessageMetadataText(
     timestamp: Long,
     statusText: String?,
 ): String? {
-    if (canClusterWithNext) {
-        return null
+    return when {
+        canClusterWithNext -> null
+        timestamp <= 0L -> statusText
+
+        else -> {
+            val formattedTime = DateUtils.formatDateTime(
+                context,
+                timestamp,
+                DateUtils.FORMAT_SHOW_TIME,
+            )
+
+            buildTimestampMetadataText(
+                formattedTime = formattedTime,
+                statusText = statusText,
+            )
+        }
     }
+}
 
-    if (timestamp <= 0L) {
-        return statusText
+private fun buildTimestampMetadataText(
+    formattedTime: String,
+    statusText: String?,
+): String {
+    return when (statusText) {
+        null -> formattedTime
+        else -> "$formattedTime \u2022 $statusText"
     }
-
-    val formattedTime = DateUtils.formatDateTime(
-        context,
-        timestamp,
-        DateUtils.FORMAT_SHOW_TIME,
-    )
-
-    if (statusText == null) {
-        return formattedTime
-    }
-
-    return "$formattedTime \u2022 $statusText"
 }
 
 @Suppress("CyclomaticComplexMethod")
