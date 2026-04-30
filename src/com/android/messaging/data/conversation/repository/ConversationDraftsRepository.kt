@@ -187,6 +187,7 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun resolveAudioDurationMillis(contentUri: String): Long {
         val mediaMetadataRetrieverWrapper = MediaMetadataRetrieverWrapper()
 
@@ -197,11 +198,11 @@ internal class ConversationDraftsRepositoryImpl @Inject constructor(
                 ?.toLongOrNull()
                 ?.coerceAtLeast(minimumValue = 0L)
                 ?: 0L
-        } catch (throwable: Throwable) {
+        } catch (exception: Exception) {
             LogUtil.w(
                 TAG,
                 "Failed to resolve draft audio duration for $contentUri",
-                throwable,
+                exception,
             )
 
             0L

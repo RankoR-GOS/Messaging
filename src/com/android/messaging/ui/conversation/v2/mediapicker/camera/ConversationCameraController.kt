@@ -243,6 +243,7 @@ private class ConversationCameraControllerImpl(
         )
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun handleCameraProviderReady(
         cameraProviderFuture: ListenableFuture<ProcessCameraProvider>,
         lifecycleOwner: LifecycleOwner,
@@ -263,8 +264,8 @@ private class ConversationCameraControllerImpl(
                 lifecycleOwner = lifecycleOwner,
                 processCameraProvider = processCameraProvider,
             )
-        } catch (throwable: Throwable) {
-            onError(throwable)
+        } catch (exception: Exception) {
+            onError(exception)
         }
     }
 

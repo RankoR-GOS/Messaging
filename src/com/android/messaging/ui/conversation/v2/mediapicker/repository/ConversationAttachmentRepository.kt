@@ -54,6 +54,7 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
     private val ioDispatcher: CoroutineDispatcher,
 ) : ConversationAttachmentRepository {
 
+    @Suppress("TooGenericExceptionCaught")
     override fun createDraftAttachmentsFromPhotoPicker(
         contentUris: List<String>,
     ): Flow<PhotoPickerDraftAttachmentResult> {
@@ -247,6 +248,7 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
         return copied
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun insertPendingRow(
         contentType: String,
         target: MediaStoreTarget,
@@ -424,6 +426,7 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun resolveImageAttachmentMetadata(uri: Uri): VisualAttachmentMetadata {
         val decodeBoundsOptions = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
@@ -444,6 +447,7 @@ internal class ConversationAttachmentRepositoryImpl @Inject constructor(
         )
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun resolveVideoAttachmentMetadata(uri: Uri): VisualAttachmentMetadata {
         val retriever = MediaMetadataRetriever()
 

@@ -585,6 +585,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
             .distinctUntilChanged()
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun resolveDraftSendProtocol(
         conversationId: String?,
         draft: ConversationDraft,
@@ -615,7 +616,7 @@ internal class ConversationDraftDelegateImpl @Inject constructor(
             }
         } catch (exception: CancellationException) {
             throw exception
-        } catch (exception: Throwable) {
+        } catch (exception: Exception) {
             LogUtil.e(
                 TAG,
                 "Failed to resolve draft send protocol for conversation $conversationId",

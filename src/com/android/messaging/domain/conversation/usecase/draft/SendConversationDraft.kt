@@ -44,6 +44,7 @@ internal class SendConversationDraftImpl @Inject constructor(
     private val ioDispatcher: CoroutineDispatcher,
 ) : SendConversationDraft {
 
+    @Suppress("TooGenericExceptionCaught")
     override operator fun invoke(
         conversationId: String,
         draft: ConversationDraft,

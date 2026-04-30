@@ -591,11 +591,12 @@ internal class ConversationAudioRecordingDelegateImpl @Inject constructor(
         return true
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun stopRecording(mediaRecorder: LevelTrackingMediaRecorder): Uri? {
         return try {
             mediaRecorder.stopRecording()
-        } catch (throwable: Throwable) {
-            LogUtil.w(TAG, "Failed to stop audio recording", throwable)
+        } catch (exception: Exception) {
+            LogUtil.w(TAG, "Failed to stop audio recording", exception)
             null
         }
     }
