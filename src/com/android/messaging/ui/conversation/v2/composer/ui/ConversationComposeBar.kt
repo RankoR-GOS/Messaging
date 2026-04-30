@@ -47,6 +47,8 @@ import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_SHAPE_C
 import com.android.messaging.ui.conversation.v2.CONVERSATION_SEND_BUTTON_TEST_TAG
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingPhase
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingUiState
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationSendActionButtonGestureState
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationSendActionButtonMode
 import com.android.messaging.ui.conversation.v2.conversationShape
 import com.android.messaging.ui.core.AppTheme
 import kotlinx.collections.immutable.ImmutableList

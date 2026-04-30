@@ -56,14 +56,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.messaging.R
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationSendActionButtonGestureState
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationSendActionButtonMode
 import com.android.messaging.ui.core.AppTheme
-
-@Immutable
-internal enum class ConversationSendActionButtonMode {
-    Send,
-    Record,
-    Stop,
-}
 
 @Immutable
 private data class ConversationSendActionButtonVisualState(

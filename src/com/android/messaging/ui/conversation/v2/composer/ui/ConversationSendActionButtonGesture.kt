@@ -4,7 +4,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -12,12 +11,8 @@ import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
-
-@Immutable
-internal data class ConversationSendActionButtonGestureState(
-    val cancelDragDistancePx: Float = 0f,
-    val lockDragDistancePx: Float = 0f,
-)
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationSendActionButtonGestureState
+import com.android.messaging.ui.conversation.v2.composer.model.ConversationSendActionButtonMode
 
 @Composable
 internal fun Modifier.conversationSendActionButtonGesture(

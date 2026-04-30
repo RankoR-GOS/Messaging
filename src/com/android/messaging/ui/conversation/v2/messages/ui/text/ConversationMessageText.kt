@@ -16,6 +16,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
+import com.android.messaging.ui.conversation.v2.messages.model.text.ConversationTextLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

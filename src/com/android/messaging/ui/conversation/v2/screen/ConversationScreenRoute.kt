@@ -26,9 +26,9 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingPhase
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerOverlay
-import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerPermissionState
 import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerState
 import com.android.messaging.ui.conversation.v2.mediapicker.RefreshConversationMediaPickerPermissionsEffect
+import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerPermissionState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationMediaPickerOverlayUiState
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenScaffoldUiState
 

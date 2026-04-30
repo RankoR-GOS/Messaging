@@ -1,35 +1,15 @@
 package com.android.messaging.ui.conversation.v2.mediapicker
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.SoftwareKeyboardController
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-
-@Stable
-internal class ConversationMediaPickerPermissionState(
-    context: Context,
-) {
-    var audioPermissionGranted by mutableStateOf(value = hasAudioPermission(context = context))
-    var cameraPermissionGranted by mutableStateOf(value = hasCameraPermission(context = context))
-
-    fun refresh(context: Context) {
-        audioPermissionGranted = hasAudioPermission(context = context)
-        cameraPermissionGranted = hasCameraPermission(context = context)
-    }
-}
+import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationMediaPickerPermissionState
 
 @Composable
 internal fun rememberConversationMediaPickerPermissionState():
@@ -78,28 +58,4 @@ internal fun HandleConversationMediaPickerVisibilityEffect(
         keyboardController?.show()
         state.shouldRestoreKeyboard = false
     }
-}
-
-private fun hasCameraPermission(context: Context): Boolean {
-    return isPermissionGranted(
-        context = context,
-        permission = Manifest.permission.CAMERA,
-    )
-}
-
-private fun hasAudioPermission(context: Context): Boolean {
-    return isPermissionGranted(
-        context = context,
-        permission = Manifest.permission.RECORD_AUDIO,
-    )
-}
-
-private fun isPermissionGranted(
-    context: Context,
-    permission: String,
-): Boolean {
-    return ContextCompat.checkSelfPermission(
-        context,
-        permission,
-    ) == PackageManager.PERMISSION_GRANTED
 }

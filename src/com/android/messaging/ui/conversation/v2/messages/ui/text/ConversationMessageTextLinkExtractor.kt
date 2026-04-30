@@ -6,14 +6,7 @@ import android.view.textclassifier.TextClassificationManager
 import android.view.textclassifier.TextClassifier
 import android.view.textclassifier.TextLinks
 import android.webkit.URLUtil
-import androidx.compose.runtime.Immutable
-
-@Immutable
-internal data class ConversationTextLink(
-    val start: Int,
-    val end: Int,
-    val url: String,
-)
+import com.android.messaging.ui.conversation.v2.messages.model.text.ConversationTextLink
 
 private data class ConversationLinkText(
     val start: Int,
