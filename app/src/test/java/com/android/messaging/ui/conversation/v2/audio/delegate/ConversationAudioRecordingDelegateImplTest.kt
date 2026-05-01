@@ -5,10 +5,10 @@ import com.android.messaging.data.conversation.model.draft.ConversationDraftAtta
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachment
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachmentKind
 import com.android.messaging.data.conversation.repository.ConversationSubscriptionsRepository
+import com.android.messaging.data.media.repository.ConversationAttachmentRepository
 import com.android.messaging.testutil.MainDispatcherRule
 import com.android.messaging.ui.conversation.v2.audio.model.ConversationAudioRecordingPhase
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
-import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import com.android.messaging.ui.mediapicker.LevelTrackingMediaRecorder
 import com.android.messaging.util.ContentType
 import io.mockk.CapturingSlot

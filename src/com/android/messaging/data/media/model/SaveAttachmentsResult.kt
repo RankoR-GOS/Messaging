@@ -1,4 +1,4 @@
-package com.android.messaging.ui.conversation.v2.mediapicker.repository
+package com.android.messaging.data.media.model
 
 internal data class SaveAttachmentsResult(
     val imageCount: Int,

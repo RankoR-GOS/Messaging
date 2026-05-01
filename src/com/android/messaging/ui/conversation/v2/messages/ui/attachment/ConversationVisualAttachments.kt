@@ -30,7 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.android.messaging.ui.conversation.v2.mediapicker.component.ConversationMediaThumbnail
+import com.android.messaging.ui.conversation.v2.attachment.ui.ConversationMediaThumbnail
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationMessageAttachment
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.util.ContentType

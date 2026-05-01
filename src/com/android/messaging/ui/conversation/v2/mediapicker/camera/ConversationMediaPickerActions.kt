@@ -1,7 +1,7 @@
 package com.android.messaging.ui.conversation.v2.mediapicker.camera
 
 import com.android.messaging.R
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.util.UiUtils
 
 internal fun handlePhotoCaptureRequest(

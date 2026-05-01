@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.ConversationCameraController
 import com.android.messaging.ui.conversation.v2.mediapicker.component.capture.ConversationMediaCameraPreviewSurface
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 
 @Composable
 internal fun ConversationMediaPickerCaptureScene(

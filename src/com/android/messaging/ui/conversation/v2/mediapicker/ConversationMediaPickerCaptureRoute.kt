@@ -3,13 +3,13 @@ package com.android.messaging.ui.conversation.v2.mediapicker
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.ConversationCameraController
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.handlePhotoCaptureRequest
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.handleSwitchCameraRequest
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.handleToggleFlashRequest
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.handleVideoCaptureRequest
 import com.android.messaging.ui.conversation.v2.mediapicker.component.capture.ConversationMediaCaptureContent
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 
 @Composable
 internal fun ConversationMediaCaptureRoute(

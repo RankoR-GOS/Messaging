@@ -1,4 +1,4 @@
-package com.android.messaging.ui.conversation.v2.mediapicker.component
+package com.android.messaging.ui.conversation.v2.attachment.ui
 
 import android.content.Context
 import android.graphics.Bitmap

@@ -1,12 +1,12 @@
 package com.android.messaging.ui.conversation.v2.messages.ui.attachment
 
 import com.android.messaging.R
+import com.android.messaging.ui.conversation.v2.attachment.model.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentItem
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentOpenAction
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentSections
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationMessageAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList

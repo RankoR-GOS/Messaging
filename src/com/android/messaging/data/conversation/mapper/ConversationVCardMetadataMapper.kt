@@ -1,9 +1,9 @@
-package com.android.messaging.ui.conversation.v2.messages.repository
+package com.android.messaging.data.conversation.mapper
 
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentMetadata
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
 import com.android.messaging.datamodel.data.VCardContactItemData
 import com.android.messaging.datamodel.media.VCardResourceEntry
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
 import javax.inject.Inject
 
 internal interface ConversationVCardMetadataMapper {

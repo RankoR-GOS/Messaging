@@ -8,8 +8,8 @@ import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDr
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegateImpl
 import com.android.messaging.ui.conversation.v2.focus.delegate.ConversationFocusDelegate
 import com.android.messaging.ui.conversation.v2.focus.delegate.ConversationFocusDelegateImpl
-import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
-import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegateImpl
+import com.android.messaging.ui.conversation.v2.mediapicker.delegate.ConversationMediaPickerDelegate
+import com.android.messaging.ui.conversation.v2.mediapicker.delegate.ConversationMediaPickerDelegateImpl
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegate
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegateImpl
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate

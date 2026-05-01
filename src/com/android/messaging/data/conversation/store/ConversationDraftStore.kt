@@ -1,4 +1,4 @@
-package com.android.messaging.data.conversation.repository
+package com.android.messaging.data.conversation.store
 
 import com.android.messaging.datamodel.BugleDatabaseOperations
 import com.android.messaging.datamodel.DataModel

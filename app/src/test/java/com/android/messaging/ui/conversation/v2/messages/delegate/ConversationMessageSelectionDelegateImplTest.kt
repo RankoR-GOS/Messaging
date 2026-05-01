@@ -6,8 +6,12 @@ import android.content.ClipboardManager
 import android.net.Uri
 import app.cash.turbine.test
 import com.android.messaging.R
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
 import com.android.messaging.data.conversation.model.message.ConversationMessageDetailsData
 import com.android.messaging.data.conversation.repository.ConversationsRepository
+import com.android.messaging.data.media.model.AttachmentToSave
+import com.android.messaging.data.media.model.SaveAttachmentsResult
+import com.android.messaging.data.media.repository.ConversationAttachmentRepository
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.ConversationParticipantsData
 import com.android.messaging.datamodel.data.MessageData
@@ -15,11 +19,7 @@ import com.android.messaging.datamodel.data.ParticipantData
 import com.android.messaging.domain.conversation.usecase.action.CheckConversationActionRequirements
 import com.android.messaging.domain.conversation.usecase.action.ConversationActionRequirementsResult
 import com.android.messaging.domain.conversation.usecase.forward.CreateForwardedMessage
-import com.android.messaging.ui.conversation.v2.mediapicker.model.AttachmentToSave
-import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
-import com.android.messaging.ui.conversation.v2.mediapicker.repository.SaveAttachmentsResult
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
+import com.android.messaging.ui.conversation.v2.attachment.model.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState

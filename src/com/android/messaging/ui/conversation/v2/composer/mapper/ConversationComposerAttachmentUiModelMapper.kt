@@ -1,11 +1,11 @@
 package com.android.messaging.ui.conversation.v2.composer.mapper
 
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentMetadata
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachment
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachmentKind
+import com.android.messaging.ui.conversation.v2.attachment.mapper.ConversationVCardAttachmentUiModelMapper
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
-import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationVCardAttachmentUiModelMapper
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
 import com.android.messaging.util.ContentType
 import javax.inject.Inject
 import kotlinx.collections.immutable.ImmutableList

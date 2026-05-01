@@ -2,8 +2,8 @@ package com.android.messaging.ui.conversation.v2.messages.ui.preview
 
 import android.net.Uri
 import androidx.core.net.toUri
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
+import com.android.messaging.ui.conversation.v2.attachment.model.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessageUiModel
 import com.android.messaging.util.ContentType

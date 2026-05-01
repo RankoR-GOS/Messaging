@@ -2,7 +2,7 @@ package com.android.messaging.ui.conversation.v2.composer.ui
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -10,12 +10,13 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.messaging.R
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
 import com.android.messaging.ui.conversation.v2.CONVERSATION_ATTACHMENT_PREVIEW_LIST_TEST_TAG
+import com.android.messaging.ui.conversation.v2.attachment.model.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
+import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel.Resolved.VCard
 import com.android.messaging.ui.conversation.v2.conversationAttachmentPreviewItemTestTag
 import com.android.messaging.ui.conversation.v2.conversationAttachmentPreviewRemoveButtonTestTag
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.core.AppTheme
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -194,7 +195,7 @@ class ConversationAttachmentPreviewTest {
             width = 640,
             height = 480,
         )
-        private val VCARD_ATTACHMENT = ComposerAttachmentUiModel.Resolved.VCard(
+        private val VCARD_ATTACHMENT = VCard(
             key = "resolved-vcard-1",
             contentType = "text/x-vCard",
             contentUri = "content://contacts/as_vcard/1",

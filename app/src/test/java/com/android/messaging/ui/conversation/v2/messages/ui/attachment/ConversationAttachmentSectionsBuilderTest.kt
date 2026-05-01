@@ -2,11 +2,11 @@ package com.android.messaging.ui.conversation.v2.messages.ui.attachment
 
 import android.net.Uri
 import com.android.messaging.R
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
+import com.android.messaging.ui.conversation.v2.attachment.model.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationAttachmentItem
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationInlineAttachment
 import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationMessageAttachment
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagePartUiModel
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals

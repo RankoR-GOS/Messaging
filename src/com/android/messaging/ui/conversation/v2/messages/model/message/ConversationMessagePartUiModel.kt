@@ -2,7 +2,7 @@ package com.android.messaging.ui.conversation.v2.messages.model.message
 
 import android.net.Uri
 import androidx.compose.runtime.Immutable
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
+import com.android.messaging.ui.conversation.v2.attachment.model.ConversationVCardAttachmentUiModel
 
 @Immutable
 internal sealed interface ConversationMessagePartUiModel {

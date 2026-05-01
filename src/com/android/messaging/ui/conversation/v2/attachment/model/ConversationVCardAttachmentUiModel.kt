@@ -1,6 +1,7 @@
-package com.android.messaging.ui.conversation.v2.messages.model.attachment
+package com.android.messaging.ui.conversation.v2.attachment.model
 
 import androidx.compose.runtime.Immutable
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
 
 @Immutable
 internal data class ConversationVCardAttachmentUiModel(
@@ -10,9 +11,3 @@ internal data class ConversationVCardAttachmentUiModel(
     val subtitleText: String? = null,
     val subtitleTextResId: Int? = null,
 )
-
-@Immutable
-internal enum class ConversationVCardAttachmentType {
-    CONTACT,
-    LOCATION,
-}

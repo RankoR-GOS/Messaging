@@ -1,4 +1,4 @@
-package com.android.messaging.ui.conversation.v2.mediapicker.model
+package com.android.messaging.data.media.model
 
 internal data class ConversationCapturedMedia(
     val contentUri: String,

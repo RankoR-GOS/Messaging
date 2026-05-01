@@ -14,9 +14,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.CONVERSATION_MEDIA_PICKER_OVERLAY_TEST_TAG
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 

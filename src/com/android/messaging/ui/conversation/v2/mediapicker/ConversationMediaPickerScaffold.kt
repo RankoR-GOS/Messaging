@@ -16,10 +16,10 @@ import androidx.compose.material3.BottomSheetScaffoldState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.ConversationCameraController
 import com.android.messaging.ui.conversation.v2.mediapicker.component.review.ConversationMediaReviewScene
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 

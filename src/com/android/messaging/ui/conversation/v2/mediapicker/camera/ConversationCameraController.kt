@@ -22,8 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.datamodel.MediaScratchFileProvider
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import com.android.messaging.util.ContentType
 import com.google.common.util.concurrent.ListenableFuture
 import java.io.File

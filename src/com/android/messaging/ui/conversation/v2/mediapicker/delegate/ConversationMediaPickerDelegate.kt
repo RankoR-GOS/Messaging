@@ -1,13 +1,13 @@
-package com.android.messaging.ui.conversation.v2.mediapicker
+package com.android.messaging.ui.conversation.v2.mediapicker.delegate
 
 import com.android.messaging.R
+import com.android.messaging.data.conversation.model.draft.PhotoPickerDraftAttachment
+import com.android.messaging.data.media.model.ConversationCapturedMedia
+import com.android.messaging.data.media.model.PhotoPickerDraftAttachmentResult
+import com.android.messaging.data.media.repository.ConversationAttachmentRepository
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.ui.conversation.v2.composer.delegate.ConversationDraftDelegate
 import com.android.messaging.ui.conversation.v2.mediapicker.mapper.ConversationDraftAttachmentMapper
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
-import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachment
-import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachmentResult
-import com.android.messaging.ui.conversation.v2.mediapicker.repository.ConversationAttachmentRepository
 import com.android.messaging.ui.conversation.v2.screen.model.ConversationScreenEffect
 import com.android.messaging.util.LogUtil
 import javax.inject.Inject

@@ -27,11 +27,11 @@ import androidx.photopicker.compose.EmbeddedPhotoPicker
 import androidx.photopicker.compose.EmbeddedPhotoPickerState
 import androidx.photopicker.compose.ExperimentalPhotoPickerComposeApi
 import androidx.photopicker.compose.rememberEmbeddedPhotoPickerState
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.BindConversationCameraLifecycleEffect
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.ConversationCameraController
 import com.android.messaging.ui.conversation.v2.mediapicker.camera.rememberConversationCameraController
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import com.android.messaging.util.ContentType
 import com.android.messaging.util.LogUtil
 import kotlinx.collections.immutable.ImmutableList

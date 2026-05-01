@@ -1,10 +1,11 @@
 package com.android.messaging.ui.conversation.v2.messages.repository
 
+import com.android.messaging.data.conversation.mapper.ConversationVCardMetadataMapperImpl
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentMetadata
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
 import com.android.messaging.datamodel.data.VCardContactItemData
 import com.android.messaging.datamodel.media.VCardResource
 import com.android.messaging.datamodel.media.VCardResourceEntry
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals

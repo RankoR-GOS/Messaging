@@ -1,4 +1,6 @@
-package com.android.messaging.ui.conversation.v2.mediapicker.model
+package com.android.messaging.data.media.model
+
+import com.android.messaging.data.conversation.model.draft.PhotoPickerDraftAttachment
 
 internal sealed interface PhotoPickerDraftAttachmentResult {
     data class Resolved(

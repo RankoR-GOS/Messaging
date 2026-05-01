@@ -2,8 +2,8 @@ package com.android.messaging.ui.conversation.v2.composer.mapper
 
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachment
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachmentKind
+import com.android.messaging.ui.conversation.v2.attachment.mapper.ConversationVCardAttachmentUiModelMapper
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
-import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationVCardAttachmentUiModelMapper
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Test

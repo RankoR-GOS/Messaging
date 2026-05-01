@@ -1,11 +1,12 @@
-package com.android.messaging.ui.conversation.v2.messages.repository
+package com.android.messaging.data.conversation.repository
 
 import android.content.Context
 import androidx.core.net.toUri
+import com.android.messaging.data.conversation.mapper.ConversationVCardMetadataMapper
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentMetadata
 import com.android.messaging.datamodel.DataModel
 import com.android.messaging.datamodel.data.PersonItemData
 import com.android.messaging.datamodel.data.VCardContactItemData
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.channels.awaitClose

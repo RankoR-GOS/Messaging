@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.android.messaging.R
 import com.android.messaging.data.conversation.model.draft.ConversationDraft
 import com.android.messaging.data.conversation.repository.ConversationSubscriptionsRepository
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.di.core.DefaultDispatcher
 import com.android.messaging.domain.conversation.usecase.action.CreateDefaultSmsRoleRequest
@@ -21,8 +22,7 @@ import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmen
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationComposerUiState
 import com.android.messaging.ui.conversation.v2.entry.model.ConversationEntryStartupAttachment
 import com.android.messaging.ui.conversation.v2.focus.delegate.ConversationFocusDelegate
-import com.android.messaging.ui.conversation.v2.mediapicker.ConversationMediaPickerDelegate
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
+import com.android.messaging.ui.conversation.v2.mediapicker.delegate.ConversationMediaPickerDelegate
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessageSelectionDelegate
 import com.android.messaging.ui.conversation.v2.messages.delegate.ConversationMessagesDelegate
 import com.android.messaging.ui.conversation.v2.messages.model.message.ConversationMessagesUiState

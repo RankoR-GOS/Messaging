@@ -41,8 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import com.android.messaging.R
+import com.android.messaging.ui.conversation.v2.attachment.ui.ConversationMediaThumbnail
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
-import com.android.messaging.ui.conversation.v2.mediapicker.component.ConversationMediaThumbnail
 import com.android.messaging.ui.conversation.v2.mediapicker.component.PickerOverlayBackgroundButton
 import com.android.messaging.ui.core.AppTheme
 import kotlin.math.absoluteValue

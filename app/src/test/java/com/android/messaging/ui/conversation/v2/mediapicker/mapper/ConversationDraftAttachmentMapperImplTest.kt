@@ -1,9 +1,9 @@
 package com.android.messaging.ui.conversation.v2.mediapicker.mapper
 
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
+import com.android.messaging.data.media.model.ConversationCapturedMedia
 import com.android.messaging.data.media.model.ConversationMediaItem
 import com.android.messaging.data.media.model.ConversationMediaType
-import com.android.messaging.ui.conversation.v2.mediapicker.model.ConversationCapturedMedia
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

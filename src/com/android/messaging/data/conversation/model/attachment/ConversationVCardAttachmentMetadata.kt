@@ -1,4 +1,4 @@
-package com.android.messaging.ui.conversation.v2.messages.model.attachment
+package com.android.messaging.data.conversation.model.attachment
 
 import androidx.compose.runtime.Immutable
 

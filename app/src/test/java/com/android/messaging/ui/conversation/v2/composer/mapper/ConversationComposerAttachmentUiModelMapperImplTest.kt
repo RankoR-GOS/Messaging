@@ -1,12 +1,12 @@
 package com.android.messaging.ui.conversation.v2.composer.mapper
 
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentMetadata
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachment
+import com.android.messaging.ui.conversation.v2.attachment.mapper.ConversationVCardAttachmentUiModelMapper
+import com.android.messaging.ui.conversation.v2.attachment.model.ConversationVCardAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
-import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationVCardAttachmentUiModelMapper
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentType
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentUiModel
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

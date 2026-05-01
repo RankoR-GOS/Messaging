@@ -1,14 +1,14 @@
 package com.android.messaging.ui.conversation.v2.composer.delegate
 
+import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentMetadata
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
 import com.android.messaging.data.conversation.model.draft.ConversationDraftPendingAttachment
+import com.android.messaging.data.conversation.repository.ConversationVCardMetadataRepository
 import com.android.messaging.di.core.DefaultDispatcher
+import com.android.messaging.ui.conversation.v2.attachment.mapper.ConversationVCardAttachmentUiModelMapper
 import com.android.messaging.ui.conversation.v2.composer.mapper.ConversationComposerAttachmentUiModelMapper
 import com.android.messaging.ui.conversation.v2.composer.model.ComposerAttachmentUiModel
 import com.android.messaging.ui.conversation.v2.composer.model.ConversationDraftState
-import com.android.messaging.ui.conversation.v2.messages.mapper.ConversationVCardAttachmentUiModelMapper
-import com.android.messaging.ui.conversation.v2.messages.model.attachment.ConversationVCardAttachmentMetadata
-import com.android.messaging.ui.conversation.v2.messages.repository.ConversationVCardMetadataRepository
 import javax.inject.Inject
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf

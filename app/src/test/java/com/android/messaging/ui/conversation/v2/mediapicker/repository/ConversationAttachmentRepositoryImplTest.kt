@@ -9,10 +9,12 @@ import android.provider.ContactsContract.Contacts
 import android.provider.MediaStore
 import app.cash.turbine.test
 import com.android.messaging.data.conversation.model.draft.ConversationDraftAttachment
+import com.android.messaging.data.conversation.model.draft.PhotoPickerDraftAttachment
+import com.android.messaging.data.media.model.AttachmentToSave
+import com.android.messaging.data.media.model.PhotoPickerDraftAttachmentResult
+import com.android.messaging.data.media.model.SaveAttachmentsResult
+import com.android.messaging.data.media.repository.ConversationAttachmentRepositoryImpl
 import com.android.messaging.datamodel.MediaScratchFileProvider
-import com.android.messaging.ui.conversation.v2.mediapicker.model.AttachmentToSave
-import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachment
-import com.android.messaging.ui.conversation.v2.mediapicker.model.PhotoPickerDraftAttachmentResult
 import com.android.messaging.util.ContentType
 import io.mockk.every
 import io.mockk.mockk
