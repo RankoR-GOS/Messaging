@@ -1,0 +1,396 @@
+package com.android.messaging.ui.conversation.entry
+
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import com.android.messaging.R
+import com.android.messaging.data.conversation.model.recipient.ConversationRecipient
+import com.android.messaging.ui.conversation.NEW_CHAT_CONTACT_RESOLVING_INDICATOR_TEST_TAG
+import com.android.messaging.ui.conversation.NEW_CHAT_CREATE_GROUP_NEXT_BUTTON_TEST_TAG
+import com.android.messaging.ui.conversation.newChatContactRowTestTag
+import com.android.messaging.ui.conversation.recipientpicker.RecipientPickerModel
+import com.android.messaging.ui.conversation.recipientpicker.model.RecipientPickerListItem
+import com.android.messaging.ui.conversation.recipientpicker.model.RecipientPickerUiState
+import com.android.messaging.ui.core.AppTheme
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
+import io.mockk.verify
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Rule
+import org.junit.Test
+
+class NewChatScreenTest {
+
+    @get:Rule
+    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun interactions_forwardQueryContactAndCreateGroupCallbacks() {
+        val pickerModel = mockk<RecipientPickerModel>()
+        val onContactClick = mockk<(String) -> Unit>(relaxed = true)
+        val onContactLongClick = mockk<(String) -> Unit>(relaxed = true)
+        val onCreateGroupClick = mockk<() -> Unit>(relaxed = true)
+        val onCreateGroupConfirmed = mockk<() -> Unit>(relaxed = true)
+        val onCreateGroupRecipientClick = mockk<(String) -> Unit>(relaxed = true)
+        val uiStateFlow = MutableStateFlow(
+            RecipientPickerUiState(
+                items = listOf(
+                    contactItem(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 555 0100",
+                    ),
+                ).toImmutableList(),
+            ),
+        )
+        every { pickerModel.uiState } returns uiStateFlow
+        every { pickerModel.onLoadMore() } just runs
+        every { pickerModel.onQueryChanged(query = any()) } just runs
+
+        setScreenContent(
+            pickerModel = pickerModel,
+            onContactClick = onContactClick,
+            onContactLongClick = onContactLongClick,
+            onCreateGroupClick = onCreateGroupClick,
+            onCreateGroupConfirmed = onCreateGroupConfirmed,
+            onCreateGroupRecipientClick = onCreateGroupRecipientClick,
+        )
+
+        composeTestRule
+            .onNode(matcher = hasSetTextAction())
+            .performTextInput("Ada")
+        composeTestRule
+            .onNodeWithText("Ada Lovelace")
+            .performClick()
+        composeTestRule
+            .onNodeWithText(
+                composeTestRule.activity.getString(R.string.conversation_new_group),
+            )
+            .performClick()
+
+        verify(exactly = 1) {
+            pickerModel.onQueryChanged(query = "Ada")
+        }
+        verify(exactly = 1) {
+            onContactClick.invoke("+1 555 0100")
+        }
+        verify(exactly = 0) {
+            onContactLongClick.invoke(any())
+        }
+        verify(exactly = 1) {
+            onCreateGroupClick.invoke()
+        }
+        verify(exactly = 0) {
+            onCreateGroupConfirmed.invoke()
+        }
+        verify(exactly = 0) {
+            onCreateGroupRecipientClick.invoke(any())
+        }
+    }
+
+    @Test
+    fun scrollingNearTheEnd_requestsLoadMoreWhenAllowed() {
+        val pickerModel = mockk<RecipientPickerModel>()
+        val uiStateFlow = MutableStateFlow(
+            RecipientPickerUiState(
+                items = List(size = 30) { index ->
+                    contactItem(
+                        id = "$index",
+                        displayName = "Contact $index",
+                        destination = "+1 555 ${
+                            index.toString().padStart(length = 4, padChar = '0')
+                        }",
+                    )
+                }.toImmutableList(),
+                canLoadMore = true,
+            ),
+        )
+        every { pickerModel.uiState } returns uiStateFlow
+        every { pickerModel.onLoadMore() } just runs
+        every { pickerModel.onQueryChanged(query = any()) } just runs
+
+        setScreenContent(pickerModel = pickerModel)
+
+        composeTestRule
+            .onNode(matcher = hasScrollToIndexAction())
+            .performScrollToIndex(index = 30)
+        composeTestRule.waitForIdle()
+
+        verify(exactly = 1) {
+            pickerModel.onLoadMore()
+        }
+    }
+
+    @Test
+    fun resolvingState_keepsCreateGroupButtonEnabledAndShowsRowProgressIndicatorAfterDelay() {
+        val pickerModel = mockk<RecipientPickerModel>()
+        val uiStateFlow = MutableStateFlow(
+            RecipientPickerUiState(
+                items = listOf(
+                    contactItem(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 555 0100",
+                    ),
+                ).toImmutableList(),
+            ),
+        )
+        every { pickerModel.uiState } returns uiStateFlow
+        every { pickerModel.onLoadMore() } just runs
+        every { pickerModel.onQueryChanged(query = any()) } just runs
+
+        setScreenContent(
+            pickerModel = pickerModel,
+            isResolvingConversation = true,
+            isResolvingIndicatorVisible = true,
+            resolvingRecipientDestination = "+1 555 0100",
+        )
+
+        composeTestRule
+            .onNodeWithText(
+                composeTestRule.activity.getString(R.string.conversation_new_group),
+            )
+            .assertIsEnabled()
+        composeTestRule
+            .onNodeWithText("Ada Lovelace")
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText(
+                composeTestRule.activity.getString(R.string.start_new_conversation),
+            )
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithTag(NEW_CHAT_CONTACT_RESOLVING_INDICATOR_TEST_TAG)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun resolvingState_hidesRowProgressIndicatorBeforeDelay() {
+        val pickerModel = mockk<RecipientPickerModel>()
+        val uiStateFlow = MutableStateFlow(
+            RecipientPickerUiState(
+                items = listOf(
+                    contactItem(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 555 0100",
+                    ),
+                ).toImmutableList(),
+            ),
+        )
+        every { pickerModel.uiState } returns uiStateFlow
+        every { pickerModel.onLoadMore() } just runs
+        every { pickerModel.onQueryChanged(query = any()) } just runs
+
+        setScreenContent(
+            pickerModel = pickerModel,
+            isResolvingConversation = true,
+            isResolvingIndicatorVisible = false,
+            resolvingRecipientDestination = "+1 555 0100",
+        )
+
+        composeTestRule
+            .onAllNodesWithTag(NEW_CHAT_CONTACT_RESOLVING_INDICATOR_TEST_TAG)
+            .assertCountEquals(expectedSize = 0)
+        composeTestRule
+            .onNodeWithText(
+                composeTestRule.activity.getString(R.string.conversation_new_group),
+            )
+            .assertIsEnabled()
+    }
+
+    @Test
+    fun createGroupMode_hidesEntryButtonShowsInlineTitleAndTogglesSelection() {
+        val pickerModel = mockk<RecipientPickerModel>()
+        val onContactClick = mockk<(String) -> Unit>(relaxed = true)
+        val onCreateGroupRecipientClick = mockk<(String) -> Unit>(relaxed = true)
+        val uiStateFlow = MutableStateFlow(
+            RecipientPickerUiState(
+                items = listOf(
+                    contactItem(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 555 0100",
+                    ),
+                ).toImmutableList(),
+            ),
+        )
+        every { pickerModel.uiState } returns uiStateFlow
+        every { pickerModel.onLoadMore() } just runs
+        every { pickerModel.onQueryChanged(query = any()) } just runs
+
+        setScreenContent(
+            pickerModel = pickerModel,
+            isCreatingGroup = true,
+            onContactClick = onContactClick,
+            onCreateGroupRecipientClick = onCreateGroupRecipientClick,
+            selectedGroupRecipientDestinations = emptyList<String>().toImmutableList(),
+        )
+
+        composeTestRule
+            .onNodeWithText(
+                composeTestRule.activity.getString(R.string.conversation_new_group),
+            )
+            .assertIsDisplayed()
+        composeTestRule
+            .onAllNodesWithTag(NEW_CHAT_CREATE_GROUP_NEXT_BUTTON_TEST_TAG)
+            .assertCountEquals(expectedSize = 0)
+        composeTestRule
+            .onNodeWithTag(newChatContactRowTestTag(contactId = "1"))
+            .assertIsNotSelected()
+            .performClick()
+
+        verify(exactly = 1) {
+            onCreateGroupRecipientClick.invoke("+1 555 0100")
+        }
+        verify(exactly = 0) {
+            onContactClick.invoke(any())
+        }
+    }
+
+    @Test
+    fun createGroupMode_showsNextButtonWhenSelectionExists() {
+        val pickerModel = mockk<RecipientPickerModel>()
+        val onCreateGroupConfirmed = mockk<() -> Unit>(relaxed = true)
+        val uiStateFlow = MutableStateFlow(
+            RecipientPickerUiState(
+                items = listOf(
+                    contactItem(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 555 0100",
+                    ),
+                ).toImmutableList(),
+            ),
+        )
+        every { pickerModel.uiState } returns uiStateFlow
+        every { pickerModel.onLoadMore() } just runs
+        every { pickerModel.onQueryChanged(query = any()) } just runs
+
+        setScreenContent(
+            pickerModel = pickerModel,
+            isCreatingGroup = true,
+            onCreateGroupConfirmed = onCreateGroupConfirmed,
+            selectedGroupRecipientDestinations = listOf("+1 555 0100").toImmutableList(),
+        )
+
+        composeTestRule
+            .onNodeWithTag(newChatContactRowTestTag(contactId = "1"))
+            .assertIsSelected()
+        composeTestRule
+            .onNodeWithTag(NEW_CHAT_CREATE_GROUP_NEXT_BUTTON_TEST_TAG)
+            .assertIsDisplayed()
+            .performClick()
+
+        verify(exactly = 1) {
+            onCreateGroupConfirmed.invoke()
+        }
+    }
+
+    @Test
+    fun longPress_onContactForwardsLongPressCallback() {
+        val pickerModel = mockk<RecipientPickerModel>()
+        val onContactClick = mockk<(String) -> Unit>(relaxed = true)
+        val onContactLongClick = mockk<(String) -> Unit>(relaxed = true)
+        val uiStateFlow = MutableStateFlow(
+            RecipientPickerUiState(
+                items = listOf(
+                    contactItem(
+                        id = "1",
+                        displayName = "Ada Lovelace",
+                        destination = "+1 555 0100",
+                    ),
+                ).toImmutableList(),
+            ),
+        )
+        every { pickerModel.uiState } returns uiStateFlow
+        every { pickerModel.onLoadMore() } just runs
+        every { pickerModel.onQueryChanged(query = any()) } just runs
+
+        setScreenContent(
+            pickerModel = pickerModel,
+            onContactClick = onContactClick,
+            onContactLongClick = onContactLongClick,
+        )
+
+        composeTestRule
+            .onNodeWithTag(newChatContactRowTestTag(contactId = "1"))
+            .performTouchInput {
+                down(center)
+                advanceEventTime(1_000)
+                up()
+            }
+
+        verify(exactly = 1) {
+            onContactLongClick.invoke("+1 555 0100")
+        }
+        verify(exactly = 0) {
+            onContactClick.invoke(any())
+        }
+    }
+
+    private fun setScreenContent(
+        pickerModel: RecipientPickerModel,
+        isCreatingGroup: Boolean = false,
+        isResolvingConversation: Boolean = false,
+        isResolvingIndicatorVisible: Boolean = false,
+        onContactClick: (String) -> Unit = {},
+        onContactLongClick: (String) -> Unit = {},
+        onCreateGroupClick: () -> Unit = {},
+        onCreateGroupConfirmed: () -> Unit = {},
+        onCreateGroupRecipientClick: (String) -> Unit = {},
+        resolvingRecipientDestination: String? = null,
+        selectedGroupRecipientDestinations: ImmutableList<String> =
+            emptyList<String>().toImmutableList(),
+    ) {
+        composeTestRule.setContent {
+            AppTheme {
+                NewChatScreen(
+                    isCreatingGroup = isCreatingGroup,
+                    isResolvingConversation = isResolvingConversation,
+                    isResolvingConversationIndicatorVisible = isResolvingIndicatorVisible,
+                    onContactClick = onContactClick,
+                    onContactLongClick = onContactLongClick,
+                    onCreateGroupClick = onCreateGroupClick,
+                    onCreateGroupConfirmed = onCreateGroupConfirmed,
+                    onCreateGroupRecipientClick = onCreateGroupRecipientClick,
+                    pickerModel = pickerModel,
+                    resolvingRecipientDestination = resolvingRecipientDestination,
+                    selectedGroupRecipientDestinations = selectedGroupRecipientDestinations,
+                )
+            }
+        }
+    }
+
+    private fun contactItem(
+        id: String,
+        displayName: String,
+        destination: String,
+    ): RecipientPickerListItem.Contact {
+        return RecipientPickerListItem.Contact(
+            recipient = ConversationRecipient(
+                id = id,
+                displayName = displayName,
+                destination = destination,
+                secondaryText = destination,
+            ),
+        )
+    }
+}
