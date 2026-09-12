@@ -33,6 +33,7 @@ import com.android.messaging.util.Assert.DoesNotRunOnMainThread;
 import com.android.messaging.util.LogUtil;
 import com.google.common.annotations.VisibleForTesting;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -659,6 +660,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         // Recreate the whole database.
         createDatabase(db);
+
+        // Dropping parts took its sqlite_sequence row along, so parts._id restarts at 1.
+        // The notification images are named after those ids and outlive the database, so
+        // leaving them behind would serve one part's image as the image of whatever part
+        // next takes its id
+        for (final File image : NotificationImageProvider.listImageFiles()) {
+            image.delete();
+        }
     }
 
     /**

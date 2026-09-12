@@ -11,6 +11,7 @@ import com.android.messaging.testutil.installTestFactory
 import io.mockk.unmockkAll
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -66,6 +67,28 @@ class DatabaseUpgradeHelperTest {
                 ),
             )
         }
+    }
+
+    /**
+     * rebuildTables() drops the parts table, and that takes its sqlite_sequence row along, so
+     * parts._id restarts at 1. Notification images are named after the part they were transcoded
+     * from and outlive the database, so a leftover image for part 1 would be served as the image
+     * of whatever part next takes that id - showing an unrelated photo in a notification.
+     */
+    @Test
+    fun rebuildTables_discardsCachedNotificationImages() {
+        val stale = checkNotNull(
+            NotificationImageProvider.buildNotificationImageUri("1")
+                ?.let(NotificationImageProvider::getFileFromUri)
+        )
+        stale.writeBytes(byteArrayOf(1, 2, 3))
+
+        SQLiteDatabase.create(null).use(DatabaseHelper::rebuildTables)
+
+        assertFalse(
+            "a cached notification image outlived the part id space it was named after",
+            stale.exists(),
+        )
     }
 
     @Test
