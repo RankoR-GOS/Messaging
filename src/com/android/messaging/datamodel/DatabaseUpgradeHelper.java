@@ -25,6 +25,8 @@ import com.android.messaging.util.Assert;
 import com.android.messaging.util.LogUtil;
 import com.google.common.annotations.VisibleForTesting;
 
+import java.util.List;
+
 public class DatabaseUpgradeHelper {
     private static final String TAG = LogUtil.BUGLE_DATABASE_TAG;
 
@@ -194,6 +196,12 @@ public class DatabaseUpgradeHelper {
             LogUtil.i(TAG, "Database downgraded from version " + oldVersion + " to version "
                     + newVersion + ", keeping its rows");
             return;
+        }
+        // A newer version keeps RCS messages in rcs_* tables. Rebuilding would drop them, so
+        // DatabaseHelper sets the whole database aside for that version to restore.
+        final List<String> rcsTables = DatabaseHelper.queryRcsTables(db);
+        if (!rcsTables.isEmpty()) {
+            throw new NewerRcsDatabaseException(rcsTables);
         }
         DatabaseHelper.rebuildTables(db);
         LogUtil.e(TAG, "Database downgrade requested for version " +

@@ -23,6 +23,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -322,6 +323,55 @@ class DatabaseUpgradeHelperTest {
         }
     }
 
+    @Test
+    fun onDowngrade_fromAnIncompatibleVersionWithRcsTables_refusesAndKeepsEveryRow() {
+        SQLiteDatabase.create(null).use { db ->
+            DatabaseHelper.rebuildTables(db)
+            db.insertBlockedAndArchivedConversation()
+            db.createRcsTableWithOneRow()
+
+            assertThrows(NewerRcsDatabaseException::class.java) { db.downgradeFromNewerVersion() }
+
+            assertEquals(1, db.countRows(DatabaseHelper.CONVERSATIONS_TABLE))
+            assertEquals(1, db.countRows(DatabaseHelper.MESSAGES_TABLE))
+            assertEquals(1, db.countRows(RCS_TABLE))
+        }
+    }
+
+    @Test
+    fun aFailedUpgradeWithRcsTables_refusesAndKeepsEveryRow() {
+        SQLiteDatabase.create(null).use { db ->
+            DatabaseHelper.rebuildTables(db)
+            db.insertBlockedAndArchivedConversation()
+            db.createRcsTableWithOneRow()
+
+            assertThrows(RcsTablesPresentException::class.java) {
+                // No handler leads past the current version, so the upgrade fails.
+                DatabaseUpgradeHelper().doOnUpgrade(db, currentVersion, currentVersion + 1)
+            }
+
+            assertEquals(1, db.countRows(DatabaseHelper.MESSAGES_TABLE))
+            assertEquals(1, db.countRows(RCS_TABLE))
+        }
+    }
+
+    @Test
+    fun aFailedUpgradeWithoutRcsTables_stillRebuildsTheTables() {
+        SQLiteDatabase.create(null).use { db ->
+            DatabaseHelper.rebuildTables(db)
+            db.insertBlockedAndArchivedConversation()
+
+            DatabaseUpgradeHelper().doOnUpgrade(db, currentVersion, currentVersion + 1)
+
+            assertEquals(0, db.countRows(DatabaseHelper.MESSAGES_TABLE))
+        }
+    }
+
+    private fun SQLiteDatabase.createRcsTableWithOneRow() {
+        execSQL("CREATE TABLE $RCS_TABLE (_id INTEGER PRIMARY KEY, message_id INTEGER)")
+        execSQL("INSERT INTO $RCS_TABLE (_id, message_id) VALUES (1, 1)")
+    }
+
     private fun SQLiteDatabase.insertConversation(): Long {
         return insert(
             DatabaseHelper.CONVERSATIONS_TABLE,
@@ -417,6 +467,7 @@ class DatabaseUpgradeHelperTest {
     private companion object {
         const val BLOCKED_DESTINATION = "+15550100"
         const val FUTURE_COLUMN = "future_flag"
+        const val RCS_TABLE = "rcs_messages"
         const val ADD_FUTURE_COLUMN_SQL = "ALTER TABLE ${DatabaseHelper.CONVERSATIONS_TABLE} " +
             "ADD COLUMN $FUTURE_COLUMN INT DEFAULT(0)"
     }

@@ -5,6 +5,9 @@
             domain="database"
             path="bugle_db" />
         <exclude
+            domain="database"
+            path="bugle_db_newer" />
+        <exclude
             domain="sharedpref"
             path="bugle_widgets.xml" />
         <exclude
@@ -21,6 +24,9 @@
         <exclude
             domain="database"
             path="bugle_db" />
+        <exclude
+            domain="database"
+            path="bugle_db_newer" />
         <exclude
             domain="sharedpref"
             path="bugle_widgets.xml" />

@@ -7,6 +7,18 @@ import org.xmlpull.v1.XmlPullParser
 private const val BACKUP_RULE_DEPTH = 2
 
 internal fun backupRulesExcluding(context: Context, sharedPreferencesName: String): Set<String> {
+    return backupRulesExcluding(
+        context = context,
+        domain = "sharedpref",
+        path = "$sharedPreferencesName.xml",
+    )
+}
+
+internal fun backupRulesExcludingDatabase(context: Context, databaseName: String): Set<String> {
+    return backupRulesExcluding(context = context, domain = "database", path = databaseName)
+}
+
+private fun backupRulesExcluding(context: Context, domain: String, path: String): Set<String> {
     val excludingRules = mutableSetOf<String>()
     context.resources.getXml(R.xml.backup_rules).use { parser ->
         var rule = ""
@@ -14,16 +26,15 @@ internal fun backupRulesExcluding(context: Context, sharedPreferencesName: Strin
             when {
                 parser.eventType != XmlPullParser.START_TAG -> Unit
                 parser.depth == BACKUP_RULE_DEPTH -> rule = parser.name
-                parser.excludesSharedPreferences(name = sharedPreferencesName) ->
-                    excludingRules += rule
+                parser.excludes(domain = domain, path = path) -> excludingRules += rule
             }
         }
     }
     return excludingRules
 }
 
-private fun XmlPullParser.excludesSharedPreferences(name: String): Boolean {
-    return this.name == "exclude" &&
-        getAttributeValue(null, "domain") == "sharedpref" &&
-        getAttributeValue(null, "path") == "$name.xml"
+private fun XmlPullParser.excludes(domain: String, path: String): Boolean {
+    return name == "exclude" &&
+        getAttributeValue(null, "domain") == domain &&
+        getAttributeValue(null, "path") == path
 }

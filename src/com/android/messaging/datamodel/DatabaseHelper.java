@@ -51,6 +51,12 @@ import java.util.concurrent.ThreadLocalRandom;
 public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "bugle_db";
 
+    /**
+     * Where a newer version's database goes when downgrading it would lose RCS messages. The
+     * newer version moves it back once it is installed again.
+     */
+    public static final String NEWER_DATABASE_NAME = "bugle_db_newer";
+
     public static final int getDatabaseVersion(final Context context) {
         return Integer.parseInt(context.getResources().getString(R.string.database_version));
     }
@@ -62,6 +68,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String PRIMARY_TABLE = "sqlite_master";
     /** Column containing the name of the tables and views */
     private static final String[] PRIMARY_COLUMNS = new String[] { "name", };
+
+    private static final String RCS_TABLE_PREFIX = "rcs_";
 
     // Table names
     public static final String CONVERSATIONS_TABLE = "conversations";
@@ -653,9 +661,26 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         synchronized (mDatabaseWrapperLock) {
             if (mDatabaseWrapper == null) {
-                mDatabaseWrapper = new DatabaseWrapper(mApplicationContext, getWritableDatabase());
+                mDatabaseWrapper = new DatabaseWrapper(mApplicationContext, openWritableDatabase());
             }
             return mDatabaseWrapper;
+        }
+    }
+
+    /**
+     * Opens the database, setting a newer version's database aside when downgrading it would drop
+     * its RCS tables. Failing to open instead would also fail every incoming SMS before it reaches
+     * the system provider, and lose it for good.
+     */
+    @VisibleForTesting
+    SQLiteDatabase openWritableDatabase() {
+        try {
+            return getWritableDatabase();
+        } catch (final NewerRcsDatabaseException ex) {
+            LogUtil.w(LogUtil.BUGLE_DATABASE_TAG, "Setting a newer database aside", ex);
+            DatabaseFiles.moveDatabase(mApplicationContext.getDatabasePath(DATABASE_NAME),
+                    mApplicationContext.getDatabasePath(NEWER_DATABASE_NAME));
+            return getWritableDatabase();
         }
     }
 
@@ -668,12 +693,37 @@ public class DatabaseHelper extends SQLiteOpenHelper {
      * Drops and recreates all tables.
      */
     public static void rebuildTables(final SQLiteDatabase db) {
+        refuseToDropRcsTables(db);
+
         // Drop tables first, then views, and indices.
         dropAllTables(db);
         dropIndexesViewsAndTriggers(db);
 
         // Recreate the whole database.
         createDatabase(db);
+    }
+
+    /**
+     * Unlike SMS and MMS, sync can't bring RCS messages back from the system provider, so a
+     * rebuild would lose them for good. A failed upgrade fails to open instead and leaves the
+     * database at its version. A downgrade never gets here with RCS tables, it sets the database
+     * aside first.
+     */
+    private static void refuseToDropRcsTables(final SQLiteDatabase db) {
+        final List<String> rcsTables = queryRcsTables(db);
+        if (!rcsTables.isEmpty()) {
+            throw new RcsTablesPresentException(rcsTables);
+        }
+    }
+
+    static List<String> queryRcsTables(final SQLiteDatabase db) {
+        final List<String> rcsTables = new ArrayList<>();
+        for (final String table : queryUserDefinedNames(db, "table")) {
+            if (table.startsWith(RCS_TABLE_PREFIX)) {
+                rcsTables.add(table);
+            }
+        }
+        return rcsTables;
     }
 
     /**
