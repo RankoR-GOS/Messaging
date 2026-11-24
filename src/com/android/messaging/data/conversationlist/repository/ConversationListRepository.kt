@@ -16,12 +16,14 @@ import com.android.messaging.data.conversationlist.store.ConversationListStatusS
 import com.android.messaging.data.conversationsettings.model.SNOOZE_NEVER_EXPIRES
 import com.android.messaging.data.conversationsettings.model.SnoozeOption
 import com.android.messaging.data.conversationsettings.repository.ConversationNotificationRepository
+import com.android.messaging.data.message.mapper.MessageDataMapper
 import com.android.messaging.datamodel.DatabaseHelper.ParticipantColumns
 import com.android.messaging.datamodel.MessagingContentProvider
 import com.android.messaging.datamodel.data.ConversationListData
 import com.android.messaging.datamodel.data.ConversationListItemData
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.di.core.MessagingDbDispatcher
+import com.android.messaging.domain.message.model.MessageStatus
 import com.android.messaging.util.db.ext.getStringOrNull
 import javax.inject.Inject
 import kotlinx.collections.immutable.ImmutableList
@@ -58,6 +60,7 @@ internal class ConversationListRepositoryImpl @Inject constructor(
     private val contentResolver: ContentResolver,
     private val statusStore: ConversationListStatusStore,
     private val notificationRepository: ConversationNotificationRepository,
+    private val messageDataMapper: MessageDataMapper,
     @param:MessagingDbDispatcher
     private val messagingDbDispatcher: CoroutineDispatcher,
 ) : ConversationListRepository {
@@ -293,50 +296,56 @@ internal class ConversationListRepositoryImpl @Inject constructor(
         status: Int,
         rawTelephonyStatus: Int,
     ): ConversationListMessageStatus {
-        return when (status) {
-            MessageData.BUGLE_STATUS_OUTGOING_DRAFT -> {
+        return when (messageDataMapper.statusOf(status)) {
+            MessageStatus.OUTGOING_DRAFT -> {
                 ConversationListMessageStatus.Draft
             }
 
-            MessageData.BUGLE_STATUS_UNKNOWN -> {
+            MessageStatus.UNKNOWN -> {
                 ConversationListMessageStatus.Unknown
             }
 
-            MessageData.BUGLE_STATUS_OUTGOING_YET_TO_SEND,
-            MessageData.BUGLE_STATUS_OUTGOING_AWAITING_RETRY,
-            MessageData.BUGLE_STATUS_OUTGOING_SENDING,
-            MessageData.BUGLE_STATUS_OUTGOING_RESENDING,
+            MessageStatus.OUTGOING_YET_TO_SEND,
+            MessageStatus.OUTGOING_AWAITING_RETRY,
+            MessageStatus.OUTGOING_SENDING,
+            MessageStatus.OUTGOING_RESENDING,
             -> {
                 ConversationListMessageStatus.Sending
             }
 
-            MessageData.BUGLE_STATUS_INCOMING_YET_TO_MANUAL_DOWNLOAD -> {
+            MessageStatus.INCOMING_YET_TO_MANUAL_DOWNLOAD -> {
                 ConversationListMessageStatus.IncomingAwaitingManualDownload
             }
 
-            MessageData.BUGLE_STATUS_INCOMING_AUTO_DOWNLOADING,
-            MessageData.BUGLE_STATUS_INCOMING_MANUAL_DOWNLOADING,
-            MessageData.BUGLE_STATUS_INCOMING_RETRYING_AUTO_DOWNLOAD,
-            MessageData.BUGLE_STATUS_INCOMING_RETRYING_MANUAL_DOWNLOAD,
+            MessageStatus.INCOMING_AUTO_DOWNLOADING,
+            MessageStatus.INCOMING_MANUAL_DOWNLOADING,
+            MessageStatus.INCOMING_RETRYING_AUTO_DOWNLOAD,
+            MessageStatus.INCOMING_RETRYING_MANUAL_DOWNLOAD,
             -> {
                 ConversationListMessageStatus.IncomingDownloading
             }
 
-            MessageData.BUGLE_STATUS_INCOMING_DOWNLOAD_FAILED -> {
+            MessageStatus.INCOMING_DOWNLOAD_FAILED -> {
                 ConversationListMessageStatus.IncomingDownloadFailed
             }
 
-            MessageData.BUGLE_STATUS_INCOMING_EXPIRED_OR_NOT_AVAILABLE -> {
+            MessageStatus.INCOMING_EXPIRED_OR_NOT_AVAILABLE -> {
                 ConversationListMessageStatus.IncomingExpiredOrUnavailable
             }
 
-            MessageData.BUGLE_STATUS_OUTGOING_FAILED,
-            MessageData.BUGLE_STATUS_OUTGOING_FAILED_EMERGENCY_NUMBER,
+            MessageStatus.OUTGOING_FAILED,
+            MessageStatus.OUTGOING_FAILED_EMERGENCY_NUMBER,
             -> {
                 ConversationListMessageStatus.Failed(rawTelephonyStatus)
             }
 
-            else -> ConversationListMessageStatus.Normal
+            null,
+            MessageStatus.OUTGOING_COMPLETE,
+            MessageStatus.OUTGOING_DELIVERED,
+            MessageStatus.INCOMING_COMPLETE,
+            -> {
+                ConversationListMessageStatus.Normal
+            }
         }
     }
 

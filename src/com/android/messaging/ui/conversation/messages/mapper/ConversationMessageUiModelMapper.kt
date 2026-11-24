@@ -3,9 +3,11 @@ package com.android.messaging.ui.conversation.messages.mapper
 import com.android.messaging.data.conversation.model.ConversationId
 import com.android.messaging.data.conversation.model.MessageId
 import com.android.messaging.data.conversation.model.ParticipantId
+import com.android.messaging.data.message.mapper.MessageDataMapper
 import com.android.messaging.datamodel.data.ConversationMessageData
-import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.MessagePartData
+import com.android.messaging.domain.message.model.MessageProtocol
+import com.android.messaging.domain.message.model.MessageStatus
 import com.android.messaging.ui.conversation.attachment.mapper.ConversationVCardAttachmentUiModelMapper
 import com.android.messaging.ui.conversation.messages.model.message.ConversationMessagePartUiModel
 import com.android.messaging.ui.conversation.messages.model.message.ConversationMessageUiModel
@@ -24,6 +26,7 @@ internal interface ConversationMessageUiModelMapper {
 
 internal class ConversationMessageUiModelMapperImpl @Inject constructor(
     private val conversationVCardAttachmentUiModelMapper: ConversationVCardAttachmentUiModelMapper,
+    private val messageDataMapper: MessageDataMapper,
 ) : ConversationMessageUiModelMapper {
 
     override fun map(data: ConversationMessageData): ConversationMessageUiModel? {
@@ -51,7 +54,7 @@ internal class ConversationMessageUiModelMapperImpl @Inject constructor(
                 sentTimestamp = data.sentTimeStamp,
                 receivedTimestamp = data.receivedTimeStamp,
             ),
-            status = mapStatus(data.status),
+            status = mapStatus(javaStatus = data.status),
             isIncoming = data.isIncoming,
             senderDisplayName = data.senderDisplayName,
             senderAvatarUri = data.senderProfilePhotoUri,
@@ -70,29 +73,29 @@ internal class ConversationMessageUiModelMapperImpl @Inject constructor(
             canSaveAttachments = canSaveAttachments(data),
             mmsDownload = mapMmsDownload(data = data),
             mmsSubject = data.mmsSubject,
-            protocol = mapProtocol(data),
+            protocol = mapProtocol(protocol = messageDataMapper.protocolOf(data.protocol)),
         )
     }
 
     private fun mapMmsDownload(data: ConversationMessageData): MmsDownloadUiModel? {
-        val state = when (data.status) {
-            MessageData.BUGLE_STATUS_INCOMING_YET_TO_MANUAL_DOWNLOAD -> {
+        val state = when (messageDataMapper.statusOf(data.status)) {
+            MessageStatus.INCOMING_YET_TO_MANUAL_DOWNLOAD -> {
                 MmsDownloadUiModel.State.AwaitingManualDownload
             }
 
-            MessageData.BUGLE_STATUS_INCOMING_AUTO_DOWNLOADING,
-            MessageData.BUGLE_STATUS_INCOMING_MANUAL_DOWNLOADING,
-            MessageData.BUGLE_STATUS_INCOMING_RETRYING_AUTO_DOWNLOAD,
-            MessageData.BUGLE_STATUS_INCOMING_RETRYING_MANUAL_DOWNLOAD,
+            MessageStatus.INCOMING_AUTO_DOWNLOADING,
+            MessageStatus.INCOMING_MANUAL_DOWNLOADING,
+            MessageStatus.INCOMING_RETRYING_AUTO_DOWNLOAD,
+            MessageStatus.INCOMING_RETRYING_MANUAL_DOWNLOAD,
             -> {
                 MmsDownloadUiModel.State.Downloading
             }
 
-            MessageData.BUGLE_STATUS_INCOMING_DOWNLOAD_FAILED -> {
+            MessageStatus.INCOMING_DOWNLOAD_FAILED -> {
                 MmsDownloadUiModel.State.DownloadFailed
             }
 
-            MessageData.BUGLE_STATUS_INCOMING_EXPIRED_OR_NOT_AVAILABLE -> {
+            MessageStatus.INCOMING_EXPIRED_OR_NOT_AVAILABLE -> {
                 MmsDownloadUiModel.State.ExpiredOrUnavailable
             }
 
@@ -209,53 +212,46 @@ internal class ConversationMessageUiModelMapperImpl @Inject constructor(
 
     @Suppress("CyclomaticComplexMethod")
     private fun mapStatus(javaStatus: Int): Status {
-        return when (javaStatus) {
-            MessageData.BUGLE_STATUS_UNKNOWN -> Status.Unknown
-
-            MessageData.BUGLE_STATUS_OUTGOING_COMPLETE -> Status.Outgoing.Complete
-            MessageData.BUGLE_STATUS_OUTGOING_DELIVERED -> Status.Outgoing.Delivered
-            MessageData.BUGLE_STATUS_OUTGOING_DRAFT -> Status.Outgoing.Draft
-            MessageData.BUGLE_STATUS_OUTGOING_YET_TO_SEND -> Status.Outgoing.YetToSend
-            MessageData.BUGLE_STATUS_OUTGOING_SENDING -> Status.Outgoing.Sending
-            MessageData.BUGLE_STATUS_OUTGOING_RESENDING -> Status.Outgoing.Resending
-            MessageData.BUGLE_STATUS_OUTGOING_AWAITING_RETRY -> Status.Outgoing.AwaitingRetry
-            MessageData.BUGLE_STATUS_OUTGOING_FAILED -> Status.Outgoing.Failed
-            MessageData.BUGLE_STATUS_OUTGOING_FAILED_EMERGENCY_NUMBER ->
-                Status.Outgoing.FailedEmergencyNumber
-
-            MessageData.BUGLE_STATUS_INCOMING_COMPLETE -> Status.Incoming.Complete
-            MessageData.BUGLE_STATUS_INCOMING_YET_TO_MANUAL_DOWNLOAD ->
-                Status.Incoming.YetToManualDownload
-
-            MessageData.BUGLE_STATUS_INCOMING_RETRYING_MANUAL_DOWNLOAD ->
-                Status.Incoming.RetryingManualDownload
-
-            MessageData.BUGLE_STATUS_INCOMING_MANUAL_DOWNLOADING ->
-                Status.Incoming.ManualDownloading
-
-            MessageData.BUGLE_STATUS_INCOMING_RETRYING_AUTO_DOWNLOAD ->
-                Status.Incoming.RetryingAutoDownload
-
-            MessageData.BUGLE_STATUS_INCOMING_AUTO_DOWNLOADING -> Status.Incoming.AutoDownloading
-            MessageData.BUGLE_STATUS_INCOMING_DOWNLOAD_FAILED -> Status.Incoming.DownloadFailed
-
-            MessageData.BUGLE_STATUS_INCOMING_EXPIRED_OR_NOT_AVAILABLE ->
-                Status.Incoming.ExpiredOrNotAvailable
-
-            else -> {
+        return when (messageDataMapper.statusOf(javaStatus)) {
+            null -> {
                 LogUtil.e(LOG_TAG, "mapStatus: unexpected value=$javaStatus")
 
                 Status.Unknown
             }
+
+            MessageStatus.UNKNOWN -> Status.Unknown
+            MessageStatus.OUTGOING_COMPLETE -> Status.Outgoing.Complete
+            MessageStatus.OUTGOING_DELIVERED -> Status.Outgoing.Delivered
+            MessageStatus.OUTGOING_DRAFT -> Status.Outgoing.Draft
+            MessageStatus.OUTGOING_YET_TO_SEND -> Status.Outgoing.YetToSend
+            MessageStatus.OUTGOING_SENDING -> Status.Outgoing.Sending
+            MessageStatus.OUTGOING_RESENDING -> Status.Outgoing.Resending
+            MessageStatus.OUTGOING_AWAITING_RETRY -> Status.Outgoing.AwaitingRetry
+            MessageStatus.OUTGOING_FAILED -> Status.Outgoing.Failed
+            MessageStatus.OUTGOING_FAILED_EMERGENCY_NUMBER -> Status.Outgoing.FailedEmergencyNumber
+            MessageStatus.INCOMING_COMPLETE -> Status.Incoming.Complete
+            MessageStatus.INCOMING_YET_TO_MANUAL_DOWNLOAD -> Status.Incoming.YetToManualDownload
+            MessageStatus.INCOMING_RETRYING_MANUAL_DOWNLOAD -> {
+                Status.Incoming.RetryingManualDownload
+            }
+
+            MessageStatus.INCOMING_MANUAL_DOWNLOADING -> Status.Incoming.ManualDownloading
+            MessageStatus.INCOMING_RETRYING_AUTO_DOWNLOAD -> Status.Incoming.RetryingAutoDownload
+            MessageStatus.INCOMING_AUTO_DOWNLOADING -> Status.Incoming.AutoDownloading
+            MessageStatus.INCOMING_DOWNLOAD_FAILED -> Status.Incoming.DownloadFailed
+            MessageStatus.INCOMING_EXPIRED_OR_NOT_AVAILABLE -> Status.Incoming.ExpiredOrNotAvailable
         }
     }
 
-    private fun mapProtocol(data: ConversationMessageData): ConversationMessageUiModel.Protocol {
-        return when {
-            data.isSms -> ConversationMessageUiModel.Protocol.SMS
-            data.isMmsNotification -> ConversationMessageUiModel.Protocol.MMS_PUSH_NOTIFICATION
-            data.isMms -> ConversationMessageUiModel.Protocol.MMS
-            else -> ConversationMessageUiModel.Protocol.UNKNOWN
+    private fun mapProtocol(protocol: MessageProtocol): ConversationMessageUiModel.Protocol {
+        return when (protocol) {
+            MessageProtocol.SMS -> ConversationMessageUiModel.Protocol.SMS
+            MessageProtocol.MMS -> ConversationMessageUiModel.Protocol.MMS
+            MessageProtocol.MMS_PUSH_NOTIFICATION -> {
+                ConversationMessageUiModel.Protocol.MMS_PUSH_NOTIFICATION
+            }
+
+            MessageProtocol.UNKNOWN -> ConversationMessageUiModel.Protocol.UNKNOWN
         }
     }
 

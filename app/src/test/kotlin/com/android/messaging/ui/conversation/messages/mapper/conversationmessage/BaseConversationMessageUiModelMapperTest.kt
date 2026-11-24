@@ -4,6 +4,7 @@ import android.net.Uri
 import com.android.messaging.data.conversation.model.ConversationId
 import com.android.messaging.data.conversation.model.MessageId
 import com.android.messaging.data.conversation.model.attachment.ConversationVCardAttachmentType
+import com.android.messaging.data.message.mapper.MessageDataMapperImpl
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.MessagePartData
@@ -44,6 +45,7 @@ internal abstract class BaseConversationMessageUiModelMapperTest {
 
     protected val mapper = ConversationMessageUiModelMapperImpl(
         conversationVCardAttachmentUiModelMapper = conversationVCardAttachmentUiModelMapper,
+        messageDataMapper = MessageDataMapperImpl(),
     )
 
     protected fun mapPresent(data: ConversationMessageData): ConversationMessageUiModel {
@@ -75,9 +77,7 @@ internal abstract class BaseConversationMessageUiModelMapperTest {
         smsMessageSize: Int = 0,
         mmsExpiry: Long = 0L,
         mmsSubject: String? = null,
-        isSms: Boolean = false,
-        isMmsNotification: Boolean = false,
-        isMms: Boolean = false,
+        protocol: Int = MessageData.PROTOCOL_UNKNOWN,
     ): ConversationMessageData {
         val mock = mockk<ConversationMessageData>()
         every { mock.messageId } returns messageId?.value
@@ -104,9 +104,7 @@ internal abstract class BaseConversationMessageUiModelMapperTest {
         every { mock.smsMessageSize } returns smsMessageSize
         every { mock.mmsExpiry } returns mmsExpiry
         every { mock.mmsSubject } returns mmsSubject
-        every { mock.isSms } returns isSms
-        every { mock.isMmsNotification } returns isMmsNotification
-        every { mock.isMms } returns isMms
+        every { mock.protocol } returns protocol
 
         return mock
     }

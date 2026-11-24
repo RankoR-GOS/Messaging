@@ -49,7 +49,7 @@ internal class ConversationMessageUiModelMapperMappingTest :
                 canForwardMessage = true,
                 showResendMessage = false,
                 mmsSubject = "Subject line",
-                isSms = true,
+                protocol = MessageData.PROTOCOL_SMS,
             ),
         )
 

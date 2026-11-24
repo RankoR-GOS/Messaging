@@ -4,8 +4,10 @@ import com.android.messaging.data.conversation.model.MessageId
 import com.android.messaging.data.conversation.model.message.ConversationMessageDetails
 import com.android.messaging.data.conversation.model.message.ConversationMessageDetailsData
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscriptionLabel
+import com.android.messaging.data.message.mapper.MessageDataMapperImpl
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.ConversationParticipantsData
+import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.datamodel.data.ParticipantData
 import com.android.messaging.mmslib.pdu.PduHeaders
 import io.mockk.every
@@ -19,12 +21,13 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 internal class ConversationMessageDetailsMapperImplTest {
 
-    private val mapper = ConversationMessageDetailsMapperImpl()
+    private val mapper =
+        ConversationMessageDetailsMapperImpl(messageDataMapper = MessageDataMapperImpl())
 
     @Test
     fun map_incomingSms_mapsTypeSenderAndTimestamps() {
         val message = message(
-            isSms = true,
+            protocol = MessageData.PROTOCOL_SMS,
             isIncoming = true,
             senderNormalizedDestination = "+15550100",
             senderDisplayDestination = "+1 555-0100",
@@ -49,7 +52,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     @Test
     fun map_incomingSms_withInvalidSentTimestamp_omitsSentTimestamp() {
         val message = message(
-            isSms = true,
+            protocol = MessageData.PROTOCOL_SMS,
             isIncoming = true,
             sentTimeStamp = 0L,
             receivedTimeStamp = 2_000L,
@@ -68,7 +71,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     @Test
     fun map_outgoingCompleteSms_usesReceivedTimestampAsSent() {
         val message = message(
-            isSms = true,
+            protocol = MessageData.PROTOCOL_SMS,
             isIncoming = false,
             isSendComplete = true,
             receivedTimeStamp = 3_000L,
@@ -87,7 +90,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     @Test
     fun map_outgoingNotComplete_hasNoTimestamps() {
         val message = message(
-            isSms = true,
+            protocol = MessageData.PROTOCOL_SMS,
             isIncoming = false,
             isSendComplete = false,
         )
@@ -105,7 +108,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     @Test
     fun map_mms_mapsPriorityAndSize() {
         val message = message(
-            isSms = false,
+            protocol = MessageData.PROTOCOL_MMS,
             smsPriority = PduHeaders.PRIORITY_HIGH,
             smsMessageSize = 2_048,
         )
@@ -124,7 +127,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     @Test
     fun map_mms_withZeroSize_omitsSize() {
         val message = message(
-            isSms = false,
+            protocol = MessageData.PROTOCOL_MMS,
             smsMessageSize = 0,
         )
 
@@ -140,11 +143,11 @@ internal class ConversationMessageDetailsMapperImplTest {
     @Test
     fun map_mms_mapsLowAndNormalPriority() {
         val lowMessage = message(
-            isSms = false,
+            protocol = MessageData.PROTOCOL_MMS,
             smsPriority = PduHeaders.PRIORITY_LOW,
         )
         val normalMessage = message(
-            isSms = false,
+            protocol = MessageData.PROTOCOL_MMS,
             smsPriority = PduHeaders.PRIORITY_NORMAL,
         )
 
@@ -166,7 +169,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     @Test
     fun map_excludesSenderAndIrrelevantSelfFromRecipients() {
         val message = message(
-            isSms = true,
+            protocol = MessageData.PROTOCOL_SMS,
             isIncoming = false,
             participantId = "sender",
             selfParticipantId = "self",
@@ -205,7 +208,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     @Test
     fun map_dropsBlankRecipientDestinations() {
         val message = message(
-            isSms = true,
+            protocol = MessageData.PROTOCOL_SMS,
             participantId = "sender",
         )
         val participants = participantsOf(
@@ -232,7 +235,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     fun map_singleSubscription_hasNoSubscriptionLabel() {
         val result = mapper.map(
             data = detailsData(
-                message = message(isSms = true),
+                message = message(protocol = MessageData.PROTOCOL_SMS),
                 selfParticipant = participant(
                     id = "self",
                     isSelf = true,
@@ -257,7 +260,7 @@ internal class ConversationMessageDetailsMapperImplTest {
 
         val result = mapper.map(
             data = detailsData(
-                message = message(isSms = true),
+                message = message(protocol = MessageData.PROTOCOL_SMS),
                 selfParticipant = self,
             ),
             activeSubscriptionCount = 2,
@@ -280,7 +283,7 @@ internal class ConversationMessageDetailsMapperImplTest {
 
         val result = mapper.map(
             data = detailsData(
-                message = message(isSms = true),
+                message = message(protocol = MessageData.PROTOCOL_SMS),
                 selfParticipant = self,
             ),
             activeSubscriptionCount = 2,
@@ -302,7 +305,7 @@ internal class ConversationMessageDetailsMapperImplTest {
 
         val result = mapper.map(
             data = detailsData(
-                message = message(isSms = true),
+                message = message(protocol = MessageData.PROTOCOL_SMS),
                 selfParticipant = self,
             ),
             activeSubscriptionCount = 2,
@@ -316,7 +319,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     fun map_multiSim_inactiveSubscription_hasNoSubscriptionLabel() {
         val result = mapper.map(
             data = detailsData(
-                message = message(isSms = true),
+                message = message(protocol = MessageData.PROTOCOL_SMS),
                 selfParticipant = ParticipantData.getSelfParticipant(INACTIVE_SUB_ID),
             ),
             activeSubscriptionCount = 2,
@@ -341,7 +344,7 @@ internal class ConversationMessageDetailsMapperImplTest {
         )
 
         val result = mapper.map(
-            data = detailsData(message(isSms = true)),
+            data = detailsData(message(protocol = MessageData.PROTOCOL_SMS)),
             activeSubscriptionCount = 1,
             debug = debug,
         )
@@ -362,7 +365,7 @@ internal class ConversationMessageDetailsMapperImplTest {
     }
 
     private fun message(
-        isSms: Boolean = true,
+        protocol: Int = MessageData.PROTOCOL_SMS,
         isIncoming: Boolean = false,
         isSendComplete: Boolean = false,
         senderNormalizedDestination: String? = null,
@@ -375,7 +378,7 @@ internal class ConversationMessageDetailsMapperImplTest {
         smsMessageSize: Int = 0,
     ): ConversationMessageData {
         return mockk(relaxed = true) {
-            every { this@mockk.isSms } returns isSms
+            every { this@mockk.protocol } returns protocol
             every { this@mockk.isIncoming } returns isIncoming
             every { this@mockk.isSendComplete } returns isSendComplete
             every { this@mockk.senderNormalizedDestination } returns senderNormalizedDestination

@@ -492,7 +492,7 @@ public class ConversationMessageData {
         return mProtocol == (MessageData.PROTOCOL_SMS);
     }
 
-    final int getProtocol() {
+    public final int getProtocol() {
         return mProtocol;
     }
 

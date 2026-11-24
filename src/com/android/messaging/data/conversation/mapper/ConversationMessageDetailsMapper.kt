@@ -3,8 +3,10 @@ package com.android.messaging.data.conversation.mapper
 import com.android.messaging.data.conversation.model.message.ConversationMessageDetails
 import com.android.messaging.data.conversation.model.message.ConversationMessageDetailsData
 import com.android.messaging.data.conversation.model.metadata.ConversationSubscriptionLabel
+import com.android.messaging.data.message.mapper.MessageDataMapper
 import com.android.messaging.datamodel.data.ConversationMessageData
 import com.android.messaging.datamodel.data.ParticipantData
+import com.android.messaging.domain.message.model.MessageProtocol
 import com.android.messaging.mmslib.pdu.PduHeaders
 import com.android.messaging.sms.MmsUtils
 import javax.inject.Inject
@@ -19,8 +21,9 @@ internal interface ConversationMessageDetailsMapper {
     ): ConversationMessageDetails
 }
 
-internal class ConversationMessageDetailsMapperImpl @Inject constructor() :
-    ConversationMessageDetailsMapper {
+internal class ConversationMessageDetailsMapperImpl @Inject constructor(
+    private val messageDataMapper: MessageDataMapper,
+) : ConversationMessageDetailsMapper {
 
     override fun map(
         data: ConversationMessageDetailsData,
@@ -28,26 +31,34 @@ internal class ConversationMessageDetailsMapperImpl @Inject constructor() :
         debug: ConversationMessageDetails.Debug?,
     ): ConversationMessageDetails {
         val message = data.message
-        val isSms = message.isSms
+        val type = when (messageDataMapper.protocolOf(message.protocol)) {
+            MessageProtocol.SMS -> ConversationMessageDetails.Type.SMS
 
-        val type = when {
-            isSms -> ConversationMessageDetails.Type.SMS
-            else -> ConversationMessageDetails.Type.MMS
+            MessageProtocol.MMS,
+            MessageProtocol.MMS_PUSH_NOTIFICATION,
+            MessageProtocol.UNKNOWN,
+            -> ConversationMessageDetails.Type.MMS
         }
 
         return ConversationMessageDetails(
             type = type,
             sender = message.senderDisplayDestination?.takeIf(String::isNotBlank),
             recipients = recipients(data),
-            sentTimestamp = sentTimestamp(message),
+            sentTimestamp = sentTimestamp(
+                message = message,
+                type = type,
+            ),
             receivedTimestamp = receivedTimestamp(message),
             priority = when (type) {
                 ConversationMessageDetails.Type.MMS -> priority(value = message.smsPriority)
                 ConversationMessageDetails.Type.SMS -> null
             },
-            sizeBytes = when {
-                !isSms && message.smsMessageSize > 0 -> message.smsMessageSize.toLong()
-                else -> null
+            sizeBytes = when (type) {
+                ConversationMessageDetails.Type.MMS -> {
+                    message.smsMessageSize.takeIf { it > 0 }?.toLong()
+                }
+
+                ConversationMessageDetails.Type.SMS -> null
             },
             subscriptionLabel = subscriptionLabel(
                 self = data.selfParticipant,
@@ -77,9 +88,12 @@ internal class ConversationMessageDetailsMapperImpl @Inject constructor() :
             .toImmutableList()
     }
 
-    private fun sentTimestamp(message: ConversationMessageData): Long? {
+    private fun sentTimestamp(
+        message: ConversationMessageData,
+        type: ConversationMessageDetails.Type,
+    ): Long? {
         return when {
-            message.isIncoming && message.isSms -> {
+            message.isIncoming && type == ConversationMessageDetails.Type.SMS -> {
                 message.sentTimeStamp.takeIf { it != MmsUtils.INVALID_TIMESTAMP }
             }
 

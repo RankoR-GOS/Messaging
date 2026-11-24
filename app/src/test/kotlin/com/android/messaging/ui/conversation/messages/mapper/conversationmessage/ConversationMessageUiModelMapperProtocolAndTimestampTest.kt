@@ -1,5 +1,6 @@
 package com.android.messaging.ui.conversation.messages.mapper.conversationmessage
 
+import com.android.messaging.datamodel.data.MessageData
 import com.android.messaging.ui.conversation.messages.model.message.ConversationMessageUiModel.Protocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -14,16 +15,16 @@ internal class ConversationMessageUiModelMapperProtocolAndTimestampTest :
     @Test
     fun map_smsMessage_mapsToSmsProtocol() {
         val uiModel = mapPresent(
-            messageData(isSms = true, isMms = false, isMmsNotification = false),
+            messageData(protocol = MessageData.PROTOCOL_SMS),
         )
 
         assertEquals(Protocol.SMS, uiModel.protocol)
     }
 
     @Test
-    fun map_mmsNotification_mapsToMmsPushNotificationProtocolBeforeMms() {
+    fun map_mmsNotification_mapsToMmsPushNotificationProtocol() {
         val uiModel = mapPresent(
-            messageData(isSms = false, isMmsNotification = true, isMms = true),
+            messageData(protocol = MessageData.PROTOCOL_MMS_PUSH_NOTIFICATION),
         )
 
         assertEquals(Protocol.MMS_PUSH_NOTIFICATION, uiModel.protocol)
@@ -32,16 +33,16 @@ internal class ConversationMessageUiModelMapperProtocolAndTimestampTest :
     @Test
     fun map_mmsMessage_mapsToMmsProtocol() {
         val uiModel = mapPresent(
-            messageData(isSms = false, isMmsNotification = false, isMms = true),
+            messageData(protocol = MessageData.PROTOCOL_MMS),
         )
 
         assertEquals(Protocol.MMS, uiModel.protocol)
     }
 
     @Test
-    fun map_nonTelephonyMessage_mapsToUnknownProtocol() {
+    fun map_unknownProtocol_mapsToUnknownProtocol() {
         val uiModel = mapPresent(
-            messageData(isSms = false, isMmsNotification = false, isMms = false),
+            messageData(protocol = MessageData.PROTOCOL_UNKNOWN),
         )
 
         assertEquals(Protocol.UNKNOWN, uiModel.protocol)
